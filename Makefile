@@ -159,8 +159,8 @@ clean-certs:
 rotate-cert: clean clean-certs generate-certs
 	@if [ -f /etc/resolver/internal ] || [ -f "$$HOME/Library/Keychains/infra-localhost.keychain-db" ]; then \
 		echo "Detected localhost setup. Cleaning and refreshing localhost certificate trust..."; \
-		$(BOX_ROOT)/localhost/clean.sh; \
-		$(BOX_ROOT)/localhost/setup.sh; \
+		$(BOX_ROOT)/localhost/clean-dns-and-cert.sh; \
+		$(BOX_ROOT)/localhost/setup-dns-and-cert.sh; \
 	fi
 	@echo "Certificates rotated successfully."
 
@@ -176,10 +176,10 @@ clean:
 
 setup-localhost:
 	$(DOCKER_COMPOSE) up -d --no-recreate dns
-	$(BOX_ROOT)/localhost/setup.sh
+	$(BOX_ROOT)/localhost/setup-dns-and-cert.sh
 
 clean-localhost:
-	$(BOX_ROOT)/localhost/clean.sh
+	$(BOX_ROOT)/localhost/clean-dns-and-cert.sh
 
 install-box:
 	$(BOX_ROOT)/localhost/install-box.sh "$(BOX_ROOT)"

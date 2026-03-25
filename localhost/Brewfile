@@ -1,8 +1,7 @@
-brew "mkcert"
 brew "nss"
 brew "make"
 brew "openssl"
 brew "docker"
 brew "docker-compose"
 brew "dotnet"
-cask "powershell"
+

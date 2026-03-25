@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Integration test for localhost/setup.sh and localhost/clean.sh
+# Integration test for localhost/setup-dns-and-cert.sh and localhost/clean-dns-and-cert.sh
 # Generates a temporary self-signed CA certificate, runs setup and clean,
 # and verifies keychain + resolver state before and after each step.
 #
@@ -9,8 +9,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-SETUP_SCRIPT="${PROJECT_ROOT}/localhost/setup.sh"
-CLEAN_SCRIPT="${PROJECT_ROOT}/localhost/clean.sh"
+SETUP_SCRIPT="${PROJECT_ROOT}/localhost/setup-dns-and-cert.sh"
+CLEAN_SCRIPT="${PROJECT_ROOT}/localhost/clean-dns-and-cert.sh"
 
 KEYCHAIN_PATH="${HOME}/Library/Keychains/infra-localhost.keychain-db"
 LOGIN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
@@ -61,7 +61,7 @@ openssl req -x509 -new -nodes -newkey rsa:2048 \
 
 TEST_CERT_SHA1="$(openssl x509 -in "${TEST_CA_CERT}" -noout -fingerprint -sha1 | awk -F= '{print $2}' | tr -d ':')"
 
-# Copy test cert into the project certs dir (setup.sh reads from there)
+# Copy test cert into the project certs dir (setup-dns-and-cert.sh reads from there)
 CERT_DEST="${PROJECT_ROOT}/certs/dev-root-ca.crt"
 CERT_BACKUP=""
 if [[ -f "${CERT_DEST}" ]]; then
@@ -101,7 +101,7 @@ fi
 
 # --- run setup ---
 echo ""
-echo "=== Running setup.sh ==="
+echo "=== Running setup-dns-and-cert.sh ==="
 bash "${SETUP_SCRIPT}"
 
 echo ""
@@ -127,7 +127,7 @@ fi
 
 # --- run clean ---
 echo ""
-echo "=== Running clean.sh ==="
+echo "=== Running clean-dns-and-cert.sh ==="
 bash "${CLEAN_SCRIPT}"
 
 echo ""
