@@ -1,0 +1,1 @@
+localhost/setup-me-up.sh

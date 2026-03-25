@@ -39,6 +39,22 @@ if ! security find-certificate -a -Z "${KEYCHAIN_PATH}" | tr -d ' ' | grep -Fq "
   security add-trusted-cert -d -r trustRoot -p ssl -k "${KEYCHAIN_PATH}" "${CERT_PATH}"
 fi
 
+# Also trust the root CA in the login keychain so Chrome picks it up without warnings
+LOGIN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
+if [[ -f "${LOGIN_KEYCHAIN}" ]]; then
+  if ! security find-certificate -a -Z "${LOGIN_KEYCHAIN}" | tr -d ' ' | grep -Fq "${CERT_SHA1}"; then
+    security add-trusted-cert -d -r trustRoot -p ssl -k "${LOGIN_KEYCHAIN}" "${CERT_PATH}"
+    echo "Trusted cert imported into login keychain for Chrome."
+  fi
+fi
+
+# Clear Chrome's certificate verification cache so it picks up the new trust
+CHROME_CERT_CACHE="${HOME}/Library/Application Support/Google/Chrome/CertificateVerification"
+if [[ -d "${CHROME_CERT_CACHE}" ]]; then
+  rm -rf "${CHROME_CERT_CACHE}"
+  echo "Cleared Chrome certificate verification cache."
+fi
+
 sudo mkdir -p "${RESOLVER_DIR}"
 printf 'nameserver %s\nport %s\n' "${COREDNS_HOST}" "${COREDNS_PORT}" | sudo tee "${RESOLVER_FILE}" >/dev/null
 
