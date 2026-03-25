@@ -1,0 +1,111 @@
+services:
+  entra:
+    build:
+      context: ./entra
+      dockerfile: Dockerfile
+    container_name: box.entra
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:8080/_health >/dev/null" ]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - ./certs:/certs:ro
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.7
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.entra.rule=Host(`login.microsoftonline.com`) || Host(`login.microsoft.com`)"
+      - "traefik.http.routers.entra.entrypoints=websecure"
+      - "traefik.http.routers.entra.tls=true"
+      - "traefik.http.services.entra.loadbalancer.server.port=8080"
+
+  postgres:
+    image: postgres:16.11
+    container_name: box.postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    tmpfs:
+      - /var/lib/postgresql/data:rw
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.8
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.postgres.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.postgres.entrypoints=postgres"
+      - "traefik.tcp.routers.postgres.tls=true"
+      - "traefik.tcp.services.postgres.loadbalancer.server.port=5432"
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.0
+    container_name: box.servicebus
+    depends_on:
+      dns:
+        condition: service_started
+      sqledge:
+        condition: service_started
+    dns:
+      - 172.18.0.253
+    environment:
+      - ACCEPT_EULA=Y
+      - SQL_SERVER=sqledge
+      - MSSQL_SA_PASSWORD=Sql#Password123
+      - SQL_WAIT_INTERVAL=1
+      - SB_EMULATOR_CONFIG_PATH=/ServiceBus_Emulator/ConfigFiles/Config.json
+    volumes:
+      - ./tests/DefaultServiceBusConfig.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.6
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.servicebus-mgmt.rule=Host(`my-namespace.servicebus.windows.net`)"
+      - "traefik.http.routers.servicebus-mgmt.entrypoints=web"
+      - "traefik.http.services.servicebus-mgmt.loadbalancer.server.port=8080"
+      - "traefik.tcp.routers.servicebus-amqp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.servicebus-amqp.entrypoints=servicebus"
+      - "traefik.tcp.services.servicebus-amqp.loadbalancer.server.port=5672"
+
+  sqledge:
+    container_name: box.sqledge
+    image: "mcr.microsoft.com/azure-sql-edge:latest"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Sql#Password123
+    tmpfs:
+      - /var/opt/mssql:rw
+    dns:
+      - 172.18.0.253
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.100
+        aliases:
+          - sqledge
+
+  browser:
+    build:
+      context: .
+      dockerfile: browser/Dockerfile
+    container_name: box.browser
+    environment:
+      - FF_OPEN_URL=https://portal.web.internal
+    volumes:
+      - ./certs:/certs:ro
+    dns:
+      - 172.18.0.253
+    depends_on:
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.60
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.browser.rule=Host(`browser.web.internal`)"
+      - "traefik.http.routers.browser.entrypoints=websecure"
+      - "traefik.http.routers.browser.tls=true"
+      - "traefik.http.services.browser.loadbalancer.server.port=5800"

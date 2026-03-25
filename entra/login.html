@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mock Entra Login</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; background-color: #f2f2f2; padding-top: 50px; }
+        .login-card { background: white; padding: 44px; width: 352px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-right: 20px; }
+        .user-list { background: white; padding: 20px; width: 450px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: 85vh; overflow-y: auto; }
+        .logo { margin-bottom: 24px; font-size: 24px; color: #5e5e5e; font-weight: 600; }
+        h1 { font-size: 24px; margin: 0 0 16px 0; color: #1b1b1b; }
+        h3 { margin-top: 0; font-size: 18px; color: #1b1b1b; border-bottom: 2px solid #0067b8; padding-bottom: 8px; }
+        .form-group { margin-bottom: 16px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px 0; border: none; border-bottom: 1px solid #666; font-size: 15px; outline: none; }
+        input[type="text"]:focus, input[type="password"]:focus { border-bottom: 2px solid #0067b8; }
+        .actions { display: flex; justify-content: flex-end; margin-top: 32px; }
+        button { background-color: #0067b8; color: white; border: none; padding: 8px 32px; font-size: 15px; cursor: pointer; }
+        button:hover { background-color: #005da6; }
+        .user-item { border-bottom: 1px solid #eee; padding: 12px 0; font-size: 14px; }
+        .user-item:last-child { border-bottom: none; }
+        .user-item strong { display: block; font-size: 15px; }
+        .user-item code { background: #f8f8f8; padding: 2px 4px; border-radius: 3px; }
+        .quick-login-btn { background-color: #0067b8; color: white; border: none; padding: 4px 12px; font-size: 12px; cursor: pointer; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">Microsoft</div>
+        <h1>Sign in</h1>
+        <form method="POST" action="/login">
+            <input type="hidden" name="client_id" value="{{.ClientID}}">
+            <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
+            <input type="hidden" name="state" value="{{.State}}">
+            <input type="hidden" name="scope" value="{{.Scope}}">
+            <input type="hidden" name="response_type" value="{{.ResponseType}}">
+            <input type="hidden" name="tenant" value="{{.Tenant}}">
+            <input type="hidden" name="nonce" value="{{.Nonce}}">
+            <input type="hidden" name="response_mode" value="{{.ResponseMode}}">
+            
+            <div class="form-group">
+                <input type="text" name="username" placeholder="Email, phone, or Skype" required autofocus>
+            </div>
+            <div class="form-group">
+                <input type="password" name="password" placeholder="Password" required>
+            </div>
+            <div class="actions">
+                <button type="submit">Sign in</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="user-list">
+        <h3>Quick Login</h3>
+        {{range .Users}}
+        <div class="user-item">
+            <strong>{{.DisplayName}}</strong>
+            <span>Username: {{.Username}}</span><br/>
+            <span>Password: <code>{{.Password}}</code></span><br/>
+            <div style="margin-top: 4px; color: #666; font-size: 12px;">
+                {{range .Roles}}
+                • {{.}}<br/>
+                {{else}}
+                No roles for this client
+                {{end}}
+            </div>
+            <button type="button" class="quick-login-btn" onclick="quickLogin('{{.Username}}', '{{.Password}}')">Login</button>
+        </div>
+        {{end}}
+    </div>
+
+    <script>
+        function quickLogin(u, p) {
+            document.getElementsByName('username')[0].value = u;
+            document.getElementsByName('password')[0].value = p;
+            document.forms[0].submit();
+        }
+    </script>
+</body>
+</html>

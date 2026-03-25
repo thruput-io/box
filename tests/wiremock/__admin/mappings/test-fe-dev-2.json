@@ -1,0 +1,33 @@
+{
+  "Request": {
+    "Path": {
+      "Matchers": [
+        {
+          "Name": "WildcardMatcher",
+          "Pattern": "*"
+        }
+      ]
+    },
+    "Methods": [
+      "GET"
+    ],
+    "Headers": [
+      {
+        "Name": "Host",
+        "Matchers": [
+          {
+            "Name": "ExactMatcher",
+            "Pattern": "test-fe-dev-2.fe-dev.internal"
+          }
+        ]
+      }
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "text/plain"
+    },
+    "Body": "hello from test-fe-dev-2.fe-dev.internal on port 5173"
+  }
+}

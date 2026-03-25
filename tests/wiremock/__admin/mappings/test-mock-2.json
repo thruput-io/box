@@ -1,0 +1,33 @@
+{
+  "Request": {
+    "Path": {
+      "Matchers": [
+        {
+          "Name": "WildcardMatcher",
+          "Pattern": "*"
+        }
+      ]
+    },
+    "Methods": [
+      "GET"
+    ],
+    "Headers": [
+      {
+        "Name": "Host",
+        "Matchers": [
+          {
+            "Name": "ExactMatcher",
+            "Pattern": "test-mock-2.mock.internal"
+          }
+        ]
+      }
+    ]
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "text/plain"
+    },
+    "Body": "hello from test-mock-2.mock.internal on port 8085"
+  }
+}

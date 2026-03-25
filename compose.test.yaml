@@ -1,0 +1,73 @@
+services:
+  test:
+    profiles: [ "self-test" ]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    dns:
+      - 172.18.0.253
+    depends_on:
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+      servicebus:
+        condition: service_started
+      postgres:
+        condition: service_started
+      entra:
+        condition: service_started
+    volumes:
+      - .:/test
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.51
+    working_dir: /test
+    entrypoint: [ "/bin/sh", "-c", "exec pwsh \"$@\"", "--" ]
+    command: [ "-Command", "$$res = Invoke-Pester tests/*Inside.Tests.ps1 -Output Detailed -PassThru; if ($$res.FailedCount -gt 0) { exit 1 }" ]
+
+  browser-test:
+    profiles: [ "self-test" ]
+    build:
+      context: .
+      dockerfile: tests/browser-playwright/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    dns:
+      - 172.18.0.253
+    depends_on:
+      browser:
+        condition: service_started
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.62
+    working_dir: /test
+
+  msal-client:
+    profiles: [ "self-test" ]
+    build:
+      context: .
+      dockerfile: tests/msal-client/Dockerfile
+    container_name: box.msal-client
+    dns:
+      - 172.18.0.253
+    depends_on:
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+      entra:
+        condition: service_started
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.52
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.msal-client.loadbalancer.server.port=8080"

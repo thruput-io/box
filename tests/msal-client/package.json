@@ -1,0 +1,21 @@
+{
+  "name": "msal-client",
+  "version": "1.0.0",
+  "description": "TypeScript MSAL SPA Client",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^5.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

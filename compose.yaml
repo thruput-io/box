@@ -1,0 +1,13 @@
+include:
+  - compose.infra.yaml
+  - compose.services.yaml
+  - compose.app.yaml
+  - compose.test.yaml
+
+networks:
+  infra-shared-net:
+    name: infra-shared-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${INFRA_SUBNET:-172.18.0.0/16}

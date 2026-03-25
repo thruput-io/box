@@ -1,0 +1,76 @@
+services:
+  gencert:
+    profiles: [ "setup" ]
+    build:
+      context: ./gencert
+    container_name: box.gencert
+    network_mode: none
+    volumes:
+      - ./certs:/certs
+      - ./dynamic:/dynamic
+
+  dns:
+    image: coredns/coredns:1.11.1
+    container_name: box.dns
+    volumes:
+      - ./dns:/etc/coredns
+    command: [ "-conf", "/etc/coredns/Corefile" ]
+    ports:
+      - "5354:5354/udp"
+      - "5354:5354/tcp"
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.253
+
+  entry:
+    image: traefik:v3.0
+    container_name: box.entry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=infra-shared-net"
+      - "--providers.docker.defaultRule=Host(`{{ if index .Labels \"com.docker.compose.service\" }}{{ index .Labels \"com.docker.compose.service\" }}{{ else }}{{ .Name }}{{ end }}.web.internal`)"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.asDefault=true"
+      - "--entrypoints.postgres.address=:5432"
+      - "--entrypoints.servicebus.address=:5672"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"
+      - "5672:5672"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./certs:/etc/traefik/certs:ro"
+      - "./dynamic:/etc/traefik/dynamic:ro"
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.4
+
+  portal:
+    build:
+      context: .
+      dockerfile: portal/Dockerfile
+    container_name: box.portal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/certs:ro
+    dns:
+      - 172.18.0.253
+    depends_on:
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.61
+    labels:
+      - "traefik.enable=true"

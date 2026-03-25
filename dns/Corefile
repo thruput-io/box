@@ -1,0 +1,98 @@
+.:53 {
+    log
+    errors
+    hosts {
+        172.18.0.100 sqledge sql_container_alias
+        fallthrough
+    }
+
+    # Milestone 1: Microsoft Entra Mock
+    template IN A login.microsoftonline.com {
+        match "login\.microsoftonline\.com\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    template IN A login.microsoft.com {
+        match "login\.microsoft\.com\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    # Milestone 2: Postgres Mock
+    template IN A postgres.database.azure.com {
+        match ".*"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    # Milestone 3: Service Bus Mock
+    template IN A servicebus.windows.net {
+        match ".*"
+        answer "{{ .Name }} 60 IN A 172.18.0.6"
+        fallthrough
+    }
+
+    # CONVENTION: Route all *.web.internal to the Traefik 'entry' container
+    template IN A web.internal {
+        match "^(.*)\.web\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    template IN AAAA web.internal {
+        match "^(.*)\.web\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    # Route all *.mock.internal to the Traefik 'entry' container
+    template IN A mock.internal {
+        match "^(.*)\.mock\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    template IN AAAA mock.internal {
+        match "^(.*)\.mock\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    # Route all *.fe-dev.internal to the Traefik 'entry' container
+    template IN A fe-dev.internal {
+        match "^(.*)\.fe-dev\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    template IN AAAA fe-dev.internal {
+        match "^(.*)\.fe-dev\.internal\.$"
+        answer "{{ .Name }} 60 IN CNAME entry.infra-shared-net."
+        fallthrough
+    }
+
+    # Fallback to system resolver
+    forward . /etc/resolv.conf
+}
+
+.:5354 {
+    log
+    errors
+
+    # Host-side localhost routing for *.internal
+    template IN A internal {
+        match "^(.*)\.internal\.$"
+        answer "{{ .Name }} 60 IN A 127.0.0.1"
+        fallthrough
+    }
+
+    template IN AAAA internal {
+        match "^(.*)\.internal\.$"
+        answer "{{ .Name }} 60 IN AAAA ::1"
+        fallthrough
+    }
+
+    # Fallback to system resolver
+    forward . /etc/resolv.conf
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MSAL Mock SPA</title>
+</head>
+<body>
+    <h1>MSAL Mock SPA</h1>
+    <div>
+        <button id="login">Login</button>
+        <button id="logout" style="display:none">Logout</button>
+        <button id="silent-token" style="display:none">Silent Token</button>
+    </div>
+    <hr>
+    <div>
+        <h3>Account Info:</h3>
+        <pre id="account-info"></pre>
+    </div>
+    <div>
+        <h3>Token Info:</h3>
+        <pre id="token-info"></pre>
+    </div>
+    <div>
+        <h3>State Check:</h3>
+        <pre id="state-info"></pre>
+    </div>
+    <script type="module" src="/src/index.ts"></script>
+</body>
+</html>
