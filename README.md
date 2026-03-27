@@ -1,55 +1,89 @@
 # box
 
-## Configuration Overrides
+A local development and testing environment that provides a suite of simulated cloud services and infrastructure. `box` is designed to streamline development for Azure-based applications by offering high-fidelity mocks for common services, integrated DNS, and automatic TLS certificate management.
 
-### Service Bus Emulator Config
-You can provide your own `Config.json` for the Service Bus Emulator by setting the `SERVICEBUS_CONFIG` environment variable to the absolute path of your file before running `make up`:
+## Valid Use Cases
 
-```bash
-export SERVICEBUS_CONFIG=/path/to/your/backend/project/Config.json
-make up
-```
+- **Local Azure Development:** Develop and test applications that depend on Azure services like Entra ID (formerly Azure AD), Azure Service Bus, and PostgreSQL without needing an active Azure subscription.
+- **Integration Testing:** Run automated integration tests against realistic service mocks. It includes support for Pester, Playwright, and MSAL testing.
+- **Microservices Orchestration:** Develop multi-service architectures using a shared local network (`infra-shared-net`) and internal DNS (`*.web.internal`).
+- **OAuth/OIDC Flow Testing:** Test authentication and authorization logic using the built-in Entra ID emulator (`entra`) that supports authorization code and client credentials flows with customizable roles.
+- **Infrastructure Simulation:** Simulate complex network topologies with Traefik as an entry point, handling TLS termination and routing for all services.
 
-By default, it uses `./tests/DefaultServiceBusConfig.json`.
+## Key Components
 
-### Identity Service Config
-You can provide your own `Config.yaml` for the Mock Entra ID service by setting the `IDENTITY_CONFIG` environment variable:
+- **Traefik (`entry`):** Acts as the primary ingress, handling routing and TLS termination.
+- **CoreDNS (`dns`):** Provides internal DNS for the `*.internal` and `*.microsoftonline.com` domains.
+- **Entra ID Emulator (`entra`):** A mock for Azure Entra ID, pre-configured with users, clients, and roles (see `entra/config.md`).
+- **Service Bus Emulator:** An AMQP-compatible emulator for Azure Service Bus.
+- **PostgreSQL:** A standard PostgreSQL instance for relational data storage.
+- **Azure SQL Edge (`sqledge`):** A lightweight SQL Server instance.
+- **Browser Service:** A containerized browser (accessible at `https://browser.web.internal`) to test UI and authentication flows in a clean environment.
 
-```bash
-export IDENTITY_CONFIG=/path/to/your/backend/project/IdentityConfig.yaml
-make up
-```
+## Prerequisites
 
-By default, it uses `./entra/DefaultConfig.yaml`.
+- **Docker Desktop** with Compose support.
+- **macOS** is required for the full localhost integration (DNS and certificate trust).
+- **Homebrew** (optional, used for some localhost setup scripts).
 
-### Application Image Override
-You can provide your own application image (e.g., from a local project's build) by setting the `APP_IMAGE` environment variable:
+## Getting Started
 
-```bash
-# Build your local project first
-cd /Users/johan/workspace/MaintenanceMonitorBackend
-docker build -t my-app-backend .
+### 1. Initial Setup
 
-# In box root
-export APP_IMAGE=my-app-backend
-make up-app
-```
-
-By default, it uses `mocking-monitor:latest`.
-
-### Custom Environment Variables
-You can pass any environment variables to your app by creating a `.env` file in the root of the project:
+First, install the `box` command-line helper:
 
 ```bash
-# Example .env file
-MY_VAR=hello
-ANOTHER_VAR=world
+make install-box
+source ~/.zshrc  # or ~/.bashrc
 ```
 
-These variables will be available inside the app container when running `make up-app`.
+This installs a `box` alias that you can use instead of `make -C /path/to/box`.
 
-### Identity Service Overview
-You can view the current identity configuration (tenants, app registrations, clients, and users) by visiting:
-`https://entra.web.internal`
+### 2. Configure Localhost (macOS only)
 
-This page is served by the mock Entra service and provides a clear overview of the credentials and scopes available for testing.
+To enable custom DNS (`*.internal`) and trust the generated TLS certificates on your host machine:
+
+```bash
+box setup-localhost
+```
+
+This will:
+- Add a custom resolver to `/etc/resolver/internal`.
+- Create a dedicated keychain and import the Root CA.
+- Configure Firefox and Chrome to trust the certificates.
+
+### 3. Start the Environment
+
+```bash
+box up
+```
+
+This generates certificates, builds images, and starts the core infrastructure and services.
+
+### 4. Access the Portal
+
+Once started, you can access the management portal at:
+[https://portal.web.internal](https://portal.web.internal)
+
+## Common Commands
+
+- `box up`: Start the entire environment.
+- `box down`: Stop the environment.
+- `box clean`: Full cleanup of containers, networks, and volumes.
+- `box logs`: View logs for all services.
+- `box browser`: Start the environment and open the containerized browser.
+- `box rotate-cert`: Re-generate all certificates and refresh host trust.
+
+## Testing
+
+`box` includes several test suites to verify both the environment and your application:
+
+- `box self-test`: Runs all internal integration tests.
+- `box test-pester`: Runs PowerShell Pester tests.
+- `box test-msal`: Validates authentication flows.
+- `box test-browser-playwright`: Runs UI tests using Playwright.
+
+## Documentation
+
+- **Entra ID Configuration:** See [entra/config.md](entra/config.md) for details on users, clients, and roles available in the emulator.
+- **Localhost Setup:** See the scripts in `localhost/` for details on how host integration works.
