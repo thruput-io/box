@@ -8,6 +8,7 @@ const { SSEServerTransport } = require("@modelcontextprotocol/sdk/server/sse.js"
 const { createMcpExpressApp } = require("@modelcontextprotocol/sdk/server/express.js");
 const dns = require("node:dns");
 const net = require("node:net");
+const { spawn } = require("node:child_process");
 const { setTimeout: sleep } = require("node:timers/promises");
 const z = require("zod/v4");
 
@@ -122,6 +123,142 @@ function createServer() {
         } catch {
           // ignore
         }
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "nc_check",
+    {
+      description:
+        "Run netcat (nc) inside the tools container for quick TCP/UDP reachability checks.",
+      inputSchema: {
+        host: z.string().min(1),
+        port: z.number().int().min(1).max(65535),
+        protocol: z.enum(["tcp", "udp"]).default("tcp"),
+        timeoutMs: z.number().int().min(100).max(60000).default(1500),
+        // Optional payload to write to the socket after connect.
+        // Use null (not undefined) to express optionality.
+        send: z.string().nullable().default(null),
+        // Limit captured output to keep responses small and deterministic.
+        maxOutputBytes: z.number().int().min(0).max(256 * 1024).default(16 * 1024),
+      },
+    },
+    async (rawInput) => {
+      const schema = z.object({
+        host: z.string().min(1),
+        port: z.number().int().min(1).max(65535),
+        protocol: z.enum(["tcp", "udp"]),
+        timeoutMs: z.number().int().min(100).max(60000),
+        send: z.string().nullable(),
+        maxOutputBytes: z.number().int().min(0).max(256 * 1024),
+      });
+
+      const parsed = schema.safeParse(rawInput);
+      if (!parsed.success) {
+        // eslint-disable-next-line no-console
+        console.error("nc_check input validation failed", parsed.error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  ok: false,
+                  error: "Invalid input",
+                  details: parsed.error.flatten(),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      const { host, port, protocol, timeoutMs, send, maxOutputBytes } = parsed.data;
+      const startedAt = Date.now();
+
+      const args = [];
+      // -v: verbose (helps troubleshoot DNS/connect errors)
+      // -z: zero-I/O mode (port scan / connect check)
+      // -w: timeout (seconds)
+      args.push("-v");
+      if (protocol === "udp") args.push("-u");
+      args.push("-z", "-w", String(Math.max(1, Math.ceil(timeoutMs / 1000))));
+      args.push(host, String(port));
+
+      const result = {
+        host,
+        port,
+        protocol,
+        ok: false,
+        exitCode: null,
+        signal: null,
+        latencyMs: null,
+        stdout: "",
+        stderr: "",
+        error: null,
+      };
+
+      try {
+        const proc = spawn("nc", args, {
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        const cap = (buf, add) => {
+          if (maxOutputBytes <= 0) return buf;
+          if (buf.length >= maxOutputBytes) return buf;
+          const slice = add.slice(0, Math.max(0, maxOutputBytes - buf.length));
+          return buf + slice;
+        };
+
+        proc.stdout.setEncoding("utf8");
+        proc.stderr.setEncoding("utf8");
+
+        proc.stdout.on("data", (d) => {
+          result.stdout = cap(result.stdout, String(d));
+        });
+        proc.stderr.on("data", (d) => {
+          result.stderr = cap(result.stderr, String(d));
+        });
+
+        if (send !== null) {
+          proc.stdin.write(send);
+        }
+        proc.stdin.end();
+
+        const hardTimeout = setTimeout(() => {
+          result.error = `timeout after ${timeoutMs}ms`;
+          try {
+            proc.kill("SIGKILL");
+          } catch {
+            // ignore
+          }
+        }, timeoutMs);
+
+        const { code, signal } = await new Promise((resolve, reject) => {
+          proc.once("error", reject);
+          proc.once("close", (c, s) => resolve({ code: c, signal: s }));
+        });
+        clearTimeout(hardTimeout);
+
+        result.exitCode = code;
+        result.signal = signal;
+
+        // nc returns 0 on success; non-zero on failure.
+        result.ok = code === 0;
+        if (!result.ok && !result.error) {
+          result.error = "nc returned non-zero exit code";
+        }
+      } catch (error) {
+        result.error = String(error && error.message ? error.message : error);
+      } finally {
+        result.latencyMs = Date.now() - startedAt;
       }
 
       return {
