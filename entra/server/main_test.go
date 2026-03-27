@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +22,23 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+func requireNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func cleanupRemove(t *testing.T, path string) {
+	t.Helper()
+	t.Cleanup(func() {
+		err := os.Remove(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("remove %s: %v", path, err)
+		}
+	})
+}
 
 func init() {
 	// Pre-load templates for tests
@@ -69,7 +88,7 @@ func TestHandlers(t *testing.T) {
 	setupTestConfig()
 
 	t.Run("Health", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/_health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/_health", nil)
 		w := httptest.NewRecorder()
 		health(w, req)
 		if w.Code != http.StatusOK {
@@ -78,7 +97,7 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("Discovery", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/.well-known/openid-configuration", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
 		if w.Code != http.StatusOK {
@@ -91,7 +110,7 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("Index", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
 		if w.Code != http.StatusOK {
@@ -100,7 +119,7 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("IndexNotFound", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/not-found", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/not-found", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
 		if w.Code != http.StatusNotFound {
@@ -121,7 +140,7 @@ func TestHandlers(t *testing.T) {
 		})
 
 		t.Run("SuccessClient", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
 			if w.Code != http.StatusOK {
@@ -131,7 +150,7 @@ func TestHandlers(t *testing.T) {
 
 		t.Run("SuccessAppReg", func(t *testing.T) {
 			clientID := configData.Tenants[0].AppRegistrations[len(configData.Tenants[0].AppRegistrations)-1].ClientID
-			req := httptest.NewRequest("GET", "/authorize?client_id="+clientID.String()+"&redirect_uri=http://localhost/callback2", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+clientID.String()+"&redirect_uri=http://localhost/callback2", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
 			if w.Code != http.StatusOK {
@@ -140,7 +159,7 @@ func TestHandlers(t *testing.T) {
 		})
 
 		t.Run("InvalidRedirect", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://wrong", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://wrong", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
 			if w.Code != http.StatusBadRequest {
@@ -165,7 +184,7 @@ func TestHandlers(t *testing.T) {
 			form.Add("client_id", configData.Tenants[0].Clients[0].ClientID.String())
 			form.Add("redirect_uri", "http://localhost/callback")
 
-			req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			login(w, req)
@@ -182,7 +201,7 @@ func TestHandlers(t *testing.T) {
 			form.Add("redirect_uri", "http://localhost/callback")
 			form.Add("response_mode", "fragment")
 
-			req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			login(w, req)
@@ -201,7 +220,7 @@ func TestHandlers(t *testing.T) {
 			form.Add("client_id", configData.Tenants[0].Clients[0].ClientID.String())
 			form.Add("redirect_uri", "http://localhost/callback")
 
-			req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			login(w, req)
@@ -218,7 +237,7 @@ func TestHandlers(t *testing.T) {
 		form.Add("password", "password")
 		form.Add("client_id", configData.Tenants[0].Clients[0].ClientID.String())
 
-		req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 		token(w, req)
@@ -239,7 +258,7 @@ func TestHandlers(t *testing.T) {
 		form.Add("client_id", u1.String())
 		form.Add("client_secret", "secret")
 
-		req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 		token(w, req)
@@ -249,7 +268,7 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("CallHome", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/discovery/instance", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/discovery/instance", nil)
 		w := httptest.NewRecorder()
 		callHome(w, req)
 		if w.Code != http.StatusOK {
@@ -523,7 +542,7 @@ func TestHandlers(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 		handler := corsMiddleware(next)
-		req := httptest.NewRequest("POST", "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -538,12 +557,13 @@ func TestHandlers(t *testing.T) {
 				"redirect_uri": "http://ok",
 				"exp":          time.Now().Add(5 * time.Minute).Unix(),
 			}
-			tk, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			requireNoError(t, err)
 			form := url.Values{}
 			form.Add("grant_type", "authorization_code")
 			form.Add("code", tk)
 			form.Add("redirect_uri", "http://wrong")
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			token(w, req)
@@ -553,37 +573,39 @@ func TestHandlers(t *testing.T) {
 		})
 	})
 
-	t.Run("LoadResources", func(_ *testing.T) {
+	t.Run("LoadResources", func(t *testing.T) {
 		// PKCS8 key
-		key, _ := rsa.GenerateKey(rand.Reader, 2048)
-		keyBytes, _ := x509.MarshalPKCS8PrivateKey(key)
+		key, err := rsa.GenerateKey(rand.Reader, 2048)
+		requireNoError(t, err)
+		keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+		requireNoError(t, err)
 		pemBlock := &pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes}
-		_ = os.WriteFile("test8.key", pem.EncodeToMemory(pemBlock), 0644)
-		defer os.Remove("test8.key")
+		requireNoError(t, os.WriteFile("test8.key", pem.EncodeToMemory(pemBlock), 0o600))
+		cleanupRemove(t, "test8.key")
 
 		// PKCS1 key
 		key1Bytes := x509.MarshalPKCS1PrivateKey(key)
 		pemBlock1 := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: key1Bytes}
-		_ = os.WriteFile("test1.key", pem.EncodeToMemory(pemBlock1), 0644)
-		defer os.Remove("test1.key")
+		requireNoError(t, os.WriteFile("test1.key", pem.EncodeToMemory(pemBlock1), 0o600))
+		cleanupRemove(t, "test1.key")
 
-		_ = os.WriteFile("Config.yaml", []byte("tenants: []"), 0644)
-		defer os.Remove("Config.yaml")
-		_ = os.WriteFile("login.html", []byte("<html></html>"), 0644)
-		defer os.Remove("login.html")
-		_ = os.WriteFile("index.html", []byte("<html></html>"), 0644)
-		defer os.Remove("index.html")
+		requireNoError(t, os.WriteFile("Config.yaml", []byte("tenants: []"), 0o600))
+		cleanupRemove(t, "Config.yaml")
+		requireNoError(t, os.WriteFile("login.html", []byte("<html></html>"), 0o600))
+		cleanupRemove(t, "login.html")
+		requireNoError(t, os.WriteFile("index.html", []byte("<html></html>"), 0o600))
+		cleanupRemove(t, "index.html")
 
 		loadResources("test8.key")
 		loadResources("test1.key")
 		loadResources("non-existent")
-		_ = os.WriteFile("invalid.key", []byte("invalid"), 0644)
-		defer os.Remove("invalid.key")
+		requireNoError(t, os.WriteFile("invalid.key", []byte("invalid"), 0o600))
+		cleanupRemove(t, "invalid.key")
 		loadResources("invalid.key")
 	})
 
 	t.Run("DiscoveryV2Tenant", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/v2.0/.well-known/openid-configuration", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/v2.0/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
 		if w.Code != http.StatusOK {
@@ -653,11 +675,12 @@ func TestHandlers(t *testing.T) {
 				"client_id":    configData.Tenants[0].Clients[0].ClientID.String(),
 				"exp":          time.Now().Add(5 * time.Minute).Unix(),
 			}
-			tk, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			requireNoError(t, err)
 			form := url.Values{}
 			form.Add("grant_type", "authorization_code")
 			form.Add("code", tk)
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			token(w, req)
@@ -669,7 +692,7 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("Router", func(t *testing.T) {
 		mux := setupRouter()
-		req := httptest.NewRequest("GET", "/_health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/_health", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -679,8 +702,8 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("LoadConfig", func(t *testing.T) {
 		// Mock files
-		_ = os.WriteFile("Config.yaml", []byte("tenants: []"), 0644)
-		defer os.Remove("Config.yaml")
+		requireNoError(t, os.WriteFile("Config.yaml", []byte("tenants: []"), 0o600))
+		cleanupRemove(t, "Config.yaml")
 
 		config := loadConfig()
 		if len(config.Tenants) != 0 {
@@ -697,14 +720,16 @@ func TestHandlers(t *testing.T) {
 		}
 	})
 
-	t.Run("LoggerDebug", func(_ *testing.T) {
-		os.Setenv("LOG_LEVEL", "debug")
-		defer os.Unsetenv("LOG_LEVEL")
+	t.Run("LoggerDebug", func(t *testing.T) {
+		requireNoError(t, os.Setenv("LOG_LEVEL", "debug"))
+		t.Cleanup(func() {
+			requireNoError(t, os.Unsetenv("LOG_LEVEL"))
+		})
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
 		handler := logger(next)
-		req := httptest.NewRequest("GET", "/_health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/_health", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	})
@@ -716,7 +741,7 @@ func TestHandlers(t *testing.T) {
 
 		// Create a failing template
 		indexTemplate = template.Must(template.New("fail").Parse("{{.NoSuchField}}"))
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
 		if w.Code != http.StatusInternalServerError {
@@ -733,7 +758,7 @@ func TestHandlers(t *testing.T) {
 		form.Add("client_id", configData.Tenants[0].Clients[0].ClientID.String())
 		form.Add("nonce", "my-nonce")
 
-		req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 		token(w, req)
@@ -755,7 +780,7 @@ func TestHandlers(t *testing.T) {
 			},
 		}
 
-		req := httptest.NewRequest("GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
 		w := httptest.NewRecorder()
 		authorize(w, req)
 		if w.Code != http.StatusOK {
@@ -764,7 +789,7 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("DiscoveryTenantNotFound", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/nosuchtenant/.well-known/openid-configuration", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/nosuchtenant/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
 		if w.Code != http.StatusOK {
@@ -795,11 +820,12 @@ func TestHandlers(t *testing.T) {
 				"exp":       time.Now().Add(5 * time.Minute).Unix(),
 				"typ":       "Refresh",
 			}
-			tk, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
+			requireNoError(t, err)
 			form := url.Values{}
 			form.Add("grant_type", "refresh_token")
 			form.Add("refresh_token", tk)
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			token(w, req)
@@ -809,18 +835,18 @@ func TestHandlers(t *testing.T) {
 		})
 	})
 
-	t.Run("LoadConfigFailures", func(_ *testing.T) {
+	t.Run("LoadConfigFailures", func(t *testing.T) {
 		// Invalid schema validation failure path in loadConfig
-		_ = os.WriteFile("Config.yaml", []byte("tenants: [{name: 'Invalid'}]"), 0644)
-		defer os.Remove("Config.yaml")
+		requireNoError(t, os.WriteFile("Config.yaml", []byte("tenants: [{name: 'Invalid'}]"), 0o600))
+		cleanupRemove(t, "Config.yaml")
 		_ = loadConfig()
 
 		// Invalid YAML failure path in loadConfig
-		_ = os.WriteFile("Config.yaml", []byte("!!invalid"), 0644)
+		requireNoError(t, os.WriteFile("Config.yaml", []byte("!!invalid"), 0o600))
 		_ = loadConfig()
 	})
 
-	t.Run("DiscoveryDeepPaths", func(t *testing.T) {
+	t.Run("DiscoveryDeepPaths", func(_ *testing.T) {
 		paths := []string{
 			"/tenant/oauth2/authorize",
 			"/common/oauth2/authorize",
@@ -828,13 +854,13 @@ func TestHandlers(t *testing.T) {
 			"/tenant/v2.0/oauth2/authorize",
 		}
 		for _, p := range paths {
-			req := httptest.NewRequest("GET", p+"?client_id="+uuid.New().String()+"&redirect_uri=http://ok", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", p+"?client_id="+uuid.New().String()+"&redirect_uri=http://ok", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
 		}
 	})
 
-	t.Run("TokenDeepPaths", func(t *testing.T) {
+	t.Run("TokenDeepPaths", func(_ *testing.T) {
 		paths := []string{
 			"/tenant/oauth2/token",
 			"/common/oauth2/token",
@@ -842,14 +868,14 @@ func TestHandlers(t *testing.T) {
 			"/common/oauth2/v2.0/token",
 		}
 		for _, p := range paths {
-			req := httptest.NewRequest("POST", p, strings.NewReader("grant_type=password&username=u&password=p&client_id="+uuid.New().String()))
+			req := httptest.NewRequestWithContext(context.Background(), "POST", p, strings.NewReader("grant_type=password&username=u&password=p&client_id="+uuid.New().String()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 			token(w, req)
 		}
 	})
 
-	t.Run("DiscoveryDeepPaths2", func(t *testing.T) {
+	t.Run("DiscoveryDeepPaths2", func(_ *testing.T) {
 		paths := []string{
 			"/.well-known/openid-configuration",
 			"/v2.0/.well-known/openid-configuration",
@@ -859,7 +885,7 @@ func TestHandlers(t *testing.T) {
 			"/common/v2.0/.well-known/openid-configuration",
 		}
 		for _, p := range paths {
-			req := httptest.NewRequest("GET", p, nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", p, nil)
 			w := httptest.NewRecorder()
 			discovery(w, req)
 		}

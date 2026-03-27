@@ -163,7 +163,7 @@ func resolveRoles(tenant *Tenant, client *Client, user *User, targetAppIDs map[s
 		}
 	}
 
-	roles := []string{}
+	roles := make([]string, 0, len(resolvedRoles))
 	for r := range resolvedRoles {
 		roles = append(roles, r)
 	}

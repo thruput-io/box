@@ -2,7 +2,6 @@ ARG IDENTITY_CONFIG="DefaultConfig.yaml"
 
 FROM golang:1.26-alpine AS builder
 ARG IDENTITY_CONFIG
-ARG SKIP_LINT=1
 WORKDIR /app
 RUN apk add --no-cache curl bc bash
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.11.4
@@ -17,8 +16,8 @@ COPY server/ .
 RUN go mod tidy
 
 
-# Run linting (temporarily disabled by default)
-RUN if [ "$SKIP_LINT" = "1" ]; then echo "Skipping golangci-lint"; else golangci-lint run ./...; fi
+# Run linting (fail fast)
+RUN golangci-lint run ./...
 
 
 RUN chmod +x scripts/coverage.sh && (./scripts/coverage.sh || true)
