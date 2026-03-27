@@ -117,7 +117,7 @@ browser:
 self-test:
 	$(MAKE) -C $(BOX_ROOT) generate-certs
 	$(DOCKER_COMPOSE) --profile self-test build test msal-client browser-test
-	$(DOCKER_COMPOSE) --profile self-test up -d --remove-orphans --no-recreate dns entry entra postgres servicebus browser portal
+	$(DOCKER_COMPOSE) --profile self-test up -d --remove-orphans --no-recreate dns entry entra postgres servicebus browser portal tools
 	$(DOCKER_COMPOSE) --profile self-test up -d --force-recreate --no-deps browser
 	$(MAKE) -C $(BOX_ROOT) test-pester test-pester-outside test-browser-playwright test-msal
 

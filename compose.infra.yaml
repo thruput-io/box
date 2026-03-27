@@ -59,6 +59,8 @@ services:
       context: .
       dockerfile: portal/Dockerfile
     container_name: box.portal
+    environment:
+      - BOX_ROOT=${BOX_ROOT}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./certs:/certs:ro
@@ -74,3 +76,30 @@ services:
         ipv4_address: 172.18.0.61
     labels:
       - "traefik.enable=true"
+
+  tools:
+    build:
+      context: ./tools
+      dockerfile: Dockerfile
+    container_name: box.tools
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./certs:/certs:ro
+    dns:
+      - 172.18.0.253
+    depends_on:
+      dns:
+        condition: service_started
+      entry:
+        condition: service_started
+    networks:
+      infra-shared-net:
+        ipv4_address: 172.18.0.62
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.tools.loadbalancer.server.port=3000"
+      - "traefik.http.routers.tools.rule=Host(`tools.web.internal`)"
+      - "traefik.http.routers.tools.entrypoints=websecure"
+      - "traefik.http.routers.tools.tls=true"
+      - "traefik.http.routers.tools.tls.options=tools-mtls@file"

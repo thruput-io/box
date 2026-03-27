@@ -12,7 +12,7 @@ Describe "rotate-cert target" {
 
         $rotateCertBlock | Should -Not -BeNullOrEmpty
         $rotateCertBlock | Should -Match '/etc/resolver/internal'
-        $rotateCertBlock | Should -Match 'localhost/clean\.sh'
-        $rotateCertBlock | Should -Match 'localhost/setup\.sh'
+        $rotateCertBlock | Should -Match 'localhost/clean-dns-and-cert\.sh'
+        $rotateCertBlock | Should -Match 'localhost/setup-dns-and-cert\.sh'
     }
 }

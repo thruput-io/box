@@ -51,7 +51,7 @@ services:
       - 172.18.0.253
     environment:
       - ACCEPT_EULA=Y
-      - SQL_SERVER=sqledge
+      - SQL_SERVER=service-bus-mssql
       - MSSQL_SA_PASSWORD=Sql#Password123
       - SQL_WAIT_INTERVAL=1
       - SB_EMULATOR_CONFIG_PATH=/ServiceBus_Emulator/ConfigFiles/Config.json
@@ -71,7 +71,8 @@ services:
 
   sqledge:
     container_name: box.sqledge
-    image: "mcr.microsoft.com/azure-sql-edge:latest"
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
+    platform: linux/amd64
     environment:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=Sql#Password123

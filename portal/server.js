@@ -5,6 +5,29 @@ const path = require("path");
 
 const port = Number(process.env.PORT || 3000);
 
+function getJunieMcpSnippet() {
+  const hostRoot = process.env.BOX_ROOT ? String(process.env.BOX_ROOT) : "";
+  const normalizedRoot = hostRoot.replace(/\/$/, "");
+
+  const clientCert = normalizedRoot ? `${normalizedRoot}/certs/tools-client.crt` : "certs/tools-client.crt";
+  const clientKey = normalizedRoot ? `${normalizedRoot}/certs/tools-client.key` : "certs/tools-client.key";
+
+  const snippet = {
+    mcpServers: {
+      tools: {
+        transport: "sse",
+        url: "https://tools.web.internal/sse",
+        tls: {
+          clientCert,
+          clientKey,
+        },
+      },
+    },
+  };
+
+  return JSON.stringify(snippet, null, 2);
+}
+
 const SERVICES = [
   { name: "portal", url: "https://portal.web.internal", container: "box.portal" },
   { name: "browser", url: "https://browser.web.internal", container: "box.browser" },
@@ -162,6 +185,18 @@ const html = `<!doctype html>
   <h2>Environment Variables</h2>
   <table id="envvars"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody></tbody></table>
 
+  <h2>Junie MCP (tools)</h2>
+  <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem;">
+    The <code>tools</code> service is secured with mTLS (client certificate).
+    Generate a client cert via <code>localhost/generate-tools-client-cert.sh</code> and use the snippet below as a starting point.
+  </p>
+  <div style="display:flex;align-items:flex-start;gap:0.5rem;">
+    <pre id="junie-mcp" style="flex:1;font-size:0.8rem;color:#cbd5e1;white-space:pre;overflow:auto;background:#0f172a;padding:0.75rem;border-radius:6px;border:1px solid #1e293b;">${getJunieMcpSnippet()}</pre>
+    <button id="copy-junie-mcp" class="btn" title="Copy to clipboard" style="padding:0.5rem 0.7rem;min-width:2.5rem;">
+      <span aria-hidden="true">⧉</span>
+    </button>
+  </div>
+
   <div class="actions">
     <h2>Self-Test</h2>
     <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem;">Run <code>box self-test</code> from your host terminal to execute the full test suite.</p>
@@ -208,12 +243,38 @@ const html = `<!doctype html>
         etb.innerHTML = Object.entries(data.env).map(([k, v]) =>
           "<tr><td><code>" + k + "</code></td><td>" + v + "</td></tr>"
         ).join("");
+
+        // Junie MCP snippet is server-rendered so it is always available to copy.
+        // Leave it unchanged here.
       } catch (e) {
         console.error("Failed to load status", e);
       }
     }
     load();
     setInterval(load, 30000);
+
+    document.getElementById("copy-junie-mcp")?.addEventListener("click", async () => {
+      const text = document.getElementById("junie-mcp")?.innerText || "";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+      } catch {
+        // ignore and fallback
+      }
+
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-1000px";
+      ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    });
   </script>
 </body>
 </html>`;

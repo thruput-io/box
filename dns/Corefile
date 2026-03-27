@@ -2,7 +2,7 @@
     log
     errors
     hosts {
-        172.18.0.100 sqledge sql_container_alias
+        172.18.0.100 service-bus-mssql
         fallthrough
     }
 
