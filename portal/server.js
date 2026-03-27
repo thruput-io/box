@@ -5,27 +5,88 @@ const path = require("path");
 
 const port = Number(process.env.PORT || 3000);
 
-function getJunieMcpSnippet() {
-  const hostRoot = process.env.BOX_ROOT ? String(process.env.BOX_ROOT) : "";
-  const normalizedRoot = hostRoot.replace(/\/$/, "");
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
-  const clientCert = normalizedRoot ? `${normalizedRoot}/certs/tools-client.crt` : "certs/tools-client.crt";
-  const clientKey = normalizedRoot ? `${normalizedRoot}/certs/tools-client.key` : "certs/tools-client.key";
+function tryGetHostRootFromDockerInspect() {
+  try {
+    const raw = execSync("docker inspect box.portal 2>/dev/null", { encoding: "utf-8", timeout: 3000 }).trim();
+    if (!raw) return "";
+    const data = JSON.parse(raw);
+    const mounts = Array.isArray(data) && data[0] && Array.isArray(data[0].Mounts) ? data[0].Mounts : [];
+    const certMount = mounts.find((m) => m && m.Destination === "/certs" && typeof m.Source === "string");
+    if (!certMount) return "";
+    // In compose, /certs is mounted from <BOX_ROOT>/certs.
+    return path.dirname(certMount.Source);
+  } catch {
+    return "";
+  }
+}
 
+function getHostRoot() {
+  const envRoot = process.env.BOX_ROOT ? String(process.env.BOX_ROOT) : "";
+  const normalizedEnv = envRoot.replace(/\/$/, "");
+  if (normalizedEnv) return normalizedEnv;
+
+  const inspected = tryGetHostRootFromDockerInspect();
+  return inspected.replace(/\/$/, "");
+}
+
+function getJunieMcpServerConfig() {
+  const hostRoot = getHostRoot();
+  return {
+    transport: "sse",
+    url: "https://tools.web.internal/sse",
+  };
+}
+
+function getJunieMcpServerEntrySnippet() {
+  // Snippet intended to be pasted under "mcpServers": { ... }
+  // i.e. it includes only the single server entry.
+  const snippet = {
+    tools: getJunieMcpServerConfig(),
+  };
+  const json = JSON.stringify(snippet, null, 2);
+  // Drop the outer braces so the user gets just:
+  //   "tools": { ... }
+  return json.replace(/^\{\n/, "").replace(/\n\}$/, "");
+}
+
+function getJunieMcpFullSnippet() {
   const snippet = {
     mcpServers: {
-      tools: {
-        transport: "sse",
-        url: "https://tools.web.internal/sse",
-        tls: {
-          clientCert,
-          clientKey,
-        },
-      },
+      tools: getJunieMcpServerConfig(),
     },
   };
-
   return JSON.stringify(snippet, null, 2);
+}
+
+function renderJunieSnippetHtml() {
+  // Display the full shape for context, but grey-out the wrapper so the
+  // user focuses on the single server entry.
+  const grey = (s) => `<span style="color:#64748b;">${escapeHtml(s)}</span>`;
+  const normal = (s) => escapeHtml(s);
+
+  const entryLines = getJunieMcpServerEntrySnippet().trimEnd().split("\n");
+  const indented = entryLines.map((l) => (l ? `    ${l}` : l));
+
+  return (
+    grey("{") +
+    "\n" +
+    grey('  "mcpServers": {') +
+    "\n" +
+    indented.map((l) => normal(l)).join("\n") +
+    "\n" +
+    grey("  }") +
+    "\n" +
+    grey("}")
+  );
 }
 
 const SERVICES = [
@@ -187,14 +248,19 @@ const html = `<!doctype html>
 
   <h2>Junie MCP (tools)</h2>
   <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem;">
-    The <code>tools</code> service is secured with mTLS (client certificate).
-    Generate a client cert via <code>localhost/generate-tools-client-cert.sh</code> and use the snippet below as a starting point.
+    The <code>tools</code> service is available over HTTPS inside <code>box</code>.
+    Use the snippet below as a starting point.
   </p>
   <div style="display:flex;align-items:flex-start;gap:0.5rem;">
-    <pre id="junie-mcp" style="flex:1;font-size:0.8rem;color:#cbd5e1;white-space:pre;overflow:auto;background:#0f172a;padding:0.75rem;border-radius:6px;border:1px solid #1e293b;">${getJunieMcpSnippet()}</pre>
-    <button id="copy-junie-mcp" class="btn" title="Copy to clipboard" style="padding:0.5rem 0.7rem;min-width:2.5rem;">
-      <span aria-hidden="true">⧉</span>
-    </button>
+    <pre id="junie-mcp" data-copy="${escapeHtml(getJunieMcpServerEntrySnippet())}" style="flex:1;font-size:0.8rem;color:#cbd5e1;white-space:pre;overflow:auto;background:#0f172a;padding:0.75rem;border-radius:6px;border:1px solid #1e293b;">${renderJunieSnippetHtml()}</pre>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <button id="copy-junie-mcp" class="btn" title="Copy server snippet" style="padding:0.5rem 0.7rem;min-width:2.5rem;">
+        <span aria-hidden="true">⧉</span>
+      </button>
+      <button id="copy-junie-mcp-full" class="btn" title="Copy full mcp.json" style="padding:0.5rem 0.7rem;min-width:2.5rem;background:#334155;">
+        <span aria-hidden="true">{…}</span>
+      </button>
+    </div>
   </div>
 
   <div class="actions">
@@ -253,8 +319,7 @@ const html = `<!doctype html>
     load();
     setInterval(load, 30000);
 
-    document.getElementById("copy-junie-mcp")?.addEventListener("click", async () => {
-      const text = document.getElementById("junie-mcp")?.innerText || "";
+    async function copyText(text) {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
@@ -274,6 +339,16 @@ const html = `<!doctype html>
       ta.select();
       try { document.execCommand("copy"); } catch { /* ignore */ }
       document.body.removeChild(ta);
+    }
+
+    document.getElementById("copy-junie-mcp")?.addEventListener("click", async () => {
+      const el = document.getElementById("junie-mcp");
+      const text = el?.getAttribute("data-copy") || "";
+      await copyText(text);
+    });
+
+    document.getElementById("copy-junie-mcp-full")?.addEventListener("click", async () => {
+      await copyText(${JSON.stringify(getJunieMcpFullSnippet())});
     });
   </script>
 </body>

@@ -6,16 +6,23 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
+echo "tools client certificates are no longer used."
+echo "The tools MCP endpoint is now unprotected (no mTLS)."
+exit 0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_ROOT_DIR="${BOX_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
 CA_CERT="${COMPOSE_ROOT_DIR}/certs/_ca/rootCA.pem"
 CA_KEY="${COMPOSE_ROOT_DIR}/certs/_ca/rootCA-key.pem"
-CLIENT_KEY="${COMPOSE_ROOT_DIR}/certs/tools-client.key"
-CLIENT_CSR="${COMPOSE_ROOT_DIR}/certs/tools-client.csr"
-CLIENT_CERT="${COMPOSE_ROOT_DIR}/certs/tools-client.crt"
 CLIENT_P12="${COMPOSE_ROOT_DIR}/certs/tools-client.p12"
-EXTFILE="${COMPOSE_ROOT_DIR}/certs/tools-client.ext"
+LEGACY_CLIENT_KEY="${COMPOSE_ROOT_DIR}/certs/tools-client.key"
+LEGACY_CLIENT_CERT="${COMPOSE_ROOT_DIR}/certs/tools-client.crt"
+TMP_DIR="${COMPOSE_ROOT_DIR}/certs/.tmp"
+CLIENT_KEY="${TMP_DIR}/tools-client.key"
+CLIENT_CSR="${TMP_DIR}/tools-client.csr"
+CLIENT_CERT="${TMP_DIR}/tools-client.crt"
+EXTFILE="${TMP_DIR}/tools-client.ext"
 
 if [[ ! -f "${CA_CERT}" || ! -f "${CA_KEY}" ]]; then
   echo "Missing CA materials under ${COMPOSE_ROOT_DIR}/certs/_ca"
@@ -23,12 +30,18 @@ if [[ ! -f "${CA_CERT}" || ! -f "${CA_KEY}" ]]; then
   exit 1
 fi
 
-if [[ -f "${CLIENT_KEY}" || -f "${CLIENT_CERT}" ]]; then
-  echo "Client cert already exists:"
-  ls -la "${CLIENT_KEY}" "${CLIENT_CERT}" 2>/dev/null || true
-  echo "Delete them if you want to re-issue."
+# Keep the output deterministic: only a PKCS#12 bundle is persisted.
+# If legacy PEM outputs exist from older versions, remove them.
+rm -f "${LEGACY_CLIENT_KEY}" "${LEGACY_CLIENT_CERT}" 2>/dev/null || true
+
+if [[ -f "${CLIENT_P12}" ]]; then
+  echo "Client PKCS#12 bundle already exists:"
+  ls -la "${CLIENT_P12}" 2>/dev/null || true
+  echo "Delete it if you want to re-issue."
   exit 0
 fi
+
+mkdir -p "${TMP_DIR}"
 
 cat >"${EXTFILE}" <<'EOF'
 basicConstraints=CA:FALSE
@@ -58,16 +71,14 @@ openssl pkcs12 -export \
   -certfile "${COMPOSE_ROOT_DIR}/certs/dev-root-ca.crt" \
   -passout pass:""
 
-rm -f "${CLIENT_CSR}" "${EXTFILE}"
-
-chmod 600 "${CLIENT_KEY}" || true
+rm -rf "${TMP_DIR}"
 
 echo "Created:"
-ls -la "${CLIENT_KEY}" "${CLIENT_CERT}" "${CLIENT_P12}"
+ls -la "${CLIENT_P12}"
 
 echo
 echo "Test (should FAIL without client cert):"
 echo "  curl -vk https://tools.web.internal/"
 echo
 echo "Test (should SUCCEED with client cert):"
-echo "  curl -vk --cert ${CLIENT_CERT} --key ${CLIENT_KEY} https://tools.web.internal/"
+echo "  curl -vk --cert-type P12 --cert ${CLIENT_P12}: https://tools.web.internal/"

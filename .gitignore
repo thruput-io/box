@@ -18,3 +18,5 @@ appsettings.Development.json
 /tests/wiremock/log
 .env
 
+/.junie/backend_guidelines.md
+/.junie/bootstrap_prompt.md

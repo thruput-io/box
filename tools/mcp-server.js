@@ -1,11 +1,14 @@
 // MCP-over-SSE server for the diagnostic `tools` container.
 //
-// Security is enforced by Traefik (mTLS). This process only implements MCP
-// transport + a tiny tool for validation.
+// NOTE: This endpoint is intentionally unprotected (no mTLS) and is meant to be
+// reachable only via the local Traefik entrypoint bound to localhost.
 
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { SSEServerTransport } = require("@modelcontextprotocol/sdk/server/sse.js");
 const { createMcpExpressApp } = require("@modelcontextprotocol/sdk/server/express.js");
+const dns = require("node:dns");
+const net = require("node:net");
+const { setTimeout: sleep } = require("node:timers/promises");
 const z = require("zod/v4");
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -35,6 +38,151 @@ function createServer() {
             text,
           },
         ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "dns_lookup",
+    {
+      description: "Resolve a hostname using the container's DNS configuration.",
+      inputSchema: {
+        hostname: z.string().min(1),
+      },
+    },
+    async ({ hostname }) => {
+      const result = {
+        hostname,
+        addresses: [],
+        error: null,
+      };
+
+      try {
+        // Prefer the Promise API when available, fall back to callback API.
+        const resolver = dns.promises?.lookup
+          ? dns.promises
+          : {
+              lookup: (h, opts) =>
+                new Promise((resolve, reject) =>
+                  dns.lookup(h, opts, (err, address, family) =>
+                    err ? reject(err) : resolve({ address, family }),
+                  ),
+                ),
+            };
+
+        const addresses = await resolver.lookup(hostname, { all: true });
+        result.addresses = addresses.map((a) => ({ address: a.address, family: a.family }));
+      } catch (error) {
+        result.error = String(error && error.message ? error.message : error);
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "tcp_check",
+    {
+      description:
+        "Attempt a TCP connection to host:port (useful for readiness checks like AMQP 5672).",
+      inputSchema: {
+        host: z.string().min(1),
+        port: z.number().int().min(1).max(65535),
+        timeoutMs: z.number().int().min(100).max(60000).default(1500),
+      },
+    },
+    async ({ host, port, timeoutMs }) => {
+      const startedAt = Date.now();
+      const result = {
+        host,
+        port,
+        ok: false,
+        latencyMs: null,
+        error: null,
+      };
+
+      const socket = new net.Socket();
+      try {
+        await new Promise((resolve, reject) => {
+          const onError = (err) => reject(err);
+          socket.setTimeout(timeoutMs, () => reject(new Error(`timeout after ${timeoutMs}ms`)));
+          socket.once("error", onError);
+          socket.connect(port, host, () => resolve());
+        });
+
+        result.ok = true;
+      } catch (error) {
+        result.error = String(error && error.message ? error.message : error);
+      } finally {
+        result.latencyMs = Date.now() - startedAt;
+        try {
+          socket.destroy();
+        } catch {
+          // ignore
+        }
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "http_get",
+    {
+      description:
+        "Perform an HTTP GET from inside the tools container (respects system CA trust).",
+      inputSchema: {
+        url: z.string().url(),
+        timeoutMs: z.number().int().min(100).max(60000).default(5000),
+        maxBodyBytes: z.number().int().min(0).max(1024 * 1024).default(64 * 1024),
+      },
+    },
+    async ({ url, timeoutMs, maxBodyBytes }) => {
+      const startedAt = Date.now();
+      const result = {
+        url,
+        ok: false,
+        status: null,
+        latencyMs: null,
+        headers: {},
+        bodyPreview: null,
+        error: null,
+      };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        // Small delay can help when probing freshly-started services.
+        await sleep(10);
+        const response = await fetch(url, {
+          method: "GET",
+          signal: controller.signal,
+        });
+
+        result.status = response.status;
+        result.ok = response.ok;
+
+        // Headers
+        for (const [k, v] of response.headers.entries()) {
+          result.headers[k] = v;
+        }
+
+        const bodyText = await response.text();
+        result.bodyPreview = bodyText.slice(0, maxBodyBytes);
+      } catch (error) {
+        result.error = String(error && error.message ? error.message : error);
+      } finally {
+        clearTimeout(timeout);
+        result.latencyMs = Date.now() - startedAt;
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
     },
   );
