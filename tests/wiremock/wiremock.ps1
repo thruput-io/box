@@ -16,6 +16,9 @@ $SCRIPT_DIR = Split-Path -Parent -Resolve $MyInvocation.MyCommand.Path
 $WIREMOCK_DIR = $SCRIPT_DIR
 $LOG_DIR = Join-Path $WIREMOCK_DIR "log"
 
+$WIREMOCK_TOOL_PACKAGE = "dotnet-wiremock"
+$WIREMOCK_TOOL_COMMAND = "dotnet-wiremock"
+
 # Ensure ~/.dotnet/tools is in PATH for Start-Process to find dotnet-wiremock
 $dotnetToolsPath = Join-Path $Home ".dotnet/tools"
 if (Test-Path $dotnetToolsPath) {
@@ -59,19 +62,25 @@ function Install-WireMock {
 
     Write-Host "Installing WireMock.Net as global tool..."
 
-    try {
-        dotnet tool install --global WireMock.Net.StandAlone
-        Write-Host "✓ WireMock.Net installed as global tool"
-    } catch {
-        Write-Error "Failed to install WireMock.Net: $_"
+    dotnet tool install --global $WIREMOCK_TOOL_PACKAGE
+    Write-Host "✓ WireMock.Net installed as global tool"
+
+    $globalExe = Join-Path $dotnetToolsPath $WIREMOCK_TOOL_COMMAND
+    if (-not (Test-Path $globalExe)) {
+        throw "WireMock tool executable not found after successful install. Expected '${globalExe}'. Ensure '$dotnetToolsPath' exists and is in PATH."
     }
 }
 
 function Start-WireMock {
     # Check if WireMock.Net is installed
-    $installed = dotnet tool list --global | Select-String "wiremock.net.standalone"
+    $installed = dotnet tool list --global | Select-String "dotnet-wiremock"
     if (-not $installed) {
         Install-WireMock
+    }
+
+    $toolPath = Join-Path $dotnetToolsPath $WIREMOCK_TOOL_COMMAND
+    if (-not (Test-Path $toolPath)) {
+        throw "WireMock tool executable not found. Expected '${dotnetToolsPath}/${WIREMOCK_TOOL_COMMAND}'."
     }
 
     $targetPorts = $WIREMOCK_PORTS | Sort-Object -Unique
@@ -87,7 +96,7 @@ function Start-WireMock {
         return
     }
 
-    if (Get-Process -Name "dotnet-wiremock" -ErrorAction SilentlyContinue) {
+    if (Get-Process -Name $WIREMOCK_TOOL_COMMAND -ErrorAction SilentlyContinue) {
         Stop-WireMock
         Start-Sleep -Milliseconds 500
     }
@@ -98,7 +107,7 @@ function Start-WireMock {
 
         Write-Host "Starting WireMock on port ${targetPort}..."
 
-        Start-Process -FilePath "dotnet-wiremock" -ArgumentList "--Port $targetPort --WatchStaticMappings true --ReadStaticMappings true --WireMockLogger WireMockConsoleLogger" -WorkingDirectory $WIREMOCK_DIR -NoNewWindow -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+        Start-Process -FilePath $toolPath -ArgumentList "--Port $targetPort --WatchStaticMappings true --ReadStaticMappings true --WireMockLogger WireMockConsoleLogger" -WorkingDirectory $WIREMOCK_DIR -NoNewWindow -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
     }
 
     $pendingPorts = @($targetPorts)
@@ -114,11 +123,11 @@ function Start-WireMock {
 
 function Stop-WireMock {
     Write-Host "Stopping WireMock..."
-    Get-Process -Name "dotnet-wiremock" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process -Name $WIREMOCK_TOOL_COMMAND -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
     # Wait and verify all processes are killed
     for ($i = 0; $i -lt 10; $i++) {
-        $remainingProcesses = Get-Process -Name "dotnet-wiremock" -ErrorAction SilentlyContinue
+        $remainingProcesses = Get-Process -Name $WIREMOCK_TOOL_COMMAND -ErrorAction SilentlyContinue
         $respondingPorts = @()
         foreach ($targetPort in $WIREMOCK_PORTS) {
             if (Test-WireMockPort -TargetPort $targetPort) {
@@ -136,7 +145,7 @@ function Stop-WireMock {
 }
 
 function Get-WireMockStatus {
-    $processes = Get-Process -Name "dotnet-wiremock" -ErrorAction SilentlyContinue
+    $processes = Get-Process -Name $WIREMOCK_TOOL_COMMAND -ErrorAction SilentlyContinue
 
     if (-not $processes) {
         Write-Host "WireMock is not running"
