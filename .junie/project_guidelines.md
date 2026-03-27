@@ -1,6 +1,11 @@
-# Project Guidelines (box)
+# Box Project ´
 
 These guidelines apply to all work in this repository.
+
+## Tooling
+- Makefile contains target for developing and testing.
+- box command is a wrapper around make but is tied to the project and can be issued from anywhere
+- box self-test is the command you start and end tasks with.
 
 ## Overall Objectives
 - Provide an emulated environment where code can be tested exactly as it would run in production.
@@ -25,9 +30,3 @@ These guidelines apply to all work in this repository.
   - Do not apply security measures for other reasons than emulating production. Make it supereasy to bypass.
   - Do not use persistence, restarts should always start from same clean state.
 - FAIL FAST AND LOUD; it is the only way to find weaknesses and issues.
-
-## Do not document! 
-- automate and present it
-- Add tasks to the box command
-- Add information to https://portal.web.internal/
-- Add all the features you want but add tests for them in tests
