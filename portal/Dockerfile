@@ -2,9 +2,11 @@ FROM node:20-alpine
 
 RUN apk add --no-cache docker-cli openssl
 
-WORKDIR /app
+WORKDIR /app/portal
 
-COPY portal/server.js ./server.js
+COPY portal/ ./
+
+RUN mkdir -p data
 
 ENV PORT=3000
 

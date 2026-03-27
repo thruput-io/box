@@ -1,9 +1,15 @@
 const http = require("http");
-const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 
 const port = Number(process.env.PORT || 3000);
+
+const portalDir = __dirname;
+const dataDir = path.join(portalDir, "data");
+const staticJsonPath = path.join(dataDir, "static.json");
+const runtimeJsonPath = path.join(dataDir, "runtime.json");
+const collectDir = path.join(portalDir, "collect");
 
 function escapeHtml(text) {
   return String(text)
@@ -14,32 +20,7 @@ function escapeHtml(text) {
     .replaceAll("'", "&#39;");
 }
 
-function tryGetHostRootFromDockerInspect() {
-  try {
-    const raw = execSync("docker inspect box.portal 2>/dev/null", { encoding: "utf-8", timeout: 3000 }).trim();
-    if (!raw) return "";
-    const data = JSON.parse(raw);
-    const mounts = Array.isArray(data) && data[0] && Array.isArray(data[0].Mounts) ? data[0].Mounts : [];
-    const certMount = mounts.find((m) => m && m.Destination === "/certs" && typeof m.Source === "string");
-    if (!certMount) return "";
-    // In compose, /certs is mounted from <BOX_ROOT>/certs.
-    return path.dirname(certMount.Source);
-  } catch {
-    return "";
-  }
-}
-
-function getHostRoot() {
-  const envRoot = process.env.BOX_ROOT ? String(process.env.BOX_ROOT) : "";
-  const normalizedEnv = envRoot.replace(/\/$/, "");
-  if (normalizedEnv) return normalizedEnv;
-
-  const inspected = tryGetHostRootFromDockerInspect();
-  return inspected.replace(/\/$/, "");
-}
-
 function getJunieMcpServerConfig() {
-  const hostRoot = getHostRoot();
   return {
     transport: "sse",
     url: "https://tools.web.internal/sse",
@@ -89,104 +70,62 @@ function renderJunieSnippetHtml() {
   );
 }
 
-const SERVICES = [
-  { name: "portal", url: "https://portal.web.internal", container: "box.portal" },
-  { name: "browser", url: "https://browser.web.internal", container: "box.browser" },
-  { name: "entra", url: "https://identity.web.internal", container: "box.entra" },
-  { name: "entry (traefik)", url: null, container: "box.entry" },
-  { name: "dns (coredns)", url: null, container: "box.dns" },
-  { name: "postgres", url: null, container: "box.postgres" },
-  { name: "servicebus", url: null, container: "box.servicebus" },
-  { name: "sqledge", url: null, container: "box.sqledge" },
-  { name: "msal-client", url: "https://msal-client.web.internal", container: "box.msal-client" },
-];
+function runCollector(scriptFile) {
+  const scriptPath = path.join(collectDir, scriptFile);
+  execFileSync("sh", [scriptPath], { timeout: 15000, stdio: ["ignore", "ignore", "pipe"] });
+}
 
-function getContainerInfo() {
+function safeReadJson(filePath) {
   try {
-    const raw = execSync(
-      'docker ps -a --format \'{"name":"{{.Names}}","status":"{{.Status}}","image":"{{.Image}}","created":"{{.CreatedAt}}","ports":"{{.Ports}}"}\' 2>/dev/null',
-      { encoding: "utf-8", timeout: 5000 }
-    ).trim();
-    if (!raw) return [];
-    return raw.split("\n").map((line) => {
-      try { return JSON.parse(line); } catch { return null; }
-    }).filter(Boolean);
-  } catch {
-    return [];
+    const raw = fs.readFileSync(filePath, "utf-8");
+    return { data: JSON.parse(raw), error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-function getCertInfo() {
-  const certDir = "/certs";
-  const files = ["tls-cert.pem", "tls-key.pem", "dev-root-ca.crt", "identity-signing.key"];
-  const result = [];
-  for (const f of files) {
-    const fp = path.join(certDir, f);
-    try {
-      const stat = fs.statSync(fp);
-      let extra = "";
-      if (f.endsWith(".pem") || f.endsWith(".crt")) {
-        try {
-          const out = execSync(`openssl x509 -in ${fp} -noout -dates 2>/dev/null`, { encoding: "utf-8", timeout: 3000 }).trim();
-          extra = out;
-        } catch { /* ignore */ }
-      }
-      result.push({ file: f, exists: true, modified: stat.mtime.toISOString(), size: stat.size, details: extra });
-    } catch {
-      result.push({ file: f, exists: false, modified: null, size: 0, details: "" });
-    }
-  }
-  return result;
-}
+function buildApiData(startupErrors) {
+  const errors = [...startupErrors];
 
-function getEnvVars() {
-  const vars = {};
-  for (const key of Object.keys(process.env).sort()) {
-    if (key.startsWith("BOX_") || key.startsWith("COMPOSE_") || key === "PLATFORM" || key.startsWith("INFRA_")) {
-      vars[key] = process.env[key];
-    }
-  }
-  return vars;
-}
+  const staticRead = safeReadJson(staticJsonPath);
+  if (staticRead.error) errors.push(`static.json: ${staticRead.error}`);
+  const runtimeRead = safeReadJson(runtimeJsonPath);
+  if (runtimeRead.error) errors.push(`runtime.json: ${runtimeRead.error}`);
 
-function getBuildInfo() {
-  try {
-    const raw = execSync(
-      'docker images --format \'{"repo":"{{.Repository}}","tag":"{{.Tag}}","created":"{{.CreatedAt}}","size":"{{.Size}}"}\' 2>/dev/null',
-      { encoding: "utf-8", timeout: 5000 }
-    ).trim();
-    if (!raw) return [];
-    return raw.split("\n").map((line) => {
-      try { return JSON.parse(line); } catch { return null; }
-    }).filter(Boolean).filter((img) => img.repo.includes("hostingcompose") || img.repo.includes("infra"));
-  } catch {
-    return [];
-  }
-}
+  const staticData = staticRead.data || {};
+  const runtimeData = runtimeRead.data || {};
 
-function apiData() {
-  const containers = getContainerInfo();
+  const containers = (runtimeData.docker && Array.isArray(runtimeData.docker.containers) && runtimeData.docker.containers) || [];
   const containerMap = {};
-  for (const c of containers) containerMap[c.name] = c;
+  for (const c of containers) {
+    if (c && typeof c.name === "string") containerMap[c.name] = c;
+  }
 
-  const services = SERVICES.map((svc) => {
-    const c = containerMap[svc.container];
+  const servicesSrc = Array.isArray(staticData.services) ? staticData.services : [];
+  const services = servicesSrc.map((svc) => {
+    const containerName = svc && typeof svc.container === "string" ? svc.container : "";
+    const c = containerName ? containerMap[containerName] : null;
+    const status = c && typeof c.status === "string" ? c.status : "not running";
     return {
-      name: svc.name,
-      url: svc.url,
-      container: svc.container,
-      status: c ? c.status : "not running",
-      image: c ? c.image : "—",
-      running: c ? c.status.startsWith("Up") : false,
+      name: svc && typeof svc.name === "string" ? svc.name : "(missing name)",
+      url: svc && typeof svc.url === "string" ? svc.url : null,
+      container: containerName || null,
+      status,
+      image: c && typeof c.image === "string" ? c.image : "—",
+      running: typeof status === "string" ? status.startsWith("Up") : false,
     };
   });
 
+  const images = runtimeData.docker && Array.isArray(runtimeData.docker.images) ? runtimeData.docker.images : [];
+
   return {
+    timestamp: runtimeData.generatedAt || staticData.generatedAt || new Date().toISOString(),
+    urls: staticData.urls || {},
     services,
-    certs: getCertInfo(),
-    env: getEnvVars(),
-    images: getBuildInfo(),
-    timestamp: new Date().toISOString(),
+    certs: Array.isArray(runtimeData.certs) ? runtimeData.certs : [],
+    env: runtimeData.env || {},
+    images,
+    errors,
   };
 }
 
@@ -228,11 +167,23 @@ const html = `<!doctype html>
     .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
     #test-output { margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8; white-space: pre-wrap; max-height: 200px; overflow-y: auto; background: #0f172a; padding: 0.5rem; border-radius: 4px; display: none; }
     .refresh-note { font-size: 0.75rem; color: #475569; margin-top: 1rem; }
+    .alert { background:#7f1d1d; color:#fecaca; border:1px solid #991b1b; padding:0.6rem 0.8rem; border-radius:6px; margin:0.75rem 0 1rem; display:none; }
+    .alert code { background:#991b1b; }
   </style>
 </head>
 <body>
   <h1>&#x1F4E6; Developer Portal</h1>
   <p class="subtitle">portal.web.internal &mdash; <span id="ts"></span></p>
+
+  <div id="errors" class="alert"></div>
+
+  <div class="actions" style="margin-top:0.75rem;">
+    <button id="refresh" class="btn">Refresh data</button>
+    <span style="font-size:0.8rem;color:#94a3b8;margin-left:0.5rem;">Runs <code>collect/static.sh</code> and <code>collect/runtime.sh</code> inside the portal container.</span>
+  </div>
+
+  <h2>Links</h2>
+  <table id="urls"><thead><tr><th>Name</th><th>URL</th></tr></thead><tbody></tbody></table>
 
   <h2>Services</h2>
   <div class="grid" id="services"></div>
@@ -277,6 +228,25 @@ const html = `<!doctype html>
         const data = await res.json();
         document.getElementById("ts").textContent = new Date(data.timestamp).toLocaleString();
 
+        // Errors
+        const errEl = document.getElementById("errors");
+        const errs = Array.isArray(data.errors) ? data.errors : [];
+        if (errs.length) {
+          errEl.style.display = "block";
+          errEl.innerHTML = "<strong>Data issues:</strong><br>" + errs.map(e => "<code>" + String(e).replace(/</g,"&lt;") + "</code>").join("<br>");
+        } else {
+          errEl.style.display = "none";
+          errEl.textContent = "";
+        }
+
+        // Links
+        const utb = document.querySelector("#urls tbody");
+        const urls = data.urls && typeof data.urls === "object" ? data.urls : {};
+        utb.innerHTML = Object.entries(urls).map(([k, v]) => {
+          const val = v ? '<a href="' + v + '" style="color:#38bdf8;">' + v + "</a>" : "—";
+          return "<tr><td><code>" + k + "</code></td><td>" + val + "</td></tr>";
+        }).join("");
+
         // Services
         const grid = document.getElementById("services");
         grid.innerHTML = data.services.map(s => {
@@ -319,6 +289,21 @@ const html = `<!doctype html>
     load();
     setInterval(load, 30000);
 
+    document.getElementById("refresh")?.addEventListener("click", async () => {
+      const btn = document.getElementById("refresh");
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch("/api/refresh", { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.error("Refresh failed", data);
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+        await load();
+      }
+    });
+
     async function copyText(text) {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -354,6 +339,18 @@ const html = `<!doctype html>
 </body>
 </html>`;
 
+const startupErrors = [];
+try {
+  runCollector("static.sh");
+} catch (e) {
+  startupErrors.push(`collect/static.sh: ${e instanceof Error ? e.message : String(e)}`);
+}
+try {
+  runCollector("runtime.sh");
+} catch (e) {
+  startupErrors.push(`collect/runtime.sh: ${e instanceof Error ? e.message : String(e)}`);
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -361,9 +358,28 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.url === "/api/refresh" && req.method === "POST") {
+    const errors = [];
+    try {
+      runCollector("static.sh");
+    } catch (e) {
+      errors.push(`collect/static.sh: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      runCollector("runtime.sh");
+    } catch (e) {
+      errors.push(`collect/runtime.sh: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const ok = errors.length === 0;
+    res.writeHead(ok ? 200 : 500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok, errors }));
+    return;
+  }
+
   if (req.url === "/api/status") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(apiData()));
+    res.end(JSON.stringify(buildApiData(startupErrors)));
     return;
   }
 

@@ -4,6 +4,17 @@
 - Make sure you are in the root directory of this project.
 - Run: bash localhost/set-me-up.sh
 
+## Developer Portal (living README)
+
+After startup, visit:
+- https://portal.web.internal
+
+The portal is powered by JSON contracts generated inside the portal container:
+- `portal/data/static.json` (stable facts: URLs, service map, DNS, cert file list)
+- `portal/data/runtime.json` (runtime facts: container status, images, cert validity, env)
+
+Details: see `portal/portal.md`.
+
 ## Overall Objectives
 - Provide an emulated environment where code can be tested exactly as it would run in production.
 - Initially allowing for configuration changes, but ultimately treat code and configuration as a single immutable unit (container).

@@ -47,7 +47,7 @@ services:
         condition: service_started
     networks:
       infra-shared-net:
-        ipv4_address: 172.18.0.62
+        ipv4_address: 172.18.0.63
     working_dir: /test
 
   msal-client:

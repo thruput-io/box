@@ -7,5 +7,52 @@
   </head>
   <body>
     <h1>Sign in</h1>
+
+    <form id="login-form" method="post" action="/login">
+      <input type="hidden" name="client_id" value="{{.ClientID}}" />
+      <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}" />
+      <input type="hidden" name="state" value="{{.State}}" />
+      <input type="hidden" name="scope" value="{{.Scope}}" />
+      <input type="hidden" name="tenant" value="{{.Tenant}}" />
+      <input type="hidden" name="nonce" value="{{.Nonce}}" />
+      <input type="hidden" name="response_mode" value="{{.ResponseMode}}" />
+
+      <label>
+        Username
+        <input id="username" type="text" name="username" autocomplete="username" />
+      </label>
+      <br />
+      <label>
+        Password
+        <input id="password" type="password" name="password" autocomplete="current-password" />
+      </label>
+      <br />
+      <button type="submit">Sign in</button>
+    </form>
+
+    <hr />
+
+    <h2>Quick login (debug)</h2>
+    <div id="users">
+      {{range .Users}}
+      <div class="user-item">
+        <strong>{{.Username}}</strong>
+        <span>— {{.DisplayName}}</span>
+        <button type="button" onclick="quickLogin('{{.Username}}','{{.Password}}')">Login</button>
+      </div>
+      {{end}}
+    </div>
+
+    <script>
+      function quickLogin(username, password) {
+        var u = document.getElementById('username');
+        var p = document.getElementById('password');
+        var f = document.getElementById('login-form');
+        if (!u || !p || !f) return;
+        u.value = username;
+        p.value = password;
+        f.submit();
+      }
+    </script>
   </body>
 </html>
