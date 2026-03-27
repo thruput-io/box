@@ -31,7 +31,18 @@ func logger(next http.Handler) http.Handler {
 }
 
 func health(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := indexTemplate.Execute(w, configData); err != nil {
+		log.Printf("failed to render index template: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 func maxBytesMiddleware(next http.Handler) http.Handler {
@@ -109,18 +120,18 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 	resp := DiscoveryResponse{
 		TokenEndpoint:                     fmt.Sprintf("%s/oauth2/token", tenantURL),
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_post", "private_key_jwt", "client_secret_basic", "self_signed_tls_client_auth"},
-		JwksUri:                           fmt.Sprintf("%s/discovery/keys", tenantURL),
+		JwksURI:                           fmt.Sprintf("%s/discovery/keys", tenantURL),
 		ResponseModesSupported:            []string{"query", "fragment", "form_post"},
 		SubjectTypesSupported:             []string{"pairwise"},
-		IdTokenSigningAlgValuesSupported:  []string{"RS256"},
+		IDTokenSigningAlgValuesSupported:  []string{"RS256"},
 		ResponseTypesSupported:            []string{"code", "id_token", "code id_token", "id_token token"},
 		ScopesSupported:                   []string{"openid", "profile", "email", "offline_access"},
 		Issuer:                            issuer,
-		RequestUriParameterSupported:      false,
+		RequestURIParameterSupported:      false,
 		UserinfoEndpoint:                  "https://graph.microsoft.com/oidc/userinfo",
 		AuthorizationEndpoint:             fmt.Sprintf("%s/oauth2/authorize", tenantURL),
-		DeviceAuthorizationEndpoint:      fmt.Sprintf("%s/oauth2/devicecode", tenantURL),
-		HttpLogoutSupported:               true,
+		DeviceAuthorizationEndpoint:       fmt.Sprintf("%s/oauth2/devicecode", tenantURL),
+		HTTPLogoutSupported:               true,
 		FrontchannelLogoutSupported:       true,
 		EndSessionEndpoint:                fmt.Sprintf("%s/oauth2/logout", tenantURL),
 		ClaimsSupported: []string{
@@ -129,25 +140,27 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 			"auth_time", "acr", "nonce", "preferred_username", "name", "tid",
 			"ver", "at_hash", "c_hash", "email",
 		},
-		KerberosEndpoint: fmt.Sprintf("%s/kerberos", tenantURL),
-		TlsClientCertificateBoundAccessTokens: true,
+		KerberosEndpoint:                      fmt.Sprintf("%s/kerberos", tenantURL),
+		TLSClientCertificateBoundAccessTokens: true,
 		TenantRegionScope:                     "NA",
 		CloudInstanceName:                     "microsoftonline.com",
 		CloudGraphHostName:                    "graph.windows.net",
 		MsgraphHost:                           "graph.microsoft.com",
-		RbacUrl:                               "https://pas.windows.net",
+		RbacURL:                               "https://pas.windows.net",
 	}
 	resp.MtlsEndpointAliases.TokenEndpoint = fmt.Sprintf("https://mtlsauth.microsoft.com/%s/oauth2/token", tenant)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("Error encoding discovery response: %v", err)
+	}
 }
 
 func callHome(w http.ResponseWriter, r *http.Request) {
 	baseURL := getBaseURL(r)
 	resp := CallHomeResponse{
 		TenantDiscoveryEndpoint: baseURL,
-		ApiVersion:              "1.1",
+		APIVersion:              "1.1",
 	}
 	resp.Metadata = append(resp.Metadata, struct {
 		PreferredNetwork string   `json:"preferred_network"`
@@ -160,7 +173,9 @@ func callHome(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("Error encoding callHome response: %v", err)
+	}
 }
 
 func sendOAuthError(w http.ResponseWriter, r *http.Request, errCode string, desc string, status int) {
@@ -174,13 +189,15 @@ func sendOAuthError(w http.ResponseWriter, r *http.Request, errCode string, desc
 	w.Header().Set("x-ms-request-id", correlationID)
 	w.WriteHeader(status)
 
-	json.NewEncoder(w).Encode(OAuthError{
+	if err := json.NewEncoder(w).Encode(OAuthError{
 		Error:            errCode,
 		ErrorDescription: desc,
 		TraceID:          uuid.New().String(),
 		CorrelationID:    correlationID,
 		Timestamp:        time.Now().Format("2006-01-02 15:04:05Z"),
-	})
+	}); err != nil {
+		log.Printf("Error encoding OAuth error: %v", err)
+	}
 }
 
 func token(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +244,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 
 	// Default values
 	sub := clientID.String()
-	roles := []string{}
+	var roles []string
 	name := "Mock User"
 	email := "user@example.com"
 	nonce := ""
@@ -277,7 +294,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if grantType == "authorization_code" {
 		code := r.Form.Get("code")
-		t, err := jwt.Parse(code, func(token *jwt.Token) (interface{}, error) {
+		t, err := jwt.Parse(code, func(_ *jwt.Token) (interface{}, error) {
 			return privateKey.Public(), nil
 		})
 		if err != nil || !t.Valid {
@@ -314,7 +331,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if grantType == "refresh_token" {
 		refreshToken := r.Form.Get("refresh_token")
-		t, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		t, err := jwt.Parse(refreshToken, func(_ *jwt.Token) (interface{}, error) {
 			return privateKey.Public(), nil
 		})
 		if err != nil || !t.Valid {
@@ -436,18 +453,18 @@ func token(w http.ResponseWriter, r *http.Request) {
 
 	if hasOpenID && activeUser != nil {
 		idClaims := jwt.MapClaims{
-			"iss":               issuer,
-			"sub":               sub,
-			"aud":               clientID.String(),
-			"exp":               now.Add(24 * time.Hour).Unix(),
-			"iat":               now.Unix(),
-			"nbf":               now.Unix(),
-			"tid":               activeTenantID,
-			"ver":               version,
-			"oid":               sub,
-			"name":              name,
+			"iss":                issuer,
+			"sub":                sub,
+			"aud":                clientID.String(),
+			"exp":                now.Add(24 * time.Hour).Unix(),
+			"iat":                now.Unix(),
+			"nbf":                now.Unix(),
+			"tid":                activeTenantID,
+			"ver":                version,
+			"oid":                sub,
+			"name":               name,
 			"preferred_username": email,
-			"email":             email,
+			"email":              email,
 		}
 		if nonce != "" {
 			idClaims["nonce"] = nonce
@@ -494,10 +511,12 @@ func token(w http.ResponseWriter, r *http.Request) {
 		response["client_info"] = base64UrlEncode(clientInfoJSON)
 	}
 	jsonResp, _ := json.Marshal(response)
-	w.Write(jsonResp)
+	if _, err := w.Write(jsonResp); err != nil {
+		log.Printf("Error writing token response: %v", err)
+	}
 }
 
-func jwks(w http.ResponseWriter, r *http.Request) {
+func jwks(w http.ResponseWriter, _ *http.Request) {
 	n := privateKey.N.Bytes()
 	e := big.NewInt(int64(privateKey.E)).Bytes()
 
@@ -514,7 +533,9 @@ func jwks(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(keys)
+	if err := json.NewEncoder(w).Encode(keys); err != nil {
+		log.Printf("Error encoding JWKS response: %v", err)
+	}
 }
 
 func authorize(w http.ResponseWriter, r *http.Request) {

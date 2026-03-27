@@ -11,12 +11,13 @@ services:
       retries: 5
     volumes:
       - ./certs:/certs:ro
+      - ${IDENTITY_CONFIG:-./entra/server/DefaultConfig.yaml}:/app/Config.yaml:ro
     networks:
       infra-shared-net:
         ipv4_address: 172.18.0.7
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.entra.rule=Host(`login.microsoftonline.com`) || Host(`login.microsoft.com`)"
+      - "traefik.http.routers.entra.rule=Host(`login.microsoftonline.com`) || Host(`login.microsoft.com`) || Host(`entra.web.internal`)"
       - "traefik.http.routers.entra.entrypoints=websecure"
       - "traefik.http.routers.entra.tls=true"
       - "traefik.http.services.entra.loadbalancer.server.port=8080"
@@ -55,7 +56,7 @@ services:
       - SQL_WAIT_INTERVAL=1
       - SB_EMULATOR_CONFIG_PATH=/ServiceBus_Emulator/ConfigFiles/Config.json
     volumes:
-      - ./tests/DefaultServiceBusConfig.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+      - ${SERVICEBUS_CONFIG:-./tests/DefaultServiceBusConfig.json}:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
     networks:
       infra-shared-net:
         ipv4_address: 172.18.0.6

@@ -1,15 +1,6 @@
-# This Dockerfile is intended to be used with the local infrastructure
-# It extends the production image by adding the local CA certificate
-# so that the application can trust the mock services (e.g. login.microsoftonline.com)
+ARG APP_IMAGE
+FROM ${APP_IMAGE}
 
-# ARG BASE_IMAGE=mocking-monitor:latest
-ARG BASE_IMAGE=mcr.microsoft.com/dotnet/aspnet:9.0
-FROM ${BASE_IMAGE}
-
-WORKDIR /app
-
-# Add the local CA certificate to the system trust store
-# Note: The context should be the root of the it-local project
 COPY certs/dev-root-ca.crt /usr/local/share/ca-certificates/it-local-ca.crt
 RUN apt-get update && apt-get install -y ca-certificates && \
     update-ca-certificates && \

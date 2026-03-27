@@ -21,13 +21,15 @@ func loadConfig() Config {
 
 	// Validate against JSON schema to catch configuration errors early
 	if err := validateConfig(data); err != nil {
-		log.Fatalf("CRITICAL: Config.yaml validation failed:\n%v", err)
+		log.Printf("CRITICAL: Config.yaml validation failed:\n%v", err)
+		return Config{}
 	}
 
 	var config Config
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
-		log.Fatalf("CRITICAL: failed to parse Config.yaml: %v", err)
+		log.Printf("CRITICAL: failed to parse Config.yaml: %v", err)
+		return Config{}
 	}
 	return config
 }
@@ -95,16 +97,16 @@ func resolveAudience(tenant *Tenant, scope string) (string, map[string]bool) {
 		}
 		for _, reg := range tenant.AppRegistrations {
 			// Exact match or .default suffix
-			if reg.ClientID.String() == s || reg.IdentifierUri == s || strings.HasPrefix(s, reg.IdentifierUri+"/") || s == reg.IdentifierUri+"/.default" {
+			if reg.ClientID.String() == s || reg.IdentifierURI == s || strings.HasPrefix(s, reg.IdentifierURI+"/") || s == reg.IdentifierURI+"/.default" {
 				targetAppIDs[reg.ClientID.String()] = true
-				targetAudience = reg.IdentifierUri
+				targetAudience = reg.IdentifierURI
 			}
 			// Check roles and scopes
 			for _, role := range reg.AppRoles {
 				for _, rs := range role.Scopes {
 					if rs.Value == s || strings.HasSuffix(s, "/"+rs.Value) {
 						targetAppIDs[reg.ClientID.String()] = true
-						targetAudience = reg.IdentifierUri
+						targetAudience = reg.IdentifierURI
 					}
 				}
 			}

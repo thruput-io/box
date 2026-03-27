@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  tests: true
+
+linters:
+  default: all
+  disable:
+    - depguard    # Too restrictive for most projects
+    - tagalign    # Aesthetic only
+    - nonamedreturns # Opinionated; sometimes named returns are better
+  settings:
+    cyclop:
+      max-complexity: 10
+    funlen:
+      lines: 60
+      statements: 40
+    maintidx:
+      under: 20
+    lll:
+      line-length: 120
+    revive:
+      # This replaces the old 'golint' with Google-style rules
+      enable-all-rules: true
+      severity: error
+    staticcheck:
+      checks: ["all"]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+  sort-order:
+    - linter
+    - severity
+    - file

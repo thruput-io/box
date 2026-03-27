@@ -51,5 +51,48 @@ else
   mv "${profile_file}.tmp" "${profile_file}"
 fi
 
+# --- Add shell completion for box command ---
+if [[ -n "${SHELL:-}" ]]; then
+  shell_name="$(basename "${SHELL}")"
+  rc_file="${HOME}/.${shell_name}rc"
+  if [[ -f "${rc_file}" ]]; then
+    if [[ "${shell_name}" == "zsh" ]]; then
+      if ! grep -Fq '_box_completion()' "${rc_file}"; then
+        cat << 'EOF' >> "${rc_file}"
+
+# box command Zsh completion
+_box_completion() {
+  local -a targets
+  if [[ -n "$BOX_ROOT" && -f "$BOX_ROOT/Makefile" ]]; then
+    targets=($(grep -E '^[a-zA-Z0-9_-]+:' "$BOX_ROOT/Makefile" | cut -d: -f1))
+    _describe 'targets' targets
+  fi
+}
+compdef _box_completion box
+EOF
+        echo "Added Zsh completion to ${rc_file}"
+      fi
+    elif [[ "${shell_name}" == "bash" ]]; then
+      if ! grep -Fq '_box_completion()' "${rc_file}"; then
+        cat << 'EOF' >> "${rc_file}"
+
+# box command Bash completion
+_box_completion() {
+  local cur targets
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  if [[ -n "$BOX_ROOT" && -f "$BOX_ROOT/Makefile" ]]; then
+    targets=$(grep -E '^[a-zA-Z0-9_-]+:' "$BOX_ROOT/Makefile" | cut -d: -f1)
+    COMPREPLY=( $(compgen -W "${targets}" -- ${cur}) )
+  fi
+}
+complete -F _box_completion box
+EOF
+        echo "Added Bash completion to ${rc_file}"
+      fi
+    fi
+  fi
+fi
+
 echo "Installed box command at ${BOX_SCRIPT_PATH}"
 echo "Run this once in your current shell: source ${profile_file}"

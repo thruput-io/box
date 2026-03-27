@@ -13,6 +13,7 @@ import (
 var privateKey *rsa.PrivateKey
 var configData Config
 var loginTemplate *template.Template
+var indexTemplate *template.Template
 
 func main() {
 	const defaultKeyPath = "/certs/identity-signing.key"
@@ -22,27 +23,42 @@ func main() {
 		keyPath = defaultKeyPath
 	}
 
+	loadResources(keyPath)
+
+	mux := setupRouter()
+
+	log.Println("Mock Entra ID server starting on :8080")
+	if err := http.ListenAndServe(":8080", logger(corsMiddleware(maxBytesMiddleware(mux)))); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func loadResources(keyPath string) {
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("failed to read key: %v", err)
+		return
 	}
 
 	block, _ := pem.Decode(keyData)
 	if block == nil {
-		log.Fatal("failed to decode PEM block")
+		log.Printf("failed to decode PEM block")
+		return
 	}
 
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		privateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("failed to parse private key: %v", err)
+			return
 		}
 	} else {
 		var ok bool
 		privateKey, ok = key.(*rsa.PrivateKey)
 		if !ok {
-			log.Fatal("not an RSA private key")
+			log.Printf("not an RSA private key")
+			return
 		}
 	}
 
@@ -50,10 +66,20 @@ func main() {
 
 	loginTemplate, err = template.ParseFiles("login.html")
 	if err != nil {
-		log.Fatalf("failed to parse login template: %v", err)
+		log.Printf("failed to parse login template: %v", err)
 	}
 
+	indexTemplate, err = template.ParseFiles("index.html")
+	if err != nil {
+		log.Printf("failed to parse index template: %v", err)
+	}
+}
+
+func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
+
+	// Root / Index
+	mux.HandleFunc("/", index)
 
 	// Discovery and JWKS
 	mux.HandleFunc("/_health", health)
@@ -89,8 +115,5 @@ func main() {
 	mux.HandleFunc("/common/oauth2/v2.0/authorize", authorize)
 	mux.HandleFunc("/login", login)
 
-	log.Println("Mock Entra ID server starting on :8080")
-	if err := http.ListenAndServe(":8080", logger(corsMiddleware(maxBytesMiddleware(mux)))); err != nil {
-		log.Fatal(err)
-	}
+	return mux
 }

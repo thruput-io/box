@@ -5,8 +5,11 @@ services:
       context: .
       dockerfile: Dockerfile.local
       args:
-        BASE_IMAGE: mocking-monitor:latest
+        APP_IMAGE: ${APP_IMAGE}
     container_name: box.app
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8080:8080"
     dns:
@@ -22,12 +25,6 @@ services:
         condition: service_started
       entra:
         condition: service_healthy
-    environment:
-      # These environment variables should match what your app expects
-      - ASPNETCORE_URLS=http://+:8080
-      - DB_HOST=my-app.postgres.database.azure.com
-      - SERVICEBUS_HOST=my-namespace.servicebus.windows.net
-      - IDENTITY_AUTHORITY=https://login.microsoftonline.com/10000000-0000-4000-a000-000000000000/v2.0
     networks:
       infra-shared-net:
         ipv4_address: 172.18.0.5
