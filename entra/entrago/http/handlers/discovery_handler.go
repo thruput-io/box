@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"identity/app"
 )
 
-func discoveryHandler(request *http.Request, server *Server) Response {
+func discoveryHandler(request *http.Request, application *app.App) Response {
 	tenantIDStr := request.PathValue("tenant")
 	if tenantIDStr == "" {
 		tenantIDStr = "common"
@@ -17,7 +17,7 @@ func discoveryHandler(request *http.Request, server *Server) Response {
 
 	isV2 := strings.Contains(request.URL.Path, "/v2.0")
 
-	tenant, err := app.FindTenant(server.Config, tenantIDStr)
+	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
 		return badRequest(err)
 	}
@@ -43,8 +43,8 @@ func discoveryHandler(request *http.Request, server *Server) Response {
 	return okJSON(body)
 }
 
-func jwksHandler(_ *http.Request, server *Server) Response {
-	jwks := app.PublicKey(server.Key)
+func jwksHandler(_ *http.Request, application *app.App) Response {
+	jwks := app.PublicKey(application.Key)
 
 	body, err := json.Marshal(map[string]any{
 		"keys": []map[string]any{
@@ -65,7 +65,7 @@ func jwksHandler(_ *http.Request, server *Server) Response {
 	return okJSON(body)
 }
 
-func callHomeHandler(request *http.Request, _ *Server) Response {
+func callHomeHandler(request *http.Request, _ *app.App) Response {
 	baseURL := extractBaseURL(request)
 
 	body, err := json.Marshal(map[string]any{

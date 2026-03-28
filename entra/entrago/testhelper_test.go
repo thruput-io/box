@@ -7,8 +7,9 @@ import (
 	"html/template"
 	"testing"
 
+	"identity/app"
 	"identity/domain"
-	identityserver "identity/server"
+	identityhttp "identity/http/transport"
 )
 
 //go:embed templates/login.html
@@ -17,7 +18,7 @@ var testLoginHTML embed.FS
 //go:embed templates/index.html
 var testIndexHTML embed.FS
 
-func newTestServer(t *testing.T) *identityserver.Server {
+func newTestServer(t *testing.T) *identityhttp.Server {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, rsaKeyBitsTest)
@@ -35,12 +36,12 @@ func newTestServer(t *testing.T) *identityserver.Server {
 		t.Fatalf("parse index template: %v", err)
 	}
 
-	return &identityserver.Server{
+	return &identityhttp.Server{App: &app.App{
 		Config:        newTestConfig(),
 		Key:           key,
 		LoginTemplate: loginTmpl,
 		IndexTemplate: indexTmpl,
-	}
+	}}
 }
 
 func newTestConfig() domain.Config {
@@ -96,10 +97,10 @@ func newTestConfig() domain.Config {
 	return config
 }
 
-func serverWithClient(t *testing.T, base *identityserver.Server, client domain.Client) *identityserver.Server {
+func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Client) *identityhttp.Server {
 	t.Helper()
 
-	tenant := base.Config.Tenants()[firstIndex]
+	tenant := base.App.Config.Tenants()[firstIndex]
 	clients := append(tenant.Clients(), client)
 
 	newTenant, err := domain.NewTenant(
@@ -116,10 +117,10 @@ func serverWithClient(t *testing.T, base *identityserver.Server, client domain.C
 		t.Fatalf("build config: %v", err)
 	}
 
-	return &identityserver.Server{
+	return &identityhttp.Server{App: &app.App{
 		Config:        config,
-		Key:           base.Key,
-		LoginTemplate: base.LoginTemplate,
-		IndexTemplate: base.IndexTemplate,
-	}
+		Key:           base.App.Key,
+		LoginTemplate: base.App.LoginTemplate,
+		IndexTemplate: base.App.IndexTemplate,
+	}}
 }

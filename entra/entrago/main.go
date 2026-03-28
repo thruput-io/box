@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"os"
 
+	"identity/app"
 	"identity/domain"
-	identityserver "identity/server"
+	identityhttp "identity/http/transport"
 )
 
 //go:embed templates/login.html
@@ -49,12 +50,14 @@ func main() {
 		log.Fatalf("failed to parse index template: %v", err)
 	}
 
-	srv := &identityserver.Server{
+	application := &app.App{
 		Config:        config,
 		Key:           key,
 		LoginTemplate: loginTemplate,
 		IndexTemplate: indexTemplate,
 	}
+
+	srv := &identityhttp.Server{App: application}
 
 	addr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {

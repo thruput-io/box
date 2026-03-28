@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ const (
 	emptyType      = ""
 )
 
-func authorizeHandler(request *http.Request, server *Server) Response {
+func authorizeHandler(request *http.Request, application *app.App) Response {
 	err := validateParamLengths(request.URL.Query())
 	if err != nil {
 		return badRequest(err)
@@ -25,7 +25,7 @@ func authorizeHandler(request *http.Request, server *Server) Response {
 	clientIDStr := request.URL.Query().Get("client_id")
 	tenantIDStr := extractTenantID(request)
 
-	tenant, err := app.FindTenant(server.Config, tenantIDStr)
+	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
 		return badRequest(err)
 	}
@@ -61,7 +61,7 @@ func authorizeHandler(request *http.Request, server *Server) Response {
 
 	var buf bytes.Buffer
 
-	err = server.LoginTemplate.Execute(&buf, data)
+	err = application.LoginTemplate.Execute(&buf, data)
 	if err != nil {
 		return internalError("failed to render login page")
 	}
@@ -76,10 +76,10 @@ type validatedLogin struct {
 	tenantIDStr string
 }
 
-func validateLoginRequest(request *http.Request, server *Server) (validatedLogin, *domain.Error) {
+func validateLoginRequest(request *http.Request, application *app.App) (validatedLogin, *domain.Error) {
 	tenantIDStr := request.Form.Get("tenant")
 
-	tenant, err := app.FindTenant(server.Config, tenantIDStr)
+	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
 		return validatedLogin{}, domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found")
 	}
@@ -104,7 +104,7 @@ func validateLoginRequest(request *http.Request, server *Server) (validatedLogin
 	return validatedLogin{tenant: tenant, clientID: clientID, redirectURI: redirectURI, tenantIDStr: tenantIDStr}, nil
 }
 
-func loginHandler(request *http.Request, server *Server) Response {
+func loginHandler(request *http.Request, application *app.App) Response {
 	if request.Method != http.MethodPost {
 		return methodNotAllowed()
 	}
@@ -121,7 +121,7 @@ func loginHandler(request *http.Request, server *Server) Response {
 		return badRequest(paramErr)
 	}
 
-	validated, domErr := validateLoginRequest(request, server)
+	validated, domErr := validateLoginRequest(request, application)
 	if domErr != nil {
 		return fromDomainError(domErr)
 	}
@@ -132,7 +132,7 @@ func loginHandler(request *http.Request, server *Server) Response {
 	}
 
 	authCode := app.IssueAuthCode(
-		server.Key, user, validated.clientID, validated.redirectURI,
+		application.Key, user, validated.clientID, validated.redirectURI,
 		request.Form.Get("scope"), validated.tenantIDStr, request.Form.Get("nonce"),
 	)
 

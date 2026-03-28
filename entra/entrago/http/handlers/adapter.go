@@ -1,22 +1,50 @@
-package server
+package handlers
 
 import (
-	"crypto/rsa"
-	"html/template"
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 
 	"identity/domain"
 )
 
-const contentTypePlain = "text/plain; charset=utf-8"
+const (
+	uuidByteLen      = 16
+	uuidVersionByte  = 6
+	uuidVariantByte  = 8
+	uuidVersionMask  = 0x40
+	uuidVariantMask  = 0x80
+	uuidVersionClear = 0x0f
+	uuidVariantClear = 0x3f
+	uuidHexStart     = 0
+	uuidHexP1        = 8
+	uuidHexP2        = 12
+	uuidHexP3        = 16
+	uuidHexP4        = 20
+	uuidHexEnd       = 32
+	uuidSep          = "-"
+)
 
-// Server holds the immutable dependencies wired at startup.
-type Server struct {
-	Config        domain.Config
-	Key           *rsa.PrivateKey
-	LoginTemplate *template.Template
-	IndexTemplate *template.Template
+func newUUID() string {
+	uuidBytes := make([]byte, uuidByteLen)
+
+	_, err := rand.Read(uuidBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	uuidBytes[uuidVersionByte] = (uuidBytes[uuidVersionByte] & uuidVersionClear) | uuidVersionMask
+	uuidBytes[uuidVariantByte] = (uuidBytes[uuidVariantByte] & uuidVariantClear) | uuidVariantMask
+	hexStr := hex.EncodeToString(uuidBytes)
+
+	return hexStr[uuidHexStart:uuidHexP1] + uuidSep +
+		hexStr[uuidHexP1:uuidHexP2] + uuidSep +
+		hexStr[uuidHexP2:uuidHexP3] + uuidSep +
+		hexStr[uuidHexP3:uuidHexP4] + uuidSep +
+		hexStr[uuidHexP4:uuidHexEnd]
 }
+
+const contentTypePlain = "text/plain; charset=utf-8"
 
 // Response is the result of a handler — status + body bytes + content type.
 type Response struct {
@@ -69,8 +97,28 @@ func internalError(msg string) Response {
 
 func fromDomainError(domErr *domain.Error) Response {
 	httpStatus := domainErrorToHTTPStatus(domErr.Code)
+	oauthCode := domainErrorToOAuthCode(domErr.Code)
 
-	return oauthError(string(domErr.Code), domErr.Message, httpStatus)
+	return oauthError(oauthCode, domErr.Message, httpStatus)
+}
+
+func domainErrorToOAuthCode(code domain.ErrorCode) string {
+	switch code {
+	case domain.ErrCodeInvalidCredentials,
+		domain.ErrCodeInvalidGrant:
+		return "invalid_grant"
+	case domain.ErrCodeUnsupportedGrantType:
+		return "unsupported_grant_type"
+	case domain.ErrCodeInvalidRequest:
+		return "invalid_request"
+	case domain.ErrCodeTenantNotFound,
+		domain.ErrCodeAppNotFound,
+		domain.ErrCodeUserNotFound,
+		domain.ErrCodeClientNotFound:
+		return "invalid_client"
+	default:
+		return string(code)
+	}
 }
 
 func domainErrorToHTTPStatus(code domain.ErrorCode) int {
@@ -89,12 +137,16 @@ func domainErrorToHTTPStatus(code domain.ErrorCode) int {
 }
 
 func oauthError(code, description string, status int) Response {
-	body := []byte(`{"error":"` + code + `","error_description":"` + description + `"}`)
+	body := []byte(`{"error":"` + code + `",` +
+		`"error_description":"` + description + `",` +
+		`"correlation_id":"` + newUUID() + `",` +
+		`"trace_id":"` + newUUID() + `"}`)
 
 	return Response{Status: status, Body: body, ContentType: "application/json", Headers: nil}
 }
 
-func write(writer http.ResponseWriter, response Response) {
+// Write writes a Response to an http.ResponseWriter.
+func Write(writer http.ResponseWriter, response Response) {
 	if response.ContentType != "" {
 		writer.Header().Set("Content-Type", response.ContentType)
 	}
@@ -105,9 +157,4 @@ func write(writer http.ResponseWriter, response Response) {
 
 	writer.WriteHeader(response.Status)
 	_, _ = writer.Write(response.Body)
-}
-
-// Handler returns the root HTTP handler with all routes registered.
-func (server *Server) Handler() http.Handler {
-	return buildRoutes(server)
 }

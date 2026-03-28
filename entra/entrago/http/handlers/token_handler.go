@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"identity/domain"
 )
 
-func tokenHandler(request *http.Request, server *Server) Response {
+func tokenHandler(request *http.Request, application *app.App) Response {
 	err := request.ParseForm()
 	if err != nil {
 		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, err.Error()))
@@ -22,20 +22,20 @@ func tokenHandler(request *http.Request, server *Server) Response {
 		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, paramErr.Error()))
 	}
 
-	input, domErr := parseTokenRequest(request, server)
+	input, domErr := parseTokenRequest(request, application)
 	if domErr != nil {
 		return fromDomainError(domErr)
 	}
 
-	return encodeTokenResponse(app.IssueToken(server.Key, input))
+	return encodeTokenResponse(app.IssueToken(application.Key, input))
 }
 
-func parseTokenRequest(request *http.Request, server *Server) (domain.TokenInput, *domain.Error) {
+func parseTokenRequest(request *http.Request, application *app.App) (domain.TokenInput, *domain.Error) {
 	grantTypeStr := request.Form.Get("grant_type")
 	tenantIDStr := extractTenantID(request)
 	isV2 := strings.Contains(request.URL.Path, "/v2.0")
 
-	tenant, err := app.FindTenant(server.Config, tenantIDStr)
+	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found")
 	}
@@ -63,9 +63,9 @@ func parseTokenRequest(request *http.Request, server *Server) (domain.TokenInput
 	case domain.GrantClientCredentials:
 		return buildClientCredentialsInput(base, request, tenant)
 	case domain.GrantAuthorizationCode:
-		return buildAuthCodeInput(base, request, tenant, server)
+		return buildAuthCodeInput(base, request, tenant, application)
 	case domain.GrantRefreshToken:
-		return buildRefreshTokenInput(base, request, tenant, server)
+		return buildRefreshTokenInput(base, request, tenant, application)
 	default:
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeUnsupportedGrantType, "unsupported grant_type")
 	}
@@ -128,9 +128,9 @@ func buildClientCredentialsInput(
 }
 
 func buildAuthCodeInput(
-	base domain.TokenInput, request *http.Request, tenant domain.Tenant, server *Server,
+	base domain.TokenInput, request *http.Request, tenant domain.Tenant, application *app.App,
 ) (domain.TokenInput, *domain.Error) {
-	parsed, parseErr := parseAuthCode(server.Key, request.Form.Get("code"))
+	parsed, parseErr := parseAuthCode(application.Key, request.Form.Get("code"))
 	if parseErr != nil {
 		return domain.TokenInput{}, parseErr
 	}
@@ -155,9 +155,9 @@ func buildAuthCodeInput(
 }
 
 func buildRefreshTokenInput(
-	base domain.TokenInput, request *http.Request, tenant domain.Tenant, server *Server,
+	base domain.TokenInput, request *http.Request, tenant domain.Tenant, application *app.App,
 ) (domain.TokenInput, *domain.Error) {
-	parsed, parseErr := parseRefreshToken(server.Key, request.Form.Get("refresh_token"))
+	parsed, parseErr := parseRefreshToken(application.Key, request.Form.Get("refresh_token"))
 	if parseErr != nil {
 		return domain.TokenInput{}, parseErr
 	}

@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"fmt"
@@ -18,24 +18,24 @@ const (
 	headerContentDisposition = "Content-Disposition"
 )
 
-func configHandler(request *http.Request, server *Server) Response {
+func configHandler(request *http.Request, application *app.App) Response {
 	path := request.URL.Path
 
 	switch {
 	case path == "/config/raw":
-		return configRawHandler(request, server)
+		return configRawHandler(request, application)
 	case strings.Contains(path, pathApp) && strings.HasSuffix(path, pathCsharp):
-		return configCsharpAppHandler(request, server)
+		return configCsharpAppHandler(request, application)
 	case strings.Contains(path, pathApp) && strings.HasSuffix(path, pathJS):
-		return configJsAppHandler(request, server)
+		return configJsAppHandler(request, application)
 	case strings.Contains(path, pathClient) && strings.HasSuffix(path, pathCsharp):
-		return configCsharpClientHandler(request, server)
+		return configCsharpClientHandler(request, application)
 	default:
 		return notFound("config endpoint not found")
 	}
 }
 
-func configRawHandler(_ *http.Request, _ *Server) Response {
+func configRawHandler(_ *http.Request, _ *app.App) Response {
 	return Response{
 		Status:      http.StatusMovedPermanently,
 		ContentType: "",
@@ -44,7 +44,7 @@ func configRawHandler(_ *http.Request, _ *Server) Response {
 	}
 }
 
-func configCsharpAppHandler(request *http.Request, server *Server) Response {
+func configCsharpAppHandler(request *http.Request, server *app.App) Response {
 	tenantID, appID, err := parseTenantAndAppID(request.URL.Path, pathApp, pathCsharp)
 	if err != nil {
 		return badRequest(err)
@@ -74,7 +74,7 @@ func configCsharpAppHandler(request *http.Request, server *Server) Response {
 	}
 }
 
-func configJsAppHandler(request *http.Request, server *Server) Response {
+func configJsAppHandler(request *http.Request, server *app.App) Response {
 	tenantID, appID, err := parseTenantAndAppID(request.URL.Path, pathApp, pathJS)
 	if err != nil {
 		return badRequest(err)
@@ -103,7 +103,7 @@ func configJsAppHandler(request *http.Request, server *Server) Response {
 	}
 }
 
-func configCsharpClientHandler(request *http.Request, server *Server) Response {
+func configCsharpClientHandler(request *http.Request, server *app.App) Response {
 	tenantID, clientID, err := parseTenantAndAppID(request.URL.Path, pathClient, pathCsharp)
 	if err != nil {
 		return badRequest(err)

@@ -26,7 +26,7 @@ func TestDiscovery_TenantScoped(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	tenantID := server.Config.Tenants()[firstIndex].TenantID().String()
+	tenantID := server.App.Config.Tenants()[firstIndex].TenantID().String()
 
 	request := httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet,
@@ -44,7 +44,7 @@ func TestDiscovery_V2(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	tenantID := server.Config.Tenants()[firstIndex].TenantID().String()
+	tenantID := server.App.Config.Tenants()[firstIndex].TenantID().String()
 
 	request := httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet,

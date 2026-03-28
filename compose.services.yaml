@@ -11,7 +11,7 @@ services:
       retries: 5
     volumes:
       - ./certs:/certs:ro
-      - ${IDENTITY_CONFIG:-./entra/server/DefaultConfig.yaml}:/app/Config.yaml:ro
+      - ${IDENTITY_CONFIG:-./entra/entrago/DefaultConfig.yaml}:/app/Config.yaml:ro
     networks:
       infra-shared-net:
         ipv4_address: 172.18.0.7

@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ var (
 	errInvalidAppID         = errors.New("invalid app ID: must be a UUID")
 )
 
-func testTokenHandler(request *http.Request, server *Server) Response {
+func testTokenHandler(request *http.Request, application *app.App) Response {
 	parts := strings.Split(strings.Trim(request.URL.Path, "/"), "/")
 	if len(parts) < minTestTokenParts {
 		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, errInvalidTestTokenPath.Error()))
@@ -25,7 +25,7 @@ func testTokenHandler(request *http.Request, server *Server) Response {
 	tenantIDStr := parts[testTokenTenantPart]
 	appIDStr := parts[testTokenAppPart]
 
-	tenant, err := app.FindTenant(server.Config, tenantIDStr)
+	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
 		return fromDomainError(domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found"))
 	}
@@ -52,7 +52,7 @@ func testTokenHandler(request *http.Request, server *Server) Response {
 		CorrelationID: emptyValue,
 	}
 
-	response := app.IssueToken(server.Key, input)
+	response := app.IssueToken(application.Key, input)
 
 	return okText([]byte(response.AccessToken + "\n"))
 }

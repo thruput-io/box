@@ -33,7 +33,7 @@ func TestToken_PasswordGrant(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	form := url.Values{}
 	form.Set(formGrantType, grantTypePassword)
@@ -142,7 +142,7 @@ func TestToken_AuthorizationCode(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	claims := jwt.MapClaims{
 		"sub":          "user1",
@@ -151,7 +151,7 @@ func TestToken_AuthorizationCode(t *testing.T) {
 		"scope":        "openid",
 		"exp":          time.Now().Add(5 * time.Minute).Unix(),
 	}
-	authCode, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.Key)
+	authCode, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
 
 	form := url.Values{}
 	form.Set(formGrantType, "authorization_code")
@@ -169,7 +169,7 @@ func TestToken_RefreshToken(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	claims := jwt.MapClaims{
 		"sub":       "user1",
@@ -177,7 +177,7 @@ func TestToken_RefreshToken(t *testing.T) {
 		"exp":       time.Now().Add(5 * time.Minute).Unix(),
 		"typ":       "Refresh",
 	}
-	refreshToken, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.Key)
+	refreshToken, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
 
 	form := url.Values{}
 	form.Set(formGrantType, "refresh_token")

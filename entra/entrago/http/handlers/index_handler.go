@@ -1,18 +1,20 @@
-package server
+package handlers
 
 import (
 	"bytes"
 	"net/http"
 	"strings"
+
+	"identity/app"
 )
 
-func indexHandler(request *http.Request, server *Server) Response {
+func indexHandler(request *http.Request, application *app.App) Response {
 	if strings.HasPrefix(request.URL.Path, "/test-tokens/") {
-		return testTokenHandler(request, server)
+		return testTokenHandler(request, application)
 	}
 
 	if strings.HasPrefix(request.URL.Path, "/config/") {
-		return configHandler(request, server)
+		return configHandler(request, application)
 	}
 
 	if request.URL.Path != "/" {
@@ -21,7 +23,7 @@ func indexHandler(request *http.Request, server *Server) Response {
 
 	var buf bytes.Buffer
 
-	err := server.IndexTemplate.Execute(&buf, server.Config)
+	err := application.IndexTemplate.Execute(&buf, application.Config)
 	if err != nil {
 		return internalError("failed to render index")
 	}
@@ -29,6 +31,6 @@ func indexHandler(request *http.Request, server *Server) Response {
 	return okHTML(buf.Bytes())
 }
 
-func healthHandler(_ *http.Request, _ *Server) Response {
+func healthHandler(_ *http.Request, _ *app.App) Response {
 	return Response{Status: http.StatusOK, Body: nil, ContentType: "", Headers: nil}
 }

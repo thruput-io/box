@@ -30,7 +30,7 @@ func TestAuthorize_Success(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	request := httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet,
@@ -48,7 +48,7 @@ func TestAuthorize_InvalidRedirect(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	request := httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet,
@@ -100,7 +100,7 @@ func TestLogin_Success(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	form := url.Values{}
 	form.Set(formUsername, testUsername)
@@ -119,7 +119,7 @@ func TestLogin_FragmentMode(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	form := url.Values{}
 	form.Set(formUsername, testUsername)
@@ -143,7 +143,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	form := url.Values{}
 	form.Set(formUsername, testUsername)

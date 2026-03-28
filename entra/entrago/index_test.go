@@ -42,7 +42,7 @@ func TestHealth(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/_health", nil)
 	recorder := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recorder, request)
 

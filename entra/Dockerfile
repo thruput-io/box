@@ -6,10 +6,10 @@ WORKDIR /app
 RUN apk add --no-cache curl bc bash
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.11.4
 
-COPY server/go.mod ./
+COPY entrago/go.mod ./
 RUN go mod download
 
-COPY server/ .
+COPY entrago/ .
 RUN go mod tidy
 
 
@@ -19,7 +19,7 @@ RUN golangci-lint run ./...
 
 RUN chmod +x scripts/coverage.sh && (./scripts/coverage.sh || true)
 
-COPY server/${IDENTITY_CONFIG} ./Config.yaml
+COPY entrago/${IDENTITY_CONFIG} ./Config.yaml
 RUN go build -o bin/server .
 
 FROM alpine:3.21
