@@ -8,7 +8,9 @@ Describe the endpoints that are available and how they will respond
 
 ## Current configuration
 
-### App registration as a header, 
+### App registration as a header
+####
+-   Link to login page for it 
 #### links to get configuration for it in different formats:
 -   C# container apps environment variables (msal host configuration)
 -   JavaScript msal configuration
@@ -18,4 +20,5 @@ Describe the endpoints that are available and how they will respond
 -   Users that has role for it with link to start login to any registered redirect url
 -  clients that have access to it with a link to retrieve 
 -   token for app by default scope and C# environment variables for Client configuration
+
 

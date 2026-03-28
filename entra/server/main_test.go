@@ -110,11 +110,30 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("Index", func(t *testing.T) {
+		prev := indexTemplate
+		t.Cleanup(func() {
+			indexTemplate = prev
+		})
+		indexTemplate = template.Must(template.ParseFiles("index.html"))
+
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
 		if w.Code != http.StatusOK {
 			t.Errorf("index() status = %v, want %v", w.Code, http.StatusOK)
+		}
+		body := w.Body.String()
+		if !strings.Contains(body, "Entra mock") {
+			t.Errorf("index() body missing title")
+		}
+		if !strings.Contains(body, "Test endpoints") {
+			t.Errorf("index() body missing Test endpoints section")
+		}
+		if !strings.Contains(body, "Current configuration") {
+			t.Errorf("index() body missing Current configuration section")
+		}
+		if !strings.Contains(body, "Default Tenant") {
+			t.Errorf("index() body missing tenant name")
 		}
 	})
 
