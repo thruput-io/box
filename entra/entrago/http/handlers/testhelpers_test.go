@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"context"
+	"net/http"
+	"strings"
 	"testing"
 
 	"identity/domain"
@@ -26,4 +29,15 @@ func mustRoleValue(t *testing.T, raw string) domain.RoleValue {
 	}
 
 	return v
+}
+
+func newTestRequest(t *testing.T, method, url, body string) *http.Request {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("newTestRequest: %v", err)
+	}
+
+	return req
 }

@@ -1,17 +1,25 @@
-package domain
+package domain_test
 
 import (
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"identity/domain"
+)
+
+const (
+	filePermission = 0o600
+	schemaJSON     = `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`
 )
 
 func writeTempFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 
 	path := filepath.Join(dir, name)
-	err := os.WriteFile(path, []byte(content), 0o600)
+
+	err := os.WriteFile(path, []byte(content), filePermission)
 	if err != nil {
 		t.Fatalf("WriteFile(%s): %v", path, err)
 	}
@@ -23,12 +31,14 @@ func TestValidateYAML_InvalidForSchema(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`)
+	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
 
-	err := validateYAML([]byte("foo\n"), schemaPath)
+	err := domain.ValidateYAML([]byte("foo\n"), schemaPath)
 	if err == nil {
 		t.Fatalf("expected validation error")
-	} else if !errors.Is(err, ErrInvalidConfig) {
+	}
+
+	if !errors.Is(err, domain.ErrInvalidConfig) {
 		t.Fatalf("expected ErrInvalidConfig, got %v", err)
 	}
 }
@@ -37,8 +47,7 @@ func TestLoadConfig_Success(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`)
-
+	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
 	yamlPath := writeTempFile(t, dir, "config.yaml", `tenants:
   - tenantId: "11111111-1111-4111-8111-111111111111"
     name: "Tenant"
@@ -61,7 +70,7 @@ func TestLoadConfig_Success(t *testing.T) {
     clients: []
 `)
 
-	config, err := LoadConfig(yamlPath, schemaPath)
+	config, err := domain.LoadConfig(yamlPath, schemaPath)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -80,9 +89,9 @@ func TestLoadConfig_ReadError(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`)
+	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
 
-	_, err := LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
+	_, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
 	if err == nil {
 		t.Fatalf("expected read error")
 	}
@@ -91,7 +100,7 @@ func TestLoadConfig_ReadError(t *testing.T) {
 func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 	t.Parallel()
 
-	_, err := buildRedirectURLs([]string{""})
+	_, err := domain.BuildRedirectURLs([]string{""})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -100,7 +109,7 @@ func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 func TestBuildUserGroups_RejectsEmptyGroupName(t *testing.T) {
 	t.Parallel()
 
-	_, err := buildUserGroups("user", []string{""})
+	_, err := domain.BuildUserGroups("user", []string{""})
 	if err == nil {
 		t.Fatalf("expected error")
 	}

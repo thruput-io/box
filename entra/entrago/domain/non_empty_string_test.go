@@ -1,52 +1,60 @@
-package domain
+package domain_test
 
 import (
 	"errors"
 	"testing"
+
+	"identity/domain"
 )
 
-func TestNewNonEmptyString(t *testing.T) {
-	t.Run("empty string returns error", func(t *testing.T) {
-		_, err := NewNonEmptyString("")
-		if err == nil {
-			t.Fatalf("expected error")
-		}
+func TestNewNonEmptyString_EmptyStringReturnsError(t *testing.T) {
+	t.Parallel()
 
-		if !errors.Is(err, errNonEmptyStringEmpty) {
-			t.Fatalf("expected %v, got %v", errNonEmptyStringEmpty, err)
-		}
-	})
+	_, err := domain.NewNonEmptyString("")
+	if err == nil {
+		t.Fatal("expected error")
+	}
 
-	t.Run("non-empty string succeeds", func(t *testing.T) {
-		v, err := NewNonEmptyString("x")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected %v, got %v", domain.ErrNonEmptyStringEmpty, err)
+	}
+}
 
-		if v.String() != "x" {
-			t.Fatalf("expected %q, got %q", "x", v.String())
-		}
-	})
+func TestNewNonEmptyString_NonEmptyStringSucceeds(t *testing.T) {
+	t.Parallel()
+
+	result, err := domain.NewNonEmptyString("x")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.String() != "x" {
+		t.Fatalf("expected %q, got %q", "x", result.String())
+	}
 }
 
 func TestNewTenantName_Empty(t *testing.T) {
-	_, err := NewTenantName("")
+	t.Parallel()
+
+	_, err := domain.NewTenantName("")
 	if err == nil {
-		t.Fatalf("expected error")
+		t.Fatal("expected error")
 	}
 
-	if !errors.Is(err, errTenantNameEmpty) {
-		t.Fatalf("expected %v, got %v", errTenantNameEmpty, err)
+	if !errors.Is(err, domain.ErrTenantNameEmpty) {
+		t.Fatalf("expected %v, got %v", domain.ErrTenantNameEmpty, err)
 	}
 }
 
 func TestNewEmail_Empty(t *testing.T) {
-	_, err := NewEmail("")
+	t.Parallel()
+
+	_, err := domain.NewEmail("")
 	if err == nil {
-		t.Fatalf("expected error")
+		t.Fatal("expected error")
 	}
 
-	if !errors.Is(err, errEmailEmpty) {
-		t.Fatalf("expected %v, got %v", errEmailEmpty, err)
+	if !errors.Is(err, domain.ErrEmailEmpty) {
+		t.Fatalf("expected %v, got %v", domain.ErrEmailEmpty, err)
 	}
 }

@@ -15,7 +15,7 @@ linters:
       max-complexity: 10
     funlen:
       lines: 60
-      statements: 40
+      statements: 30
     maintidx:
       under: 20
     lll:
@@ -36,8 +36,6 @@ linters:
     gosec:
       excludes:
         - G304 # File path is validated/controlled in this dev-only mock server
-        - G112 # HTTP server timeouts are intentionally omitted in this dev-only mock
-        - G706 # Log injection: request fields are developer-controlled in this dev-only mock
         - G101 # Potential hardcoded credentials: false positive on domain error code constants
     staticcheck:
       checks: ["all"]
@@ -45,6 +43,10 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   new: false
+formatters:
+  settings:
+    gofumpt:
+      extra-rules: true
 output:
   formats:
     text:

@@ -35,6 +35,42 @@
             margin: 16px 0;
         }
 
+        .user-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .user-item button {
+            margin-top: 0;
+            white-space: nowrap;
+        }
+
+        .user-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .user-name {
+            font-weight: 600;
+        }
+
+        .user-roles {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
         h1 { margin: 0 0 8px; font-size: 24px; }
         p { margin: 8px 0; color: var(--muted); }
         label { display: block; margin: 10px 0 4px; color: var(--muted); }
@@ -68,6 +104,34 @@
     <p>
         Client: <code>{{ .ClientID }}</code>
     </p>
+
+    <div class="panel">
+        <p>Quick sign-in</p>
+        <div class="user-list">
+            {{- range .Users }}
+            <div class="user-item">
+                <div class="user-meta">
+                    <span class="user-name">{{ .Username }}{{ if .DisplayName }} — {{ .DisplayName }}{{ end }}</span>
+                    {{- if .Roles }}
+                    <span class="user-roles">{{ range $i, $role := .Roles }}{{ if $i }}, {{ end }}{{ $role }}{{ end }}</span>
+                    {{- end }}
+                </div>
+                <form method="post" action="/login">
+                    <input type="hidden" name="client_id" value="{{ $.ClientID }}"/>
+                    <input type="hidden" name="redirect_uri" value="{{ $.RedirectURI }}"/>
+                    <input type="hidden" name="state" value="{{ $.State }}"/>
+                    <input type="hidden" name="scope" value="{{ $.Scope }}"/>
+                    <input type="hidden" name="tenant" value="{{ $.Tenant }}"/>
+                    <input type="hidden" name="nonce" value="{{ $.Nonce }}"/>
+                    <input type="hidden" name="response_mode" value="{{ $.ResponseMode }}"/>
+                    <input type="hidden" name="username" value="{{ .Username }}"/>
+                    <input type="hidden" name="password" value="{{ .Password }}"/>
+                    <button type="submit">Sign in as {{ .Username }}</button>
+                </form>
+            </div>
+            {{- end }}
+        </div>
+    </div>
 
     <div class="panel">
         <form method="post" action="/login">

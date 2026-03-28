@@ -4,7 +4,7 @@ GOPATH := $(shell go env GOPATH)
 GOFUMPT := $(GOPATH)/bin/gofumpt
 GOIMPORTS := $(GOPATH)/bin/goimports
 
-all: fmt lint-fix test build
+all: fmt lint-fix lint test build
 
 fmt:
 	$(GOFUMPT) -l -w .
@@ -27,4 +27,4 @@ build:
 	go build -o bin/server .
 	go build ./...
 
-ci: coverage build
+ci: lint test coverage build

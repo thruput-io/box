@@ -166,3 +166,23 @@ func TestResolveTestUser(t *testing.T) {
 		t.Fatalf("unexpected user")
 	}
 }
+
+func TestResolveTestUser_FallbackToFirstWhenRequestedUserMissing(t *testing.T) {
+	t.Parallel()
+
+	application, tenantID, _, userID := mustAppForTestTokenHandler(t)
+
+	tenant, err := app.FindTenantByID(application.Config, tenantID)
+	if err != nil {
+		t.Fatalf("FindTenantByID: %v", err)
+	}
+
+	user := resolveTestUser(tenant, "11111111-1111-4111-8111-111111111111")
+	if user == nil {
+		t.Fatalf("expected fallback user")
+	}
+
+	if user.ID().String() != userID.String() {
+		t.Fatalf("expected fallback to first user %s, got %s", userID.String(), user.ID().String())
+	}
+}

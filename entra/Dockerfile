@@ -3,12 +3,14 @@ ARG IDENTITY_CONFIG="DefaultConfig.yaml"
 FROM golang:1.26-alpine AS builder
 ARG IDENTITY_CONFIG
 WORKDIR /app
-RUN apk add --no-cache bash make
+RUN apk add --no-cache bash make git
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+ENV PATH="/go/bin:${PATH}"
 
 COPY entrago/go.mod ./
 COPY entrago/ .
 
-RUN make ci
+RUN make test build
 
 COPY entrago/${IDENTITY_CONFIG} ./Config.yaml
 

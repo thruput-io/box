@@ -41,7 +41,12 @@ type runDeps struct {
 }
 
 func defaultLoadConfig(path string) (domain.Config, error) {
-	return domain.LoadConfig(path, schemaPath)
+	config, err := domain.LoadConfig(path, schemaPath)
+	if err != nil {
+		return domain.Config{}, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	return config, nil
 }
 
 func resolveConfigPath(stat func(string) (os.FileInfo, error)) string {
@@ -122,13 +127,11 @@ func run(deps runDeps) error {
 
 func main() {
 	err := run(runDeps{
-		keyBits: rsaKeyBits,
-		stat:    os.Stat,
-		getenv:  os.Getenv,
-		logf:    log.Printf,
-		loadConfig: func(path string) (domain.Config, error) {
-			return defaultLoadConfig(path)
-		},
+		keyBits:    rsaKeyBits,
+		stat:       os.Stat,
+		getenv:     os.Getenv,
+		logf:       log.Printf,
+		loadConfig: defaultLoadConfig,
 		listen: func(server *http.Server) error {
 			return server.ListenAndServe()
 		},

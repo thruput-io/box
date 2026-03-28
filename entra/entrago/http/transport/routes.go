@@ -35,8 +35,12 @@ func buildRoutes(application *app.App) nethttp.Handler {
 	// OAuth2 / OIDC — tenant-scoped
 	mux.HandleFunc("/{tenant}/oauth2/v2.0/authorize", adapt(handlers.Authorize))
 	mux.HandleFunc("/{tenant}/oauth2/authorize", adapt(handlers.Authorize))
+	mux.HandleFunc("/{tenant}/v2.0/oauth2/v2.0/authorize", adapt(handlers.Authorize))
+	mux.HandleFunc("/{tenant}/v2.0/oauth2/authorize", adapt(handlers.Authorize))
 	mux.HandleFunc("/{tenant}/oauth2/v2.0/token", adapt(handlers.Token))
 	mux.HandleFunc("/{tenant}/oauth2/token", adapt(handlers.Token))
+	mux.HandleFunc("/{tenant}/v2.0/oauth2/v2.0/token", adapt(handlers.Token))
+	mux.HandleFunc("/{tenant}/v2.0/oauth2/token", adapt(handlers.Token))
 	mux.HandleFunc("/{tenant}/login", adapt(handlers.Login))
 
 	// OAuth2 / OIDC — common and bare paths

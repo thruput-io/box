@@ -44,6 +44,55 @@ func TestAuthorize_Success(t *testing.T) {
 	}
 }
 
+func TestAuthorize_RendersQuickLoginUsers(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+
+	request := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet,
+		"/authorize?client_id="+clientID+"&redirect_uri="+testRedirectURL, nil,
+	)
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf(statusFmt, recorder.Code)
+	}
+
+	body := recorder.Body.String()
+
+	if !strings.Contains(body, `class="user-item"`) {
+		t.Fatalf("expected authorize page to render quick-login user entries")
+	}
+
+	if !strings.Contains(body, `name="username"`) {
+		t.Fatalf("expected authorize page quick-login controls to submit username")
+	}
+}
+
+func TestAuthorize_TenantV2AuthorityPath(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	tenantID := server.App.Config.Tenants()[firstIndex].TenantID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+
+	request := httptest.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		"/"+tenantID+"/v2.0/oauth2/v2.0/authorize?client_id="+clientID+"&redirect_uri="+testRedirectURL,
+		nil,
+	)
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200 for tenant v2 authority path, got %d", recorder.Code)
+	}
+}
+
 func TestAuthorize_InvalidRedirect(t *testing.T) {
 	t.Parallel()
 

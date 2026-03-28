@@ -1,81 +1,103 @@
-package domain
+package domain_test
 
-import "testing"
+import (
+	"testing"
 
-func TestLoader_BuildScopeRoleClientAndAssignments(t *testing.T) {
+	"identity/domain"
+)
+
+const expectedOneAssignment = 1
+
+func TestBuildScope_Success(t *testing.T) {
 	t.Parallel()
 
-	scope, err := buildScope(rawScope{
+	scope, err := domain.BuildScope(domain.RawScope{
 		ID:          "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
 		Value:       "access",
 		Description: "desc",
 	})
 	if err != nil {
-		t.Fatalf("buildScope: %v", err)
+		t.Fatalf("BuildScope: %v", err)
 	}
 
 	_ = scope.ID()
 	_ = scope.Description()
+}
 
-	role, err := buildRole(rawRole{
+func TestBuildRole_Success(t *testing.T) {
+	t.Parallel()
+
+	role, err := domain.BuildRole(domain.RawRole{
 		ID:          "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
 		Value:       "Admin",
 		Description: "desc",
-		Scopes: []rawScope{{
+		Scopes: []domain.RawScope{{
 			ID:          "cccccccc-cccc-4ccc-accc-cccccccccccc",
 			Value:       "scope",
 			Description: "desc",
 		}},
 	})
 	if err != nil {
-		t.Fatalf("buildRole: %v", err)
+		t.Fatalf("BuildRole: %v", err)
 	}
 
 	_ = role.ID()
 	_ = role.Description()
+}
 
-	client, err := buildClient(rawClient{
+func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
+	t.Parallel()
+
+	client, err := domain.BuildClient(domain.RawClient{
 		Name:         "Client",
 		ClientID:     "22222222-2222-4222-8222-222222222222",
 		ClientSecret: "secret",
 		RedirectURLs: []string{"https://example.com/callback"},
-		GroupRoleAssignments: []rawGroupRoleAssignment{{
+		GroupRoleAssignments: []domain.RawGroupRoleAssignment{{
 			GroupName:     "GroupA",
 			Roles:         []string{"RoleA"},
 			ApplicationID: "22222222-2222-4222-8222-222222222222",
 		}},
 	})
 	if err != nil {
-		t.Fatalf("buildClient: %v", err)
+		t.Fatalf("BuildClient: %v", err)
 	}
 
-	if len(client.GroupRoleAssignments()) != 1 {
-		t.Fatalf("expected 1 assignment")
+	if len(client.GroupRoleAssignments()) != expectedOneAssignment {
+		t.Fatal("expected 1 assignment")
 	}
+}
 
-	assignments, err := buildGroupRoleAssignments([]rawGroupRoleAssignment{{
+func TestBuildGroupRoleAssignments_Success(t *testing.T) {
+	t.Parallel()
+
+	assignments, err := domain.BuildGroupRoleAssignments([]domain.RawGroupRoleAssignment{{
 		GroupName:     "GroupA",
 		Roles:         []string{"RoleA"},
 		ApplicationID: "22222222-2222-4222-8222-222222222222",
 	}})
 	if err != nil {
-		t.Fatalf("buildGroupRoleAssignments: %v", err)
+		t.Fatalf("BuildGroupRoleAssignments: %v", err)
 	}
 
-	if len(assignments) != 1 {
-		t.Fatalf("expected 1 assignment")
+	if len(assignments) != expectedOneAssignment {
+		t.Fatal("expected 1 assignment")
 	}
+}
 
-	assignment, err := buildGroupRoleAssignment(rawGroupRoleAssignment{
+func TestBuildGroupRoleAssignment_Success(t *testing.T) {
+	t.Parallel()
+
+	assignment, err := domain.BuildGroupRoleAssignment(domain.RawGroupRoleAssignment{
 		GroupName:     "GroupA",
 		Roles:         []string{"RoleA"},
 		ApplicationID: "22222222-2222-4222-8222-222222222222",
 	})
 	if err != nil {
-		t.Fatalf("buildGroupRoleAssignment: %v", err)
+		t.Fatalf("BuildGroupRoleAssignment: %v", err)
 	}
 
 	if assignment.GroupName().String() != "GroupA" {
-		t.Fatalf("unexpected group name")
+		t.Fatal("unexpected group name")
 	}
 }
