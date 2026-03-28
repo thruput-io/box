@@ -1,0 +1,301 @@
+package main
+---
+package main
+import (
+        "fmt"
+        "net/http"
+        "strings"
+        "github.com/google/uuid"
+)
+// configRaw serves the raw Config.yaml file.
+func configRaw(w http.ResponseWriter, r *http.Request) {
+        http.ServeFile(w, r, "Config.yaml")
+}
+// configCsharpApp serves C# container apps environment variables for an app registration (MSAL host config).
+// Path: /config/{tenantId}/app/{appId}/csharp.
+func configCsharpApp(w http.ResponseWriter, r *http.Request) {
+        tenantID, appID, ok := parseTenantApp(w, r, "/config/", "/app/", "/csharp")
+        if !ok {
+                return
+        }
+        tenant := findTenantStrict(tenantID, &configData)
+        if tenant == nil {
+                http.Error(w, "tenant not found", http.StatusNotFound)
+                return
+        }
+        var app *AppRegistration
+        for i := range tenant.AppRegistrations {
+                if tenant.AppRegistrations[i].ClientID == appID {
+                        app = &tenant.AppRegistrations[i]
+                        break
+                }
+        }
+        if app == nil {
+                http.Error(w, "app registration not found", http.StatusNotFound)
+                return
+        }
+        host := r.Host
+        var sb strings.Builder
+        fmt.Fprintf(&sb, "AzureAd__Instance=https://%s/\n", host)
+        fmt.Fprintf(&sb, "AzureAd__TenantId=%s\n", tenant.TenantID)
+        fmt.Fprintf(&sb, "AzureAd__ClientId=%s\n", app.ClientID)
+        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+        w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s-appsettings.env\"", app.Name))
+        _, _ = fmt.Fprint(w, sb.String())
+}
+// configJsApp serves JavaScript MSAL configuration for an app registration.
+// Path: /config/{tenantId}/app/{appId}/js.
+func configJsApp(w http.ResponseWriter, r *http.Request) {
+        tenantID, appID, ok := parseTenantApp(w, r, "/config/", "/app/", "/js")
+        if !ok {
+                return
+        }
+        tenant := findTenantStrict(tenantID, &configData)
+        if tenant == nil {
+                http.Error(w, "tenant not found", http.StatusNotFound)
+                return
+        }
+        var app *AppRegistration
+        for i := range tenant.AppRegistrations {
+                if tenant.AppRegistrations[i].ClientID == appID {
+                        app = &tenant.AppRegistrations[i]
+                        break
+                }
+        }
+        if app == nil {
+                http.Error(w, "app registration not found", http.StatusNotFound)
+                return
+        }
+        host := r.Host
+        var sb strings.Builder
+        sb.WriteString("const msalConfig = {\n")
+        sb.WriteString("  auth: {\n")
+        fmt.Fprintf(&sb, "    clientId: \"%s\",\n", app.ClientID)
+        fmt.Fprintf(&sb, "    authority: \"https://%s/%s\",\n", host, tenant.TenantID)
+        fmt.Fprintf(&sb, "    knownAuthorities: [\"%s\"],\n", host)
+        sb.WriteString("  },\n")
+        sb.WriteString("};\n")
+        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+        w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s-msal-config.js\"", app.Name))
+        _, _ = fmt.Fprint(w, sb.String())
+}
+// configCsharpClient serves C# environment variables for a client (client credentials config).
+// Path: /config/{tenantId}/client/{clientId}/csharp.
+func configCsharpClient(w http.ResponseWriter, r *http.Request) {
+        tenantID, clientID, ok := parseTenantApp(w, r, "/config/", "/client/", "/csharp")
+        if !ok {
+                return
+        }
+        tenant := findTenantStrict(tenantID, &configData)
+        if tenant == nil {
+                http.Error(w, "tenant not found", http.StatusNotFound)
+                return
+        }
+        var client *Client
+        for i := range tenant.Clients {
+                if tenant.Clients[i].ClientID == clientID {
+                        client = &tenant.Clients[i]
+                        break
+                }
+        }
+        if client == nil {
+                http.Error(w, "client not found", http.StatusNotFound)
+                return
+        }
+        host := r.Host
+        var sb strings.Builder
+        fmt.Fprintf(&sb, "AzureAd__Instance=https://%s/\n", host)
+        fmt.Fprintf(&sb, "AzureAd__TenantId=%s\n", tenant.TenantID)
+        fmt.Fprintf(&sb, "AzureAd__ClientId=%s\n", client.ClientID)
+        if client.ClientSecret != "" {
+                fmt.Fprintf(&sb, "AzureAd__ClientSecret=%s\n", client.ClientSecret)
+        }
+        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+        w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s-client.env\"", client.Name))
+        _, _ = fmt.Fprint(w, sb.String())
+}
+// parseTenantApp extracts two UUIDs from a path of the form:
+// {prefix}{tenantId}{mid}{secondId}{suffix}.
+func parseTenantApp(w http.ResponseWriter, r *http.Request, prefix, mid, suffix string) (uuid.UUID, uuid.UUID, bool) {
+        path := strings.TrimPrefix(r.URL.Path, prefix)
+        midIdx := strings.Index(path, mid)
+        if midIdx < 0 {
+                http.Error(w, "invalid path", http.StatusBadRequest)
+                return uuid.UUID{}, uuid.UUID{}, false
+        }
+        tenantStr := path[:midIdx]
+        rest := strings.TrimSuffix(strings.TrimPrefix(path[midIdx:], mid), suffix)
+        tid, err := uuid.Parse(tenantStr)
+        if err != nil {
+                http.Error(w, "invalid tenantId", http.StatusBadRequest)
+                return uuid.UUID{}, uuid.UUID{}, false
+        }
+        sid, err := uuid.Parse(rest)
+        if err != nil {
+                http.Error(w, "invalid id", http.StatusBadRequest)
+                return uuid.UUID{}, uuid.UUID{}, false
+        }
+        return tid, sid, true
+}
+---
+package main
+import (
+        "encoding/json"
+        "net/http"
+        "strings"
+        "time"
+        "github.com/golang-jwt/jwt/v5"
+        "github.com/google/uuid"
+)
+// testToken issues a signed JWT with default claims merged with any query parameters.
+// Dispatched from the index handler to avoid wildcard conflicts in the mux.
+// Path: /test-tokens/{tenantId}/{appId}/{clientId}.
+func testToken(w http.ResponseWriter, r *http.Request) {
+        trimmed := strings.TrimPrefix(r.URL.Path, "/test-tokens/")
+        parts := strings.SplitN(trimmed, "/", 3)
+        if len(parts) != 3 {
+                http.Error(w, "usage: /test-tokens/{tenantId}/{appId}/{clientId}", http.StatusBadRequest)
+                return
+        }
+        tenantID, appID, clientID := parts[0], parts[1], parts[2]
+        tid, err := uuid.Parse(tenantID)
+        if err != nil {
+                http.Error(w, "invalid tenantId", http.StatusBadRequest)
+                return
+        }
+        aid, err := uuid.Parse(appID)
+        if err != nil {
+                http.Error(w, "invalid appId", http.StatusBadRequest)
+                return
+        }
+        cid, err := uuid.Parse(clientID)
+        if err != nil {
+                http.Error(w, "invalid clientId", http.StatusBadRequest)
+                return
+        }
+        tenant := findTenantStrict(tid, &configData)
+        if tenant == nil {
+                http.Error(w, "tenant not found", http.StatusNotFound)
+                return
+        }
+        claims := jwt.MapClaims{
+                "iss": tid.String(),
+                "aud": aid.String(),
+                "sub": cid.String(),
+                "iat": time.Now().Unix(),
+                "exp": time.Now().Add(time.Hour).Unix(),
+                "tid": tid.String(),
+                "oid": cid.String(),
+        }
+        for key, values := range r.URL.Query() {
+                if len(values) == 1 {
+                        claims[key] = values[0]
+                } else {
+                        claims[key] = values
+                }
+        }
+        tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+        signed, err := tok.SignedString(privateKey)
+        if err != nil {
+                http.Error(w, "failed to sign token", http.StatusInternalServerError)
+                return
+        }
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(map[string]string{"access_token": signed}); err != nil {
+                http.Error(w, "failed to encode response", http.StatusInternalServerError)
+        }
+}
+---
+package main
+import (
+        "encoding/json"
+        "fmt"
+        "log"
+        "net/http"
+        "slices"
+        "time"
+        "github.com/google/uuid"
+)
+func validateRedirectURI(redirectURI string, allowedURIs []string) bool {
+        if redirectURI == "" {
+                log.Printf("Redirect URI is empty")
+                return false
+        }
+        if len(allowedURIs) == 0 {
+                return true
+        }
+        if slices.Contains(allowedURIs, redirectURI) {
+                return true
+        }
+        log.Printf("Redirect URI %q not in allowed list: %v", redirectURI, allowedURIs)
+        return false
+}
+func getBaseURL(r *http.Request) string {
+        scheme := "http"
+        if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+                scheme = "https"
+        }
+        return fmt.Sprintf("%s://%s", scheme, r.Host)
+}
+func sendOAuthError(w http.ResponseWriter, r *http.Request, errCode string, desc string, status int) {
+        correlationID := r.Header.Get("Client-Request-Id")
+        if correlationID == "" {
+                correlationID = uuid.New().String()
+        }
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Client-Request-Id", correlationID)
+        w.Header().Set("X-Ms-Request-Id", correlationID)
+        w.WriteHeader(status)
+        err := json.NewEncoder(w).Encode(OAuthError{
+                Error:            errCode,
+                ErrorDescription: desc,
+                TraceID:          uuid.New().String(),
+                CorrelationID:    correlationID,
+                Timestamp:        time.Now().Format("2006-01-02 15:04:05Z"),
+        })
+        if err != nil {
+                log.Printf("Error encoding OAuth error: %v", err)
+        }
+}
+---
+package main
+import (
+        "log"
+        "net/http"
+        "os"
+        "strings"
+        "time"
+)
+func logger(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                start := time.Now()
+                next.ServeHTTP(w, r)
+                if r.URL.Path == "/_health" {
+                        if strings.EqualFold(os.Getenv("LOG_LEVEL"), "debug") {
+                                log.Printf("[DEBUG] %s %q %s", r.Method, r.URL.Path, time.Since(start))
+                        }
+                        return
+                }
+                log.Printf("%s %q %s", r.Method, r.URL.Path, time.Since(start))
+        })
+}
+func maxBytesMiddleware(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                // Limit request body to 1MB to prevent DoS
+                r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
+                next.ServeHTTP(w, r)
+        })
+}
+func corsMiddleware(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                w.Header().Set("Access-Control-Allow-Origin", "*")
+                w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-client-ver, x-client-sku, x-client-os, x-client-cpu, x-client-os-ver, x-ms-client-request-id, client-request-id")
+                w.Header().Set("Access-Control-Expose-Headers", "x-ms-request-id, client-request-id")
+                if r.Method == http.MethodOptions {
+                        w.WriteHeader(http.StatusNoContent)
+                        return
+                }
+                next.ServeHTTP(w, r)
+        })
+}

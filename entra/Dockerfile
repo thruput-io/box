@@ -9,9 +9,6 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
 COPY server/go.mod ./
 RUN go mod download
 
-# Keep HTML templates explicit so they are guaranteed to be present in the builder image.
-COPY server/login.html ./login.html
-COPY server/index.html ./index.html
 COPY server/ .
 RUN go mod tidy
 
@@ -30,7 +27,5 @@ WORKDIR /app
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/Config.yaml /app/Config.yaml
 COPY --from=builder /app/Config.schema.json /app/Config.schema.json
-COPY server/login.html /app/login.html
-COPY server/index.html /app/index.html
 EXPOSE 8080
 CMD ["/app/server"]

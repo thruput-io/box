@@ -33,9 +33,9 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := DiscoveryResponse{
-		TokenEndpoint:                     fmt.Sprintf("%s/oauth2/token", tenantURL),
+		TokenEndpoint:                     tenantURL + "/oauth2/token",
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_post", "private_key_jwt", "client_secret_basic", "self_signed_tls_client_auth"},
-		JwksURI:                           fmt.Sprintf("%s/discovery/keys", tenantURL),
+		JwksURI:                           tenantURL + "/discovery/keys",
 		ResponseModesSupported:            []string{"query", "fragment", "form_post"},
 		SubjectTypesSupported:             []string{"pairwise"},
 		IDTokenSigningAlgValuesSupported:  []string{"RS256"},
@@ -44,18 +44,18 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 		Issuer:                            issuer,
 		RequestURIParameterSupported:      false,
 		UserinfoEndpoint:                  "https://graph.microsoft.com/oidc/userinfo",
-		AuthorizationEndpoint:             fmt.Sprintf("%s/oauth2/authorize", tenantURL),
-		DeviceAuthorizationEndpoint:       fmt.Sprintf("%s/oauth2/devicecode", tenantURL),
+		AuthorizationEndpoint:             tenantURL + "/oauth2/authorize",
+		DeviceAuthorizationEndpoint:       tenantURL + "/oauth2/devicecode",
 		HTTPLogoutSupported:               true,
 		FrontchannelLogoutSupported:       true,
-		EndSessionEndpoint:                fmt.Sprintf("%s/oauth2/logout", tenantURL),
+		EndSessionEndpoint:                tenantURL + "/oauth2/logout",
 		ClaimsSupported: []string{
 			"sub", "iss", "cloud_instance_name", "cloud_instance_host_name",
 			"cloud_graph_host_name", "msgraph_host", "aud", "exp", "iat",
 			"auth_time", "acr", "nonce", "preferred_username", "name", "tid",
 			"ver", "at_hash", "c_hash", "email",
 		},
-		KerberosEndpoint:                      fmt.Sprintf("%s/kerberos", tenantURL),
+		KerberosEndpoint:                      tenantURL + "/kerberos",
 		TLSClientCertificateBoundAccessTokens: true,
 		TenantRegionScope:                     "NA",
 		CloudInstanceName:                     "microsoftonline.com",
@@ -66,7 +66,9 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 	resp.MtlsEndpointAliases.TokenEndpoint = fmt.Sprintf("https://mtlsauth.microsoft.com/%s/oauth2/token", tenant)
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+
+	err := json.NewEncoder(w).Encode(resp)
+	if err != nil {
 		log.Printf("Error encoding discovery response: %v", err)
 	}
 }
@@ -88,7 +90,9 @@ func callHome(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+
+	err := json.NewEncoder(w).Encode(resp)
+	if err != nil {
 		log.Printf("Error encoding callHome response: %v", err)
 	}
 }
@@ -97,8 +101,8 @@ func jwks(w http.ResponseWriter, _ *http.Request) {
 	n := privateKey.N.Bytes()
 	e := big.NewInt(int64(privateKey.E)).Bytes()
 
-	keys := map[string]interface{}{
-		"keys": []map[string]interface{}{
+	keys := map[string]any{
+		"keys": []map[string]any{
 			{
 				"kty": "RSA",
 				"use": "sig",
@@ -109,8 +113,11 @@ func jwks(w http.ResponseWriter, _ *http.Request) {
 			},
 		},
 	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(keys); err != nil {
+
+	err := json.NewEncoder(w).Encode(keys)
+	if err != nil {
 		log.Printf("Error encoding JWKS response: %v", err)
 	}
 }

@@ -16,27 +16,32 @@ func loadConfig() Config {
 	data, err := os.ReadFile("Config.yaml")
 	if err != nil {
 		log.Printf("Warning: failed to read Config.yaml, using defaults: %v", err)
+
 		return Config{}
 	}
 
 	// Validate against JSON schema to catch configuration errors early
 	if err := validateConfig(data); err != nil {
 		log.Printf("CRITICAL: Config.yaml validation failed:\n%v", err)
+
 		return Config{}
 	}
 
 	var config Config
+
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		log.Printf("CRITICAL: failed to parse Config.yaml: %v", err)
+
 		return Config{}
 	}
+
 	return config
 }
 
 func validateConfig(yamlData []byte) error {
 	// 1. Unmarshal YAML into a generic structure
-	var raw interface{}
+	var raw any
 	if err := yaml.Unmarshal(yamlData, &raw); err != nil {
 		return fmt.Errorf("failed to parse YAML: %w", err)
 	}
@@ -61,6 +66,7 @@ func validateConfig(yamlData []byte) error {
 		for _, desc := range result.Errors() {
 			errMsgs = append(errMsgs, desc.String())
 		}
+
 		return fmt.Errorf("%s", strings.Join(errMsgs, "\n"))
 	}
 
@@ -71,15 +77,29 @@ func findTenant(tenantID string, config *Config) *Tenant {
 	if len(config.Tenants) == 0 {
 		return &Tenant{TenantID: uuid.MustParse("b5a920d6-7d3c-44fe-baad-4ffed6b8774d")}
 	}
+
 	if tenantID == "" || tenantID == "common" {
 		return &config.Tenants[0]
 	}
+
 	for i := range config.Tenants {
 		if config.Tenants[i].TenantID.String() == tenantID {
 			return &config.Tenants[i]
 		}
 	}
+
 	return &config.Tenants[0]
+}
+
+// findTenantStrict returns nil when the tenantID does not match any configured tenant.
+func findTenantStrict(tenantID uuid.UUID, config *Config) *Tenant {
+	for i := range config.Tenants {
+		if config.Tenants[i].TenantID == tenantID {
+			return &config.Tenants[i]
+		}
+	}
+
+	return nil
 }
 
 func resolveAudience(tenant *Tenant, scope string) (string, map[string]bool) {
@@ -90,11 +110,12 @@ func resolveAudience(tenant *Tenant, scope string) (string, map[string]bool) {
 		return targetAudience, targetAppIDs
 	}
 
-	requestedScopes := strings.Split(scope, " ")
-	for _, s := range requestedScopes {
+	requestedScopes := strings.SplitSeq(scope, " ")
+	for s := range requestedScopes {
 		if s == "openid" || s == "profile" || s == "offline_access" || s == "email" {
 			continue
 		}
+
 		for _, reg := range tenant.AppRegistrations {
 			// Exact match or .default suffix
 			if reg.ClientID.String() == s || reg.IdentifierURI == s || strings.HasPrefix(s, reg.IdentifierURI+"/") || s == reg.IdentifierURI+"/.default" {
@@ -112,12 +133,14 @@ func resolveAudience(tenant *Tenant, scope string) (string, map[string]bool) {
 			}
 		}
 	}
+
 	return targetAudience, targetAppIDs
 }
 
 func resolveRoles(tenant *Tenant, client *Client, user *User, targetAppIDs map[string]bool, requestedScopes []string) []string {
 	resolvedRoles := make(map[string]bool)
 	userGroups := make(map[string]bool)
+
 	if user != nil {
 		for _, g := range user.Groups {
 			userGroups[g] = true
@@ -137,6 +160,7 @@ func resolveRoles(tenant *Tenant, client *Client, user *User, targetAppIDs map[s
 				if gra.ApplicationID != uuid.Nil && !targetAppIDs[gra.ApplicationID.String()] {
 					continue
 				}
+
 				for _, roleVal := range gra.Roles {
 					resolvedRoles[roleVal] = true
 				}
@@ -149,11 +173,13 @@ func resolveRoles(tenant *Tenant, client *Client, user *User, targetAppIDs map[s
 		if !targetAppIDs[reg.ClientID.String()] {
 			continue
 		}
+
 		for _, role := range reg.AppRoles {
 			for _, s := range requestedScopes {
 				if s == "openid" || s == "profile" || s == "offline_access" || s == "email" {
 					continue
 				}
+
 				for _, rs := range role.Scopes {
 					if rs.Value == s || strings.HasSuffix(s, "/"+rs.Value) {
 						resolvedRoles[role.Value] = true
@@ -167,6 +193,7 @@ func resolveRoles(tenant *Tenant, client *Client, user *User, targetAppIDs map[s
 	for r := range resolvedRoles {
 		roles = append(roles, r)
 	}
+
 	return roles
 }
 

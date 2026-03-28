@@ -42,5 +42,11 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/common/oauth2/v2.0/authorize", authorize)
 	mux.HandleFunc("/login", login)
 
+	// Config snippets
+	mux.HandleFunc("/config/raw", configRaw)
+	mux.HandleFunc("/config/{tenantId}/app/{appId}/csharp", configCsharpApp)
+	mux.HandleFunc("/config/{tenantId}/app/{appId}/js", configJsApp)
+	mux.HandleFunc("/config/{tenantId}/client/{clientId}/csharp", configCsharpClient)
+
 	return mux
 }

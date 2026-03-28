@@ -11,13 +11,17 @@ import (
 func logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
 		next.ServeHTTP(w, r)
+
 		if r.URL.Path == "/_health" {
 			if strings.EqualFold(os.Getenv("LOG_LEVEL"), "debug") {
 				log.Printf("[DEBUG] %s %q %s", r.Method, r.URL.Path, time.Since(start))
 			}
+
 			return
 		}
+
 		log.Printf("%s %q %s", r.Method, r.URL.Path, time.Since(start))
 	})
 }
@@ -39,6 +43,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
+
 			return
 		}
 

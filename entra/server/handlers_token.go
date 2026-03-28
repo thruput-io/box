@@ -18,6 +18,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1024*1024)
 	if err := r.ParseForm(); err != nil {
 		sendOAuthError(w, r, "invalid_request", err.Error(), http.StatusBadRequest)
+
 		return
 	}
 
@@ -26,6 +27,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 		for _, v := range values {
 			if len(v) > 2048 {
 				sendOAuthError(w, r, "invalid_request", fmt.Sprintf("field %s is too long", key), http.StatusBadRequest)
+
 				return
 			}
 		}
@@ -39,6 +41,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 
 	// Determine tenant and version
 	isV2 := strings.Contains(r.URL.Path, "/v2.0")
+
 	tenantID := r.PathValue("tenant")
 	if tenantID == "" {
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
@@ -46,12 +49,14 @@ func token(w http.ResponseWriter, r *http.Request) {
 			tenantID = parts[0]
 		}
 	}
+
 	activeTenant := findTenant(tenantID, &configData)
 	activeTenantID := activeTenant.TenantID.String()
 
 	baseURL := getBaseURL(r)
 	issuer := fmt.Sprintf("%s/%s/v2.0", baseURL, activeTenantID)
 	version := "2.0"
+
 	if !isV2 {
 		issuer = fmt.Sprintf("%s/%s", baseURL, activeTenantID)
 		version = "1.0"
@@ -59,19 +64,25 @@ func token(w http.ResponseWriter, r *http.Request) {
 
 	// Default values
 	sub := clientID.String()
+
 	var roles []string
+
 	name := "Mock User"
 	email := "user@example.com"
 	nonce := ""
 
-	var activeUser *User
-	var activeClient *Client
+	var (
+		activeUser   *User
+		activeClient *Client
+	)
 
 	// Find Client
+
 	if clientID != uuid.Nil {
 		for i := range activeTenant.Clients {
 			if activeTenant.Clients[i].ClientID == clientID {
 				activeClient = &activeTenant.Clients[i]
+
 				break
 			}
 		}
@@ -80,64 +91,82 @@ func token(w http.ResponseWriter, r *http.Request) {
 	switch grantType {
 	default:
 		sendOAuthError(w, r, "invalid_request", "unsupported grant_type", http.StatusBadRequest)
+
 		return
 	case "password":
 		if username == "" {
 			sendOAuthError(w, r, "invalid_request", "missing username", http.StatusBadRequest)
+
 			return
 		}
+
 		for _, u := range activeTenant.Users {
 			if u.Username == username && subtle.ConstantTimeCompare([]byte(u.Password), []byte(r.Form.Get("password"))) == 1 {
 				activeUser = &u
+
 				break
 			}
 		}
+
 		if activeUser == nil {
 			sendOAuthError(w, r, "invalid_grant", "Invalid username or password", http.StatusUnauthorized)
+
 			return
 		}
 		// Verify secret if provided (for confidential clients)
 		if activeClient != nil && activeClient.ClientSecret != "" && clientSecret != "" && subtle.ConstantTimeCompare([]byte(activeClient.ClientSecret), []byte(clientSecret)) != 1 {
 			sendOAuthError(w, r, "invalid_client", "Invalid client secret", http.StatusUnauthorized)
+
 			return
 		}
 	case "client_credentials":
 		if activeClient == nil {
 			sendOAuthError(w, r, "invalid_client", "Client not found", http.StatusUnauthorized)
+
 			return
 		}
 		// Verify secret. Public clients (no secret) cannot use client_credentials
 		if activeClient.ClientSecret == "" || subtle.ConstantTimeCompare([]byte(clientSecret), []byte(activeClient.ClientSecret)) != 1 {
 			sendOAuthError(w, r, "invalid_client", "Invalid client secret", http.StatusUnauthorized)
+
 			return
 		}
 	case "authorization_code":
 		code := r.Form.Get("code")
-		t, err := jwt.Parse(code, func(_ *jwt.Token) (interface{}, error) {
+
+		t, err := jwt.Parse(code, func(_ *jwt.Token) (any, error) {
 			return privateKey.Public(), nil
 		})
 		if err != nil || !t.Valid {
 			sendOAuthError(w, r, "invalid_grant", "Invalid or expired authorization code", http.StatusUnauthorized)
+
 			return
 		}
+
 		claims, ok := t.Claims.(jwt.MapClaims)
 		if !ok {
 			sendOAuthError(w, r, "invalid_grant", "Invalid claims in authorization code", http.StatusUnauthorized)
+
 			return
 		}
+
 		if r.Form.Get("redirect_uri") != "" && r.Form.Get("redirect_uri") != claims["redirect_uri"].(string) {
 			sendOAuthError(w, r, "invalid_grant", "redirect_uri mismatch", http.StatusUnauthorized)
+
 			return
 		}
+
 		sub = claims["sub"].(string)
 		if clientID == uuid.Nil {
 			clientID, _ = uuid.Parse(claims["client_id"].(string))
 		}
+
 		if scope == "" {
 			if s, ok := claims["scope"].(string); ok {
 				scope = s
 			}
 		}
+
 		if n, ok := claims["nonce"].(string); ok {
 			nonce = n
 		}
@@ -145,27 +174,34 @@ func token(w http.ResponseWriter, r *http.Request) {
 		for i := range activeTenant.Users {
 			if activeTenant.Users[i].ID.String() == sub {
 				activeUser = &activeTenant.Users[i]
+
 				break
 			}
 		}
 	case "refresh_token":
 		refreshToken := r.Form.Get("refresh_token")
-		t, err := jwt.Parse(refreshToken, func(_ *jwt.Token) (interface{}, error) {
+
+		t, err := jwt.Parse(refreshToken, func(_ *jwt.Token) (any, error) {
 			return privateKey.Public(), nil
 		})
 		if err != nil || !t.Valid {
 			sendOAuthError(w, r, "invalid_grant", "Invalid or expired refresh token", http.StatusUnauthorized)
+
 			return
 		}
+
 		claims, ok := t.Claims.(jwt.MapClaims)
 		if !ok || claims["typ"] != "Refresh" {
 			sendOAuthError(w, r, "invalid_grant", "Invalid refresh token", http.StatusUnauthorized)
+
 			return
 		}
+
 		sub = claims["sub"].(string)
 		if clientID == uuid.Nil {
 			clientID, _ = uuid.Parse(claims["client_id"].(string))
 		}
+
 		if scope == "" {
 			if s, ok := claims["scope"].(string); ok {
 				scope = s
@@ -175,6 +211,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 		for i := range activeTenant.Users {
 			if activeTenant.Users[i].ID.String() == sub {
 				activeUser = &activeTenant.Users[i]
+
 				break
 			}
 		}
@@ -183,6 +220,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 			for i := range activeTenant.Clients {
 				if activeTenant.Clients[i].ClientID.String() == sub {
 					activeClient = &activeTenant.Clients[i]
+
 					break
 				}
 			}
@@ -241,13 +279,15 @@ func token(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "1"
+
 	tokenString, err := token.SignedString(privateKey)
 	if err != nil {
 		sendOAuthError(w, r, "server_error", "failed to sign token", http.StatusInternalServerError)
+
 		return
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"access_token": tokenString,
 		"token_type":   "Bearer",
 		"expires_in":   3600,
@@ -258,10 +298,12 @@ func token(w http.ResponseWriter, r *http.Request) {
 	requestedScopesList := strings.Split(scope, " ")
 	hasOpenID := false
 	hasOfflineAccess := false
+
 	for _, s := range requestedScopesList {
 		if s == "openid" {
 			hasOpenID = true
 		}
+
 		if s == "offline_access" {
 			hasOfflineAccess = true
 		}
@@ -285,6 +327,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 		if nonce != "" {
 			idClaims["nonce"] = nonce
 		}
+
 		idToken := jwt.NewWithClaims(jwt.SigningMethodRS256, idClaims)
 		idToken.Header["kid"] = "1"
 		idTokenString, _ := idToken.SignedString(privateKey)
@@ -310,19 +353,21 @@ func token(w http.ResponseWriter, r *http.Request) {
 		response["refresh_token"] = refreshTokenString
 	}
 
-	correlationID := r.Header.Get("client-request-id")
+	correlationID := r.Header.Get("Client-Request-Id")
 	if correlationID == "" {
 		correlationID = uuid.New().String()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("client-request-id", correlationID)
-	w.Header().Set("x-ms-request-id", correlationID)
+	w.Header().Set("Client-Request-Id", correlationID)
+	w.Header().Set("X-Ms-Request-Id", correlationID)
+
 	if activeUser != nil {
 		clientInfo := map[string]string{
 			"uid":  activeUser.ID.String(),
 			"utid": activeTenantID,
 		}
+
 		clientInfoJSON, err := json.Marshal(clientInfo)
 		if err != nil {
 			log.Printf("Error marshaling client_info: %v", err)
@@ -330,11 +375,14 @@ func token(w http.ResponseWriter, r *http.Request) {
 			response["client_info"] = base64UrlEncode(clientInfoJSON)
 		}
 	}
+
 	jsonResp, err := json.Marshal(response)
 	if err != nil {
 		sendOAuthError(w, r, "server_error", "failed to encode token response", http.StatusInternalServerError)
+
 		return
 	}
+
 	if _, err := w.Write(jsonResp); err != nil {
 		log.Printf("Error writing token response: %v", err)
 	}

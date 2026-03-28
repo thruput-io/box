@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=Config.schema.json
 tenants:
-  - tenant_id: "10000000-0000-4000-a000-000000000000"
+  - tenantId: "10000000-0000-4000-a000-000000000000"
     name: "Default Tenant"
-    
+
     # APIs and Resources (App Registrations that expose permissions)
-    app_registrations:
+    appRegistrations:
       - name: "MyAppBackend"
-        client_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
-        identifier_uri: "api://aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
-        app_roles:
+        clientId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        identifierUri: "api://aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        appRoles:
           - id: "a1111111-1111-4111-a111-111111111111"
             value: "read"
             description: "Read access for MyApp"
@@ -39,9 +39,9 @@ tenants:
                 description: "Admin access for MyApp"
 
       - name: "CustomerService"
-        client_id: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
-        identifier_uri: "api://bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
-        app_roles:
+        clientId: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
+        identifierUri: "api://bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
+        appRoles:
           - id: "b1111111-1111-4111-a111-111111111111"
             value: "read"
             description: "Read access for Customer"
@@ -65,9 +65,9 @@ tenants:
                 description: "Admin access for Customer"
 
       - name: "HealerService"
-        client_id: "cccccccc-cccc-4ccc-accc-cccccccccccc"
-        identifier_uri: "api://cccccccc-cccc-4ccc-accc-cccccccccccc"
-        app_roles:
+        clientId: "cccccccc-cccc-4ccc-accc-cccccccccccc"
+        identifierUri: "api://cccccccc-cccc-4ccc-accc-cccccccccccc"
+        appRoles:
           - id: "c1111111-1111-4111-a111-111111111111"
             value: "read"
             description: "Read access for Healer"
@@ -91,9 +91,9 @@ tenants:
                 description: "Admin access for Healer"
 
       - name: "LadderService"
-        client_id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
-        identifier_uri: "api://eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
-        app_roles:
+        clientId: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
+        identifierUri: "api://eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
+        appRoles:
           - id: "e1111111-1111-4111-a111-111111111111"
             value: "read"
             description: "Read access for Lead"
@@ -117,9 +117,9 @@ tenants:
                 description: "Admin access for Lead"
 
       - name: "FuzzService"
-        client_id: "ffffffff-ffff-4fff-afff-ffffffffffff"
-        identifier_uri: "api://ffffffff-ffff-4fff-afff-ffffffffffff"
-        app_roles:
+        clientId: "ffffffff-ffff-4fff-afff-ffffffffffff"
+        identifierUri: "api://ffffffff-ffff-4fff-afff-ffffffffffff"
+        appRoles:
           - id: "f1111111-1111-4111-a111-111111111111"
             value: "read"
             description: "Read access for Fuzz"
@@ -129,9 +129,9 @@ tenants:
                 description: "Read access for Fuzz"
 
       - name: "MicrosoftGraph"
-        client_id: "00000003-0000-0000-c000-000000000000"
-        identifier_uri: "https://graph.microsoft.com"
-        app_roles:
+        clientId: "00000003-0000-0000-c000-000000000000"
+        identifierUri: "https://graph.microsoft.com"
+        appRoles:
           - id: "df021288-bdef-4463-88db-98f2bb28e2f6"
             value: "User.Read"
             description: "Read user's profile"
@@ -162,81 +162,80 @@ tenants:
       - id: "6320573e-360a-426c-829d-649a5b3260c8"
         username: "healer"
         password: "healerPassword_123"
-        display_name: "Dean Healer"
+        displayName: "Dean Healer"
         email: "healer@logistics.com"
         groups: ["healers"]
       - id: "d9836371-2911-4475-809f-688947b1e4a5"
         username: "diego"
         password: "diegoPassword_123"
-        display_name: "Diego Admin"
+        displayName: "Diego Admin"
         email: "user@abroad.com"
         groups: ["admins"]
       - id: "b1b1b1b1-b1b1-41b1-ab1b-b1b1b1b1b1b1"
         username: "anyuser"
         password: "anyPassword123"
-        display_name: "Amy Anyone"
+        displayName: "Amy Anyone"
         email: "amy@internatinoal.com"
         groups: []
       - id: "9ead9ead-9ead-4ead-aead-9ead9ead9ead"
         username: "callcenter"
         password: "password123"
-        display_name: "Call Center"
+        displayName: "Call Center"
         email: "call.center@dial.com"
         groups: ["call-center"]
-
 
     # Consumer Applications (Clients that users login to)
     clients:
       - name: "MyAppFrontend"
-        client_id: "e697b97c-9b4b-487f-9f7a-248386f78864"
-        redirect_urls: ["https://msal-client.web.internal/"]
+        clientId: "e697b97c-9b4b-487f-9f7a-248386f78864"
+        redirectUrls: ["https://msal-client.web.internal/"]
 
         # Per-Client Role Assignments:
         # Determines which roles a user is granted specifically when using THIS client.
         # This emulates Entra ID "Enterprise App" user/group assignments.
-        group_role_assignments:
-          - group_name: "healers"
-            application_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        groupRoleAssignments:
+          - groupName: "healers"
+            applicationId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
             roles: ["read", "write"]
-          - group_name: "admins"
-            application_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+          - groupName: "admins"
+            applicationId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
             roles: ["admin"]
-          - group_name: "call-center"
-            application_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+          - groupName: "call-center"
+            applicationId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
             roles: ["call-center"]
-          - group_name: "healers"
-            application_id: "00000003-0000-0000-c000-000000000000"
+          - groupName: "healers"
+            applicationId: "00000003-0000-0000-c000-000000000000"
             roles: ["User.Read"]
-          - group_name: "admins"
-            application_id: "00000003-0000-0000-c000-000000000000"
+          - groupName: "admins"
+            applicationId: "00000003-0000-0000-c000-000000000000"
             roles: ["User.Read"]
-          - group_name: "call-center"
-            application_id: "00000003-0000-0000-c000-000000000000"
+          - groupName: "call-center"
+            applicationId: "00000003-0000-0000-c000-000000000000"
             roles: ["User.Read"]
-          - group_name: "lead-readers"
-            application_id: "00000003-0000-0000-c000-000000000000"
+          - groupName: "lead-readers"
+            applicationId: "00000003-0000-0000-c000-000000000000"
             roles: ["User.Read"]
-          - group_name: "lead-writers"
-            application_id: "00000003-0000-0000-c000-000000000000"
+          - groupName: "lead-writers"
+            applicationId: "00000003-0000-0000-c000-000000000000"
             roles: ["User.Read"]
 
       - name: "MyAppBackend"
-        client_id: "dddddddd-dddd-4ddd-addd-dddddddddddd"
-        client_secret: "mm-backend-secret"
+        clientId: "dddddddd-dddd-4ddd-addd-dddddddddddd"
+        clientSecret: "mm-backend-secret"
         # Per-Client Role Assignments:
-        group_role_assignments:
-          - group_name: "customer-readers"
-            application_id: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+        groupRoleAssignments:
+          - groupName: "customer-readers"
+            applicationId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
             roles: ["read"]
-          - group_name: "customer-readers"
-            application_id: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
+          - groupName: "customer-readers"
+            applicationId: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
             roles: ["read"]
-          - group_name: "healer-readers"
-            application_id: "cccccccc-cccc-4ccc-accc-cccccccccccc"
+          - groupName: "healer-readers"
+            applicationId: "cccccccc-cccc-4ccc-accc-cccccccccccc"
             roles: ["read"]
-          - group_name: "lead-readers"
-            application_id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
+          - groupName: "lead-readers"
+            applicationId: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
             roles: ["read"]
-          - group_name: "lead-writers"
-            application_id: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
+          - groupName: "lead-writers"
+            applicationId: "eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee"
             roles: ["write"]

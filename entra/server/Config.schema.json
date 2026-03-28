@@ -41,11 +41,11 @@
     "tenant": {
       "type": "object",
       "properties": {
-        "tenant_id": { "$ref": "#/definitions/TenantID" },
+        "tenantId": { "$ref": "#/definitions/TenantID" },
         "name": { "$ref": "#/definitions/TenantName" },
-        "app_registrations": {
+        "appRegistrations": {
           "type": "array",
-          "items": { "$ref": "#/definitions/app_registration" }
+          "items": { "$ref": "#/definitions/appRegistration" }
         },
         "groups": {
           "type": "array",
@@ -60,15 +60,15 @@
           "items": { "$ref": "#/definitions/client" }
         }
       },
-      "required": ["tenant_id", "name", "app_registrations", "groups", "users", "clients"]
+      "required": ["tenantId", "name", "appRegistrations", "groups", "users", "clients"]
     },
-    "app_registration": {
+    "appRegistration": {
       "type": "object",
       "properties": {
         "name": { "$ref": "#/definitions/AppRegistrationName" },
-        "client_id": { "$ref": "#/definitions/ClientID" },
-        "identifier_uri": { "$ref": "#/definitions/IdentifierURI" },
-        "redirect_urls": {
+        "clientId": { "$ref": "#/definitions/ClientID" },
+        "identifierUri": { "$ref": "#/definitions/IdentifierURI" },
+        "redirectUrls": {
           "type": "array",
           "items": { "$ref": "#/definitions/RedirectURL" }
         },
@@ -76,12 +76,12 @@
           "type": "array",
           "items": { "$ref": "#/definitions/scope" }
         },
-        "app_roles": {
+        "appRoles": {
           "type": "array",
           "items": { "$ref": "#/definitions/role" }
         }
       },
-      "required": ["name", "client_id", "identifier_uri", "app_roles"]
+      "required": ["name", "clientId", "identifierUri", "appRoles"]
     },
     "scope": {
       "type": "object",
@@ -119,43 +119,43 @@
         "id": { "$ref": "#/definitions/UserID" },
         "username": { "$ref": "#/definitions/Username" },
         "password": { "$ref": "#/definitions/Password" },
-        "display_name": { "$ref": "#/definitions/DisplayName" },
+        "displayName": { "$ref": "#/definitions/DisplayName" },
         "email": { "$ref": "#/definitions/Email" },
         "groups": {
           "type": "array",
           "items": { "$ref": "#/definitions/GroupNameReference" }
         }
       },
-      "required": ["username", "password", "display_name", "email", "groups"]
+      "required": ["username", "password", "displayName", "email", "groups"]
     },
     "client": {
       "type": "object",
       "properties": {
         "name": { "$ref": "#/definitions/ClientName" },
-        "client_id": { "$ref": "#/definitions/ClientID" },
-        "client_secret": { "$ref": "#/definitions/ClientSecret" },
-        "redirect_urls": {
+        "clientId": { "$ref": "#/definitions/ClientID" },
+        "clientSecret": { "$ref": "#/definitions/ClientSecret" },
+        "redirectUrls": {
           "type": "array",
           "items": { "$ref": "#/definitions/RedirectURL" }
         },
-        "group_role_assignments": {
+        "groupRoleAssignments": {
           "type": "array",
-          "items": { "$ref": "#/definitions/group_role_assignment" }
+          "items": { "$ref": "#/definitions/groupRoleAssignment" }
         }
       },
-      "required": ["name", "client_id", "group_role_assignments"]
+      "required": ["name", "clientId", "groupRoleAssignments"]
     },
-    "group_role_assignment": {
+    "groupRoleAssignment": {
       "type": "object",
       "properties": {
-        "group_name": { "$ref": "#/definitions/GroupNameReference" },
+        "groupName": { "$ref": "#/definitions/GroupNameReference" },
         "roles": {
           "type": "array",
           "items": { "$ref": "#/definitions/RoleValueReference" }
         },
-        "application_id": { "$ref": "#/definitions/ApplicationIDReference" }
+        "applicationId": { "$ref": "#/definitions/ApplicationIDReference" }
       },
-      "required": ["group_name", "roles", "application_id"]
+      "required": ["groupName", "roles", "applicationId"]
     }
   }
 }

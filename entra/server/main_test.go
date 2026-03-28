@@ -25,6 +25,7 @@ import (
 
 func requireNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,13 +42,15 @@ func cleanupRemove(t *testing.T, path string) {
 }
 
 func init() {
-	// Pre-load templates for tests
+	// Pre-load templates for tests using the embedded FS
 	var err error
-	loginTemplate, err = template.New("login").Parse("<html>{{.ClientID}}</html>")
+
+	loginTemplate, err = template.ParseFS(loginHTML, "templates/login.html")
 	if err != nil {
 		panic(err)
 	}
-	indexTemplate, err = template.New("index").Parse("<html>Index</html>")
+
+	indexTemplate, err = template.ParseFS(indexHTML, "templates/index.html")
 	if err != nil {
 		panic(err)
 	}
@@ -80,6 +83,7 @@ func setupTestConfig() {
 func TestHandlers(t *testing.T) {
 	// Setup global state for tests
 	var err error
+
 	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate private key: %v", err)
@@ -91,6 +95,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/_health", nil)
 		w := httptest.NewRecorder()
 		health(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("health() status = %v, want %v", w.Code, http.StatusOK)
 		}
@@ -100,38 +105,40 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("discovery() status = %v, want %v", w.Code, http.StatusOK)
 		}
+
 		var resp DiscoveryResponse
-		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		err := json.NewDecoder(w.Body).Decode(&resp)
+		if err != nil {
 			t.Errorf("failed to decode discovery response: %v", err)
 		}
 	})
 
 	t.Run("Index", func(t *testing.T) {
-		prev := indexTemplate
-		t.Cleanup(func() {
-			indexTemplate = prev
-		})
-		indexTemplate = template.Must(template.ParseFiles("index.html"))
-
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("index() status = %v, want %v", w.Code, http.StatusOK)
 		}
+
 		body := w.Body.String()
 		if !strings.Contains(body, "Entra mock") {
 			t.Errorf("index() body missing title")
 		}
+
 		if !strings.Contains(body, "Test endpoints") {
 			t.Errorf("index() body missing Test endpoints section")
 		}
+
 		if !strings.Contains(body, "Current configuration") {
 			t.Errorf("index() body missing Current configuration section")
 		}
+
 		if !strings.Contains(body, "Default Tenant") {
 			t.Errorf("index() body missing tenant name")
 		}
@@ -141,6 +148,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/not-found", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
+
 		if w.Code != http.StatusNotFound {
 			t.Errorf("index() status = %v, want %v", w.Code, http.StatusNotFound)
 		}
@@ -162,6 +170,7 @@ func TestHandlers(t *testing.T) {
 			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
+
 			if w.Code != http.StatusOK {
 				t.Errorf("authorize() status = %v, want %v", w.Code, http.StatusOK)
 			}
@@ -172,6 +181,7 @@ func TestHandlers(t *testing.T) {
 			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+clientID.String()+"&redirect_uri=http://localhost/callback2", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
+
 			if w.Code != http.StatusOK {
 				t.Errorf("authorize() status = %v", w.Code)
 			}
@@ -181,6 +191,7 @@ func TestHandlers(t *testing.T) {
 			req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://wrong", nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("authorize() status = %v", w.Code)
 			}
@@ -205,8 +216,10 @@ func TestHandlers(t *testing.T) {
 
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			login(w, req)
+
 			if w.Code != http.StatusFound {
 				t.Errorf("login() status = %v, want %v", w.Code, http.StatusFound)
 			}
@@ -222,11 +235,14 @@ func TestHandlers(t *testing.T) {
 
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			login(w, req)
+
 			if w.Code != http.StatusFound {
 				t.Errorf("login() status = %v", w.Code)
 			}
+
 			if !strings.Contains(w.Header().Get("Location"), "#") {
 				t.Error("Location should contain # for fragment response_mode")
 			}
@@ -241,8 +257,10 @@ func TestHandlers(t *testing.T) {
 
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/login", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			login(w, req)
+
 			if w.Code != http.StatusUnauthorized {
 				t.Errorf("login() status = %v", w.Code)
 			}
@@ -258,8 +276,10 @@ func TestHandlers(t *testing.T) {
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("token() status = %v, want %v, body=%s", w.Code, http.StatusOK, w.Body.String())
 		}
@@ -279,8 +299,10 @@ func TestHandlers(t *testing.T) {
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("token() status = %v, want %v, body=%s", w.Code, http.StatusOK, w.Body.String())
 		}
@@ -290,6 +312,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/discovery/instance", nil)
 		w := httptest.NewRecorder()
 		callHome(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("callHome() status = %v, want %v", w.Code, http.StatusOK)
 		}
@@ -300,47 +323,53 @@ func TestHandlers(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 		handler := corsMiddleware(next)
-		req := httptest.NewRequest("OPTIONS", "/", nil)
+		req := httptest.NewRequest(http.MethodOptions, "/", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
+
 		if w.Code != http.StatusNoContent {
 			t.Errorf("corsMiddleware() status = %v, want %v", w.Code, http.StatusNoContent)
 		}
+
 		if w.Header().Get("Access-Control-Allow-Origin") != "*" {
 			t.Errorf("corsMiddleware() Origin = %v, want *", w.Header().Get("Access-Control-Allow-Origin"))
 		}
 	})
 
 	t.Run("DiscoveryV2", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/mytenant/v2.0/.well-known/openid-configuration", nil)
+		req := httptest.NewRequest(http.MethodGet, "/mytenant/v2.0/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("discovery() status = %v", w.Code)
 		}
 	})
 
 	t.Run("DiscoveryCommon", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/common/.well-known/openid-configuration", nil)
+		req := httptest.NewRequest(http.MethodGet, "/common/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("discovery() status = %v", w.Code)
 		}
 	})
 
 	t.Run("JWKS", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/discovery/keys", nil)
+		req := httptest.NewRequest(http.MethodGet, "/discovery/keys", nil)
 		w := httptest.NewRecorder()
 		jwks(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("jwks() status = %v, want %v", w.Code, http.StatusOK)
 		}
 	})
 
 	t.Run("GetBaseURL", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("X-Forwarded-Proto", "https")
+
 		base := getBaseURL(req)
 		if !strings.HasPrefix(base, "https://") {
 			t.Errorf("getBaseURL() should be https, got %s", base)
@@ -364,10 +393,12 @@ func TestHandlers(t *testing.T) {
 		form.Add("code", authCode)
 		form.Add("redirect_uri", "http://localhost/callback")
 
-		req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("token() status = %v, body=%s", w.Code, w.Body.String())
 		}
@@ -387,10 +418,12 @@ func TestHandlers(t *testing.T) {
 		form.Add("grant_type", "refresh_token")
 		form.Add("refresh_token", refreshToken)
 
-		req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("token() status = %v, body=%s", w.Code, w.Body.String())
 		}
@@ -404,10 +437,12 @@ func TestHandlers(t *testing.T) {
 		form.Add("client_id", configData.Tenants[0].Clients[0].ClientID.String())
 		form.Add("scope", "openid offline_access")
 
-		req := httptest.NewRequest("POST", "/mytenant/oauth2/v2.0/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/mytenant/oauth2/v2.0/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("token() status = %v", w.Code)
 		}
@@ -415,10 +450,12 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("TokenErrors", func(t *testing.T) {
 		t.Run("InvalidForm", func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/token", strings.NewReader("!!invalid!!"))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader("!!invalid!!"))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -427,10 +464,12 @@ func TestHandlers(t *testing.T) {
 		t.Run("FieldTooLong", func(t *testing.T) {
 			form := url.Values{}
 			form.Add("grant_type", strings.Repeat("a", 2049))
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -439,10 +478,12 @@ func TestHandlers(t *testing.T) {
 		t.Run("PasswordMissingUsername", func(t *testing.T) {
 			form := url.Values{}
 			form.Add("grant_type", "password")
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -453,10 +494,12 @@ func TestHandlers(t *testing.T) {
 			form.Add("grant_type", "password")
 			form.Add("username", "nosuchuser")
 			form.Add("password", "p")
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusUnauthorized {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -466,10 +509,12 @@ func TestHandlers(t *testing.T) {
 			form := url.Values{}
 			form.Add("grant_type", "client_credentials")
 			form.Add("client_id", uuid.New().String())
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusUnauthorized {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -478,18 +523,20 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("AuthorizeErrors", func(t *testing.T) {
 		t.Run("ParamTooLong", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/authorize?p="+strings.Repeat("a", 2049), nil)
+			req := httptest.NewRequest(http.MethodGet, "/authorize?p="+strings.Repeat("a", 2049), nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
 		})
 
 		t.Run("ClientNotFound", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/authorize?client_id="+uuid.New().String(), nil)
+			req := httptest.NewRequest(http.MethodGet, "/authorize?client_id="+uuid.New().String(), nil)
 			w := httptest.NewRecorder()
 			authorize(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -498,19 +545,22 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("LoginErrors", func(t *testing.T) {
 		t.Run("InvalidMethod", func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/login", nil)
+			req := httptest.NewRequest(http.MethodGet, "/login", nil)
 			w := httptest.NewRecorder()
 			login(w, req)
+
 			if w.Code != http.StatusMethodNotAllowed {
 				t.Errorf("status = %v", w.Code)
 			}
 		})
 
 		t.Run("InvalidForm", func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/login", strings.NewReader("!!invalid!!"))
+			req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader("!!invalid!!"))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			login(w, req)
+
 			if w.Code != http.StatusBadRequest {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -524,9 +574,10 @@ func TestHandlers(t *testing.T) {
 
 		t.Run("Logger", func(t *testing.T) {
 			handler := logger(next)
-			req := httptest.NewRequest("GET", "/_health", nil)
+			req := httptest.NewRequest(http.MethodGet, "/_health", nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
+
 			if w.Code != http.StatusOK {
 				t.Errorf("logger() status = %v", w.Code)
 			}
@@ -535,9 +586,10 @@ func TestHandlers(t *testing.T) {
 		t.Run("MaxBytes", func(t *testing.T) {
 			handler := maxBytesMiddleware(next)
 			body := strings.Repeat("a", 1024*1024+1)
-			req := httptest.NewRequest("POST", "/", strings.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
+
 			if w.Code != http.StatusOK { // Middleware itself doesn't return error, but limits reader
 				t.Errorf("maxBytesMiddleware() status = %v", w.Code)
 			}
@@ -548,9 +600,11 @@ func TestHandlers(t *testing.T) {
 		if validateRedirectURI("", []string{"http://test"}) {
 			t.Error("Empty redirect URI should be invalid")
 		}
+
 		if !validateRedirectURI("http://test", []string{}) {
 			t.Error("Empty allowed list should allow all")
 		}
+
 		if validateRedirectURI("http://wrong", []string{"http://test"}) {
 			t.Error("Wrong redirect URI should be invalid")
 		}
@@ -564,6 +618,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -578,14 +633,17 @@ func TestHandlers(t *testing.T) {
 			}
 			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
 			requireNoError(t, err)
+
 			form := url.Values{}
 			form.Add("grant_type", "authorization_code")
 			form.Add("code", tk)
 			form.Add("redirect_uri", "http://wrong")
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusUnauthorized {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -598,6 +656,7 @@ func TestHandlers(t *testing.T) {
 		requireNoError(t, err)
 		keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
 		requireNoError(t, err)
+
 		pemBlock := &pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes}
 		requireNoError(t, os.WriteFile("test8.key", pem.EncodeToMemory(pemBlock), 0o600))
 		cleanupRemove(t, "test8.key")
@@ -627,6 +686,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/v2.0/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -666,6 +726,7 @@ func TestHandlers(t *testing.T) {
 	t.Run("TokenFinalErrors", func(t *testing.T) {
 		t.Run("PasswordWrongSecret", func(t *testing.T) {
 			setupTestConfig()
+
 			u := uuid.New()
 			configData.Tenants[0].Clients = append(configData.Tenants[0].Clients, Client{
 				ClientID:     u,
@@ -677,10 +738,12 @@ func TestHandlers(t *testing.T) {
 			form.Add("password", "password")
 			form.Add("client_id", u.String())
 			form.Add("client_secret", "wrong")
-			req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusUnauthorized {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -688,6 +751,7 @@ func TestHandlers(t *testing.T) {
 
 		t.Run("AuthCodeNoRedirectParam", func(t *testing.T) {
 			setupTestConfig()
+
 			claims := jwt.MapClaims{
 				"sub":          "u1",
 				"redirect_uri": "http://ok",
@@ -696,13 +760,16 @@ func TestHandlers(t *testing.T) {
 			}
 			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
 			requireNoError(t, err)
+
 			form := url.Values{}
 			form.Add("grant_type", "authorization_code")
 			form.Add("code", tk)
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusOK {
 				t.Errorf("status = %v, body = %s", w.Code, w.Body.String())
 			}
@@ -714,6 +781,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/_health", nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("Router _health failed: %v", w.Code)
 		}
@@ -733,6 +801,7 @@ func TestHandlers(t *testing.T) {
 	t.Run("LoadConfigNotFound", func(_ *testing.T) {
 		// Ensure Config.yaml does not exist
 		_ = os.Remove("Config.yaml")
+
 		config := loadConfig()
 		if len(config.Tenants) != 0 {
 			t.Error("Should return empty config when file not found")
@@ -744,6 +813,7 @@ func TestHandlers(t *testing.T) {
 		t.Cleanup(func() {
 			requireNoError(t, os.Unsetenv("LOG_LEVEL"))
 		})
+
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
@@ -756,6 +826,7 @@ func TestHandlers(t *testing.T) {
 	t.Run("IndexTemplateError", func(t *testing.T) {
 		// Store current template
 		oldTmpl := indexTemplate
+
 		defer func() { indexTemplate = oldTmpl }()
 
 		// Create a failing template
@@ -763,6 +834,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 		w := httptest.NewRecorder()
 		index(w, req)
+
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -770,6 +842,7 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("TokenNonceState", func(t *testing.T) {
 		setupTestConfig()
+
 		form := url.Values{}
 		form.Add("grant_type", "password")
 		form.Add("username", "testuser")
@@ -779,8 +852,10 @@ func TestHandlers(t *testing.T) {
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 		w := httptest.NewRecorder()
 		token(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -788,6 +863,7 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("AuthorizeUsersDisplay", func(t *testing.T) {
 		setupTestConfig()
+
 		u1 := configData.Tenants[0].Clients[0].ClientID
 		// Add groups and roles for display
 		configData.Tenants[0].Users[0].Groups = []string{"group1"}
@@ -802,6 +878,7 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/authorize?client_id="+u1.String()+"&redirect_uri=http://localhost/callback", nil)
 		w := httptest.NewRecorder()
 		authorize(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -811,16 +888,18 @@ func TestHandlers(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/nosuchtenant/.well-known/openid-configuration", nil)
 		w := httptest.NewRecorder()
 		discovery(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
 	})
 
 	t.Run("CallHomeHost", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/discovery/instance", nil)
+		req := httptest.NewRequest(http.MethodGet, "/discovery/instance", nil)
 		req.Host = "custom.host"
 		w := httptest.NewRecorder()
 		callHome(w, req)
+
 		if w.Code != http.StatusOK {
 			t.Errorf("status = %v", w.Code)
 		}
@@ -829,6 +908,7 @@ func TestHandlers(t *testing.T) {
 	t.Run("TokenFinalScenarios", func(t *testing.T) {
 		t.Run("RefreshClient", func(t *testing.T) {
 			setupTestConfig()
+
 			u := uuid.New()
 			configData.Tenants[0].Clients = append(configData.Tenants[0].Clients, Client{
 				ClientID: u,
@@ -841,13 +921,16 @@ func TestHandlers(t *testing.T) {
 			}
 			tk, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
 			requireNoError(t, err)
+
 			form := url.Values{}
 			form.Add("grant_type", "refresh_token")
 			form.Add("refresh_token", tk)
 			req := httptest.NewRequestWithContext(context.Background(), "POST", "/token", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
+
 			if w.Code != http.StatusOK {
 				t.Errorf("status = %v", w.Code)
 			}
@@ -858,10 +941,12 @@ func TestHandlers(t *testing.T) {
 		// Invalid schema validation failure path in loadConfig
 		requireNoError(t, os.WriteFile("Config.yaml", []byte("tenants: [{name: 'Invalid'}]"), 0o600))
 		cleanupRemove(t, "Config.yaml")
+
 		_ = loadConfig()
 
 		// Invalid YAML failure path in loadConfig
 		requireNoError(t, os.WriteFile("Config.yaml", []byte("!!invalid"), 0o600))
+
 		_ = loadConfig()
 	})
 
@@ -889,6 +974,7 @@ func TestHandlers(t *testing.T) {
 		for _, p := range paths {
 			req := httptest.NewRequestWithContext(context.Background(), "POST", p, strings.NewReader("grant_type=password&username=u&password=p&client_id="+uuid.New().String()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 			w := httptest.NewRecorder()
 			token(w, req)
 		}
@@ -993,6 +1079,7 @@ func TestResolveAudience(t *testing.T) {
 			if gotAud != tt.wantAudience {
 				t.Errorf("resolveAudience() gotAud = %v, want %v", gotAud, tt.wantAudience)
 			}
+
 			if !reflect.DeepEqual(gotAppIDs, tt.wantAppIDs) {
 				t.Errorf("resolveAudience() gotAppIDs = %v, want %v", gotAppIDs, tt.wantAppIDs)
 			}
@@ -1091,11 +1178,194 @@ func TestResolveRoles(t *testing.T) {
 			got := resolveRoles(tenant, tt.client, tt.user, tt.targetAppIDs, tt.requestedScopes)
 			sort.Strings(got)
 			sort.Strings(tt.wantRoles)
+
 			if !reflect.DeepEqual(got, tt.wantRoles) {
 				t.Errorf("resolveRoles() = %v, want %v", got, tt.wantRoles)
 			}
 		})
 	}
+}
+
+func TestNewHandlers(t *testing.T) {
+	var err error
+
+	privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	requireNoError(t, err)
+	setupTestConfig()
+
+	tid := configData.Tenants[0].TenantID
+	appID := uuid.MustParse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
+	clientID := configData.Tenants[0].Clients[0].ClientID
+
+	configData.Tenants[0].AppRegistrations = []AppRegistration{
+		{
+			Name:          "TestApp",
+			ClientID:      appID,
+			IdentifierURI: "api://testapp",
+		},
+	}
+
+	t.Run("TestToken_OK", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/test-tokens/"+tid.String()+"/"+appID.String()+"/"+clientID.String(), nil)
+		w := httptest.NewRecorder()
+		testToken(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("testToken status = %v, body = %s", w.Code, w.Body.String())
+		}
+
+		if !strings.Contains(w.Body.String(), "access_token") {
+			t.Errorf("testToken body missing access_token: %s", w.Body.String())
+		}
+	})
+
+	t.Run("TestToken_BadTenant", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/test-tokens/not-a-uuid/"+appID.String()+"/"+clientID.String(), nil)
+		w := httptest.NewRecorder()
+		testToken(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %v", w.Code)
+		}
+	})
+
+	t.Run("TestToken_TenantNotFound", func(t *testing.T) {
+		missing := uuid.New()
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/test-tokens/"+missing.String()+"/"+appID.String()+"/"+clientID.String(), nil)
+		w := httptest.NewRecorder()
+		testToken(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %v", w.Code)
+		}
+	})
+
+	t.Run("TestToken_MissingSegments", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/test-tokens/"+tid.String(), nil)
+		w := httptest.NewRecorder()
+		testToken(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %v", w.Code)
+		}
+	})
+
+	t.Run("ConfigRaw", func(t *testing.T) {
+		requireNoError(t, os.WriteFile("Config.yaml", []byte("tenants: []"), 0o600))
+		cleanupRemove(t, "Config.yaml")
+
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/config/raw", nil)
+		w := httptest.NewRecorder()
+		configRaw(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("configRaw status = %v", w.Code)
+		}
+	})
+
+	t.Run("ConfigCsharpApp_OK", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+tid.String()+"/app/"+appID.String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpApp(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("configCsharpApp status = %v, body = %s", w.Code, w.Body.String())
+		}
+
+		if !strings.Contains(w.Body.String(), "AzureAd__Instance") {
+			t.Errorf("missing AzureAd__Instance in body: %s", w.Body.String())
+		}
+	})
+
+	t.Run("ConfigCsharpApp_BadTenant", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/bad/app/"+appID.String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpApp(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %v", w.Code)
+		}
+	})
+
+	t.Run("ConfigCsharpApp_TenantNotFound", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+uuid.New().String()+"/app/"+appID.String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpApp(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %v", w.Code)
+		}
+	})
+
+	t.Run("ConfigCsharpApp_AppNotFound", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+tid.String()+"/app/"+uuid.New().String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpApp(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %v", w.Code)
+		}
+	})
+
+	t.Run("ConfigJsApp_OK", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+tid.String()+"/app/"+appID.String()+"/js", nil)
+		w := httptest.NewRecorder()
+		configJsApp(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("configJsApp status = %v, body = %s", w.Code, w.Body.String())
+		}
+
+		if !strings.Contains(w.Body.String(), "msalConfig") {
+			t.Errorf("missing msalConfig in body: %s", w.Body.String())
+		}
+	})
+
+	t.Run("ConfigCsharpClient_OK", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+tid.String()+"/client/"+clientID.String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpClient(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("configCsharpClient status = %v, body = %s", w.Code, w.Body.String())
+		}
+
+		if !strings.Contains(w.Body.String(), "AzureAd__Instance") {
+			t.Errorf("missing AzureAd__Instance in body: %s", w.Body.String())
+		}
+	})
+
+	t.Run("ConfigCsharpClient_NotFound", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/config/"+tid.String()+"/client/"+uuid.New().String()+"/csharp", nil)
+		w := httptest.NewRecorder()
+		configCsharpClient(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %v", w.Code)
+		}
+	})
+
+	t.Run("IndexDispatchesTestToken", func(t *testing.T) {
+		req := httptest.NewRequestWithContext(context.Background(), "GET",
+			"/test-tokens/"+tid.String()+"/"+appID.String()+"/"+clientID.String(), nil)
+		w := httptest.NewRecorder()
+		index(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("index dispatch to testToken status = %v, body = %s", w.Code, w.Body.String())
+		}
+	})
 }
 
 func TestValidateConfig(t *testing.T) {
