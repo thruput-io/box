@@ -20,3 +20,6 @@ appsettings.Development.json
 
 /.junie/backend_guidelines.md
 /.junie/bootstrap_prompt.md
+
+**/.tmp/**
+/.output.txt

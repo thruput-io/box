@@ -1,18 +1,22 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Run go test with coverage profile
-go test -v -coverprofile=coverage.out ./...
+MIN_COVERAGE=85
+
+mkdir -p .tmp
+COVERAGE_OUT=.tmp/coverage.out
+
+# Run go test with coverage profile across all packages
+go test -v -coverpkg=./... -coverprofile="${COVERAGE_OUT}" ./...
 
 # Check total coverage
-TOTAL_COVERAGE=$(go tool cover -func=coverage.out | grep total | grep -Eo '[0-9]+\.[0-9]+')
+TOTAL_COVERAGE=$(go tool cover -func="${COVERAGE_OUT}" | grep total | grep -Eo '[0-9]+\.[0-9]+')
 
 echo "Total coverage: ${TOTAL_COVERAGE}%"
 
-# Check if coverage is below 90%
-# Using bc for floating point comparison if available, otherwise integer comparison
-if (( $(echo "$TOTAL_COVERAGE < 85" | bc -l) )); then
-    echo "Error: Total coverage is below 90%"
+# Check if coverage is below threshold
+if awk "BEGIN {exit !(${TOTAL_COVERAGE} < ${MIN_COVERAGE})}"; then
+    echo "Error: Total coverage is below ${MIN_COVERAGE}%"
     exit 1
 fi
 

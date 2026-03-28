@@ -13,6 +13,7 @@ const (
 )
 
 var (
+	errNonEmptyStringEmpty   = errors.New("string must not be empty")
 	errTenantNameEmpty       = errors.New("tenant name must not be empty")
 	errAppNameEmpty          = errors.New("app name must not be empty")
 	errIdentifierURIEmpty    = errors.New("identifier URI must not be empty")

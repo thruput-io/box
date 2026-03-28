@@ -224,16 +224,17 @@ func (roleID RoleID) String() string { return roleID.value.String() }
 
 // TenantName is the display name of a tenant.
 type TenantName struct {
-	value string
+	value NonEmptyString
 }
 
 // NewTenantName creates a TenantName, returning an error if empty.
 func NewTenantName(raw string) (TenantName, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return TenantName{}, errTenantNameEmpty
 	}
 
-	return TenantName{value: raw}, nil
+	return TenantName{value: v}, nil
 }
 
 // MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
@@ -247,20 +248,21 @@ func MustTenantName(raw string) TenantName {
 }
 
 // String returns the tenant name value.
-func (tenantName TenantName) String() string { return tenantName.value }
+func (tenantName TenantName) String() string { return tenantName.value.String() }
 
 // AppName is the display name of an app registration or client.
 type AppName struct {
-	value string
+	value NonEmptyString
 }
 
 // NewAppName creates an AppName, returning an error if empty.
 func NewAppName(raw string) (AppName, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return AppName{}, errAppNameEmpty
 	}
 
-	return AppName{value: raw}, nil
+	return AppName{value: v}, nil
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
@@ -274,88 +276,93 @@ func MustAppName(raw string) AppName {
 }
 
 // String returns the app name value.
-func (appName AppName) String() string { return appName.value }
+func (appName AppName) String() string { return appName.value.String() }
 
 // IdentifierURI is the application ID URI of an app registration.
 type IdentifierURI struct {
-	value string
+	value NonEmptyString
 }
 
 // NewIdentifierURI creates an IdentifierURI, returning an error if empty.
 func NewIdentifierURI(raw string) (IdentifierURI, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return IdentifierURI{}, errIdentifierURIEmpty
 	}
 
-	return IdentifierURI{value: raw}, nil
+	return IdentifierURI{value: v}, nil
 }
 
 // String returns the identifier URI value.
-func (identifierURI IdentifierURI) String() string { return identifierURI.value }
+func (identifierURI IdentifierURI) String() string { return identifierURI.value.String() }
 
 // ScopeValue is the string value of a scope (e.g. "read", "api://xxx/.default").
 type ScopeValue struct {
-	value string
+	value NonEmptyString
 }
 
 // NewScopeValue creates a ScopeValue, returning an error if empty.
 func NewScopeValue(raw string) (ScopeValue, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return ScopeValue{}, errScopeValueEmpty
 	}
 
-	return ScopeValue{value: raw}, nil
+	return ScopeValue{value: v}, nil
 }
 
 // String returns the scope value.
-func (scopeValue ScopeValue) String() string { return scopeValue.value }
+func (scopeValue ScopeValue) String() string { return scopeValue.value.String() }
 
 // RoleValue is the string value of a role (e.g. "Admin", "Reader").
 type RoleValue struct {
-	value string
+	value NonEmptyString
 }
 
 // NewRoleValue creates a RoleValue, returning an error if empty.
 func NewRoleValue(raw string) (RoleValue, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return RoleValue{}, errRoleValueEmpty
 	}
 
-	return RoleValue{value: raw}, nil
+	return RoleValue{value: v}, nil
 }
 
 // String returns the role value.
-func (roleValue RoleValue) String() string { return roleValue.value }
+func (roleValue RoleValue) String() string { return roleValue.value.String() }
 
 // GroupName is the name of a group.
 type GroupName struct {
-	value string
+	value NonEmptyString
 }
 
 // NewGroupName creates a GroupName, returning an error if empty.
 func NewGroupName(raw string) (GroupName, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return GroupName{}, errGroupNameEmpty
 	}
 
-	return GroupName{value: raw}, nil
+	return GroupName{value: v}, nil
 }
 
 // String returns the group name value.
-func (groupName GroupName) String() string { return groupName.value }
+func (groupName GroupName) String() string { return groupName.value.String() }
 
 // Username is the login name of a user.
 type Username struct {
-	value string
+	value NonEmptyString
 }
 
 // NewUsername creates a Username, returning an error if empty.
 func NewUsername(raw string) (Username, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return Username{}, errUsernameEmpty
 	}
 
-	return Username{value: raw}, nil
+	return Username{value: v}, nil
 }
 
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
@@ -369,20 +376,21 @@ func MustUsername(raw string) Username {
 }
 
 // String returns the username value.
-func (username Username) String() string { return username.value }
+func (username Username) String() string { return username.value.String() }
 
 // Password is the credential of a user.
 type Password struct {
-	value string
+	value NonEmptyString
 }
 
 // NewPassword creates a Password, returning an error if empty.
 func NewPassword(raw string) (Password, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return Password{}, errPasswordEmpty
 	}
 
-	return Password{value: raw}, nil
+	return Password{value: v}, nil
 }
 
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
@@ -396,20 +404,21 @@ func MustPassword(raw string) Password {
 }
 
 // String returns the password value.
-func (password Password) String() string { return password.value }
+func (password Password) String() string { return password.value.String() }
 
 // DisplayName is the human-readable name of a user.
 type DisplayName struct {
-	value string
+	value NonEmptyString
 }
 
 // NewDisplayName creates a DisplayName, returning an error if empty.
 func NewDisplayName(raw string) (DisplayName, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return DisplayName{}, errDisplayNameEmpty
 	}
 
-	return DisplayName{value: raw}, nil
+	return DisplayName{value: v}, nil
 }
 
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
@@ -423,20 +432,21 @@ func MustDisplayName(raw string) DisplayName {
 }
 
 // String returns the display name value.
-func (displayName DisplayName) String() string { return displayName.value }
+func (displayName DisplayName) String() string { return displayName.value.String() }
 
 // Email is the email address of a user.
 type Email struct {
-	value string
+	value NonEmptyString
 }
 
 // NewEmail creates an Email, returning an error if empty.
 func NewEmail(raw string) (Email, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return Email{}, errEmailEmpty
 	}
 
-	return Email{value: raw}, nil
+	return Email{value: v}, nil
 }
 
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
@@ -450,24 +460,25 @@ func MustEmail(raw string) Email {
 }
 
 // String returns the email value.
-func (email Email) String() string { return email.value }
+func (email Email) String() string { return email.value.String() }
 
 // RedirectURL is a permitted OAuth2 redirect URI.
 type RedirectURL struct {
-	value string
+	value NonEmptyString
 }
 
 // NewRedirectURL creates a RedirectURL, returning an error if empty.
 func NewRedirectURL(raw string) (RedirectURL, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return RedirectURL{}, errRedirectURLEmpty
 	}
 
-	return RedirectURL{value: raw}, nil
+	return RedirectURL{value: v}, nil
 }
 
 // String returns the redirect URL value.
-func (redirectURL RedirectURL) String() string { return redirectURL.value }
+func (redirectURL RedirectURL) String() string { return redirectURL.value.String() }
 
 // ClientSecret is the secret credential of a confidential client.
 // Optional — public clients have no secret.
@@ -489,34 +500,36 @@ func (clientSecret ClientSecret) IsEmpty() bool { return clientSecret.value == "
 
 // ScopeDescription is the human-readable description of a scope.
 type ScopeDescription struct {
-	value string
+	value NonEmptyString
 }
 
 // NewScopeDescription creates a ScopeDescription, returning an error if empty.
 func NewScopeDescription(raw string) (ScopeDescription, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return ScopeDescription{}, errScopeDescriptionEmpty
 	}
 
-	return ScopeDescription{value: raw}, nil
+	return ScopeDescription{value: v}, nil
 }
 
 // String returns the scope description value.
-func (scopeDescription ScopeDescription) String() string { return scopeDescription.value }
+func (scopeDescription ScopeDescription) String() string { return scopeDescription.value.String() }
 
 // RoleDescription is the human-readable description of a role.
 type RoleDescription struct {
-	value string
+	value NonEmptyString
 }
 
 // NewRoleDescription creates a RoleDescription, returning an error if empty.
 func NewRoleDescription(raw string) (RoleDescription, error) {
-	if raw == emptyString {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
 		return RoleDescription{}, errRoleDescriptionEmpty
 	}
 
-	return RoleDescription{value: raw}, nil
+	return RoleDescription{value: v}, nil
 }
 
 // String returns the role description value.
-func (roleDescription RoleDescription) String() string { return roleDescription.value }
+func (roleDescription RoleDescription) String() string { return roleDescription.value.String() }

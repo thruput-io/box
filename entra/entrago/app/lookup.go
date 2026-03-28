@@ -6,8 +6,10 @@ import (
 	"identity/domain"
 )
 
-const constantTimeEqual = 1
-const firstTenant = 0
+const (
+	constantTimeEqual = 1
+	firstTenant       = 0
+)
 
 // FindTenant returns the tenant matching tenantID, or the first tenant for "" or "common".
 func FindTenant(config domain.Config, tenantID string) (domain.Tenant, error) {

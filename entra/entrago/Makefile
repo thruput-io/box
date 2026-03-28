@@ -1,4 +1,4 @@
-.PHONY: all fmt lint lint-fix test build
+.PHONY: all fmt lint lint-fix test coverage build ci
 
 GOPATH := $(shell go env GOPATH)
 GOFUMPT := $(GOPATH)/bin/gofumpt
@@ -19,5 +19,12 @@ lint-fix:
 test:
 	go test ./...
 
+coverage:
+	bash scripts/coverage.sh
+
 build:
+	mkdir -p bin
+	go build -o bin/server .
 	go build ./...
+
+ci: coverage build
