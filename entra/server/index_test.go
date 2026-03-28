@@ -34,7 +34,7 @@ func TestIndex_NotFound(t *testing.T) {
 	server.Handler().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusNotFound {
-		t.Errorf("status = %v, want 404", recorder.Code)
+		t.Errorf(statusFmt+", want 404", recorder.Code)
 	}
 }
 
@@ -47,7 +47,7 @@ func TestHealth(t *testing.T) {
 	server.Handler().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
 

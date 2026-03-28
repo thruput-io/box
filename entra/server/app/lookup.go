@@ -6,10 +6,13 @@ import (
 	"identity/domain"
 )
 
+const constantTimeEqual = 1
+const firstTenant = 0
+
 // FindTenant returns the tenant matching tenantID, or the first tenant for "" or "common".
 func FindTenant(config domain.Config, tenantID string) (domain.Tenant, error) {
 	if tenantID == "" || tenantID == "common" {
-		return config.Tenants()[0], nil
+		return config.Tenants()[firstTenant], nil
 	}
 
 	for _, tenant := range config.Tenants() {
@@ -85,8 +88,10 @@ func ValidateRedirectURI(redirectURI string, allowed []domain.RedirectURL) error
 // AuthenticateUser returns the user matching username and password using constant-time comparison.
 func AuthenticateUser(tenant domain.Tenant, username, password string) (domain.User, error) {
 	for _, user := range tenant.Users() {
-		usernameMatch := subtle.ConstantTimeCompare([]byte(user.Username().String()), []byte(username)) == 1
-		passwordMatch := subtle.ConstantTimeCompare([]byte(user.Password().String()), []byte(password)) == 1
+		usernameBytes := []byte(user.Username().String())
+		passwordBytes := []byte(user.Password().String())
+		usernameMatch := subtle.ConstantTimeCompare(usernameBytes, []byte(username)) == constantTimeEqual
+		passwordMatch := subtle.ConstantTimeCompare(passwordBytes, []byte(password)) == constantTimeEqual
 
 		if usernameMatch && passwordMatch {
 			return user, nil
@@ -109,7 +114,7 @@ func FindUserByID(tenant domain.Tenant, subject string) (domain.User, bool) {
 
 // ValidateClientSecret checks the client secret using constant-time comparison.
 func ValidateClientSecret(client domain.Client, secret string) error {
-	if subtle.ConstantTimeCompare([]byte(client.ClientSecret().String()), []byte(secret)) != 1 {
+	if subtle.ConstantTimeCompare([]byte(client.ClientSecret().String()), []byte(secret)) != constantTimeEqual {
 		return domain.ErrInvalidCredentials
 	}
 

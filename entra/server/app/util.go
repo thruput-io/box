@@ -12,6 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var errInvalidClaimsType = errors.New("invalid claims type in JWT")
+
 // MaxBodyBytes is the maximum allowed request body size.
 const MaxBodyBytes = 1024 * 1024
 
@@ -68,7 +70,7 @@ func ParseSignedToken(key *rsa.PrivateKey, tokenString string) (jwt.MapClaims, e
 
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, errors.New("invalid claims type")
+		return nil, errInvalidClaimsType
 	}
 
 	return claims, nil

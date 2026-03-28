@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"identity/domain"
-	identityhttp "identity/http"
+	identityserver "identity/server"
 )
 
 //go:embed templates/login.html
@@ -19,14 +19,18 @@ var loginHTML embed.FS
 //go:embed templates/index.html
 var indexHTML embed.FS
 
+const rsaKeyBits = 2048
+
 func main() {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeyBits)
 	if err != nil {
 		log.Fatalf("failed to generate RSA key: %v", err)
 	}
 
 	configPath := "Config.yaml"
-	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+	_, statErr := os.Stat(configPath)
+
+	if os.IsNotExist(statErr) {
 		configPath = "DefaultConfig.yaml"
 	}
 
@@ -45,7 +49,7 @@ func main() {
 		log.Fatalf("failed to parse index template: %v", err)
 	}
 
-	server := &identityhttp.Server{
+	srv := &identityserver.Server{
 		Config:        config,
 		Key:           key,
 		LoginTemplate: loginTemplate,
@@ -59,7 +63,13 @@ func main() {
 
 	log.Printf("starting entra mock on %s", addr)
 
-	if err = http.ListenAndServe(addr, server.Handler()); err != nil {
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: srv.Handler(),
+	}
+
+	err = httpServer.ListenAndServe()
+	if err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

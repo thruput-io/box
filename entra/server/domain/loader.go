@@ -82,13 +82,15 @@ func LoadConfig(configPath, schemaPath string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to read %s: %w", configPath, err)
 	}
 
-	if err = validateYAML(data, schemaPath); err != nil {
+	err = validateYAML(data, schemaPath)
+	if err != nil {
 		return Config{}, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	var raw rawConfig
 
-	if err = yaml.Unmarshal(data, &raw); err != nil {
+	err = yaml.Unmarshal(data, &raw)
+	if err != nil {
 		return Config{}, fmt.Errorf("failed to parse %s: %w", configPath, err)
 	}
 
@@ -98,7 +100,8 @@ func LoadConfig(configPath, schemaPath string) (Config, error) {
 func validateYAML(yamlData []byte, schemaPath string) error {
 	var raw any
 
-	if err := yaml.Unmarshal(yamlData, &raw); err != nil {
+	err := yaml.Unmarshal(yamlData, &raw)
+	if err != nil {
 		return fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
@@ -116,7 +119,7 @@ func validateYAML(yamlData []byte, schemaPath string) error {
 	}
 
 	if !result.Valid() {
-		messages := make([]string, 0, len(result.Errors()))
+		messages := make([]string, emptyLen, len(result.Errors()))
 		for _, desc := range result.Errors() {
 			messages = append(messages, desc.String())
 		}
@@ -128,7 +131,7 @@ func validateYAML(yamlData []byte, schemaPath string) error {
 }
 
 func buildConfig(raw rawConfig) (Config, error) {
-	tenants := make([]Tenant, 0, len(raw.Tenants))
+	tenants := make([]Tenant, emptyLen, len(raw.Tenants))
 
 	for _, rawTenant := range raw.Tenants {
 		tenant, err := buildTenant(rawTenant)
@@ -145,39 +148,39 @@ func buildConfig(raw rawConfig) (Config, error) {
 func buildTenant(raw rawTenant) (Tenant, error) {
 	tenantID, err := NewTenantID(raw.TenantID)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.Name, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	name, err := NewTenantName(raw.Name)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.TenantID, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.TenantID, err)
 	}
 
 	appRegistrations, err := buildAppRegistrations(raw.AppRegistrations)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.Name, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	groups, err := buildGroups(raw.Groups)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.Name, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	users, err := buildUsers(raw.Users)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.Name, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	clients, err := buildClients(raw.Clients)
 	if err != nil {
-		return Tenant{}, fmt.Errorf("tenant %q: %w", raw.Name, err)
+		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	return NewTenant(tenantID, name, appRegistrations, groups, users, clients)
 }
 
 func buildAppRegistrations(raws []rawAppRegistration) ([]AppRegistration, error) {
-	result := make([]AppRegistration, 0, len(raws))
+	result := make([]AppRegistration, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		appRegistration, err := buildAppRegistration(raw)
@@ -199,34 +202,34 @@ func buildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
 
 	clientID, err := NewClientID(raw.ClientID)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration %q: %w", raw.Name, err)
+		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	identifierURI, err := NewIdentifierURI(raw.IdentifierURI)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration %q: %w", raw.Name, err)
+		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration %q: %w", raw.Name, err)
+		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	scopes, err := buildScopes(raw.Scopes)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration %q: %w", raw.Name, err)
+		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	roles, err := buildRoles(raw.AppRoles)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration %q: %w", raw.Name, err)
+		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	return NewAppRegistration(name, clientID, identifierURI, redirectURLs, scopes, roles), nil
 }
 
 func buildRedirectURLs(raws []string) ([]RedirectURL, error) {
-	result := make([]RedirectURL, 0, len(raws))
+	result := make([]RedirectURL, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		redirectURL, err := NewRedirectURL(raw)
@@ -241,7 +244,7 @@ func buildRedirectURLs(raws []string) ([]RedirectURL, error) {
 }
 
 func buildScopes(raws []rawScope) ([]Scope, error) {
-	result := make([]Scope, 0, len(raws))
+	result := make([]Scope, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		scope, err := buildScope(raw)
@@ -275,7 +278,7 @@ func buildScope(raw rawScope) (Scope, error) {
 }
 
 func buildRoles(raws []rawRole) ([]Role, error) {
-	result := make([]Role, 0, len(raws))
+	result := make([]Role, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		role, err := buildRole(raw)
@@ -292,7 +295,7 @@ func buildRoles(raws []rawRole) ([]Role, error) {
 func buildRole(raw rawRole) (Role, error) {
 	roleID, err := NewRoleID(raw.ID)
 	if err != nil {
-		return Role{}, fmt.Errorf("role %q: %w", raw.Value, err)
+		return Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
 	}
 
 	value, err := NewRoleValue(raw.Value)
@@ -302,19 +305,19 @@ func buildRole(raw rawRole) (Role, error) {
 
 	description, err := NewRoleDescription(raw.Description)
 	if err != nil {
-		return Role{}, fmt.Errorf("role %q: %w", raw.Value, err)
+		return Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
 	}
 
 	scopes, err := buildScopes(raw.Scopes)
 	if err != nil {
-		return Role{}, fmt.Errorf("role %q: %w", raw.Value, err)
+		return Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
 	}
 
 	return NewRole(roleID, value, description, scopes), nil
 }
 
 func buildGroups(raws []rawGroup) ([]Group, error) {
-	result := make([]Group, 0, len(raws))
+	result := make([]Group, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		groupID, err := NewGroupID(raw.ID)
@@ -334,7 +337,7 @@ func buildGroups(raws []rawGroup) ([]Group, error) {
 }
 
 func buildUsers(raws []rawUser) ([]User, error) {
-	result := make([]User, 0, len(raws))
+	result := make([]User, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		user, err := buildUser(raw)
@@ -351,7 +354,7 @@ func buildUsers(raws []rawUser) ([]User, error) {
 func buildUser(raw rawUser) (User, error) {
 	userID, err := NewUserID(raw.ID)
 	if err != nil {
-		return User{}, fmt.Errorf("user %q: %w", raw.Username, err)
+		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	username, err := NewUsername(raw.Username)
@@ -361,35 +364,44 @@ func buildUser(raw rawUser) (User, error) {
 
 	password, err := NewPassword(raw.Password)
 	if err != nil {
-		return User{}, fmt.Errorf("user %q: %w", raw.Username, err)
+		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	displayName, err := NewDisplayName(raw.DisplayName)
 	if err != nil {
-		return User{}, fmt.Errorf("user %q: %w", raw.Username, err)
+		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	email, err := NewEmail(raw.Email)
 	if err != nil {
-		return User{}, fmt.Errorf("user %q: %w", raw.Username, err)
+		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
-	groups := make([]GroupName, 0, len(raw.Groups))
-
-	for _, groupName := range raw.Groups {
-		name, err := NewGroupName(groupName)
-		if err != nil {
-			return User{}, fmt.Errorf("user %q group: %w", raw.Username, err)
-		}
-
-		groups = append(groups, name)
+	groups, err := buildUserGroups(raw.Username, raw.Groups)
+	if err != nil {
+		return User{}, err
 	}
 
 	return NewUser(userID, username, password, displayName, email, groups), nil
 }
 
+func buildUserGroups(username string, rawGroups []string) ([]GroupName, error) {
+	groups := make([]GroupName, emptyLen, len(rawGroups))
+
+	for _, groupName := range rawGroups {
+		name, err := NewGroupName(groupName)
+		if err != nil {
+			return nil, fmt.Errorf("user %q group: %w", username, err)
+		}
+
+		groups = append(groups, name)
+	}
+
+	return groups, nil
+}
+
 func buildClients(raws []rawClient) ([]Client, error) {
-	result := make([]Client, 0, len(raws))
+	result := make([]Client, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		client, err := buildClient(raw)
@@ -411,24 +423,24 @@ func buildClient(raw rawClient) (Client, error) {
 
 	clientID, err := NewClientID(raw.ClientID)
 	if err != nil {
-		return Client{}, fmt.Errorf("client %q: %w", raw.Name, err)
+		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
 	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
 	if err != nil {
-		return Client{}, fmt.Errorf("client %q: %w", raw.Name, err)
+		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
 	assignments, err := buildGroupRoleAssignments(raw.GroupRoleAssignments)
 	if err != nil {
-		return Client{}, fmt.Errorf("client %q: %w", raw.Name, err)
+		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
 	return NewClient(name, clientID, NewClientSecret(raw.ClientSecret), redirectURLs, assignments), nil
 }
 
 func buildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssignment, error) {
-	result := make([]GroupRoleAssignment, 0, len(raws))
+	result := make([]GroupRoleAssignment, emptyLen, len(raws))
 
 	for _, raw := range raws {
 		assignment, err := buildGroupRoleAssignment(raw)
@@ -450,10 +462,12 @@ func buildGroupRoleAssignment(raw rawGroupRoleAssignment) (GroupRoleAssignment, 
 
 	appID, err := uuid.Parse(raw.ApplicationID)
 	if err != nil {
-		return GroupRoleAssignment{}, fmt.Errorf("group role assignment %q: invalid applicationId: %w", raw.GroupName, err)
+		return GroupRoleAssignment{}, fmt.Errorf(
+			"group role assignment %q: invalid applicationId: %w", raw.GroupName, err,
+		)
 	}
 
-	roles := make([]RoleValue, 0, len(raw.Roles))
+	roles := make([]RoleValue, emptyLen, len(raw.Roles))
 
 	for _, roleValue := range raw.Roles {
 		role, err := NewRoleValue(roleValue)

@@ -25,3 +25,9 @@ var ErrInvalidConfig = errors.New("invalid config")
 
 // ErrUnsupportedGrantType is returned when the grant_type is not supported.
 var ErrUnsupportedGrantType = errors.New("unsupported grant_type")
+
+// ErrTenantNoAppRegistrations is returned when a tenant has no app registrations.
+var ErrTenantNoAppRegistrations = errors.New("tenant must have at least one app registration")
+
+// ErrTenantNoUsers is returned when a tenant has no users.
+var ErrTenantNoUsers = errors.New("tenant must have at least one user")

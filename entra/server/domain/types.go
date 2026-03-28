@@ -229,7 +229,7 @@ type TenantName struct {
 
 // NewTenantName creates a TenantName, returning an error if empty.
 func NewTenantName(raw string) (TenantName, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return TenantName{}, errTenantNameEmpty
 	}
 
@@ -256,7 +256,7 @@ type AppName struct {
 
 // NewAppName creates an AppName, returning an error if empty.
 func NewAppName(raw string) (AppName, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return AppName{}, errAppNameEmpty
 	}
 
@@ -283,7 +283,7 @@ type IdentifierURI struct {
 
 // NewIdentifierURI creates an IdentifierURI, returning an error if empty.
 func NewIdentifierURI(raw string) (IdentifierURI, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return IdentifierURI{}, errIdentifierURIEmpty
 	}
 
@@ -300,7 +300,7 @@ type ScopeValue struct {
 
 // NewScopeValue creates a ScopeValue, returning an error if empty.
 func NewScopeValue(raw string) (ScopeValue, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return ScopeValue{}, errScopeValueEmpty
 	}
 
@@ -317,7 +317,7 @@ type RoleValue struct {
 
 // NewRoleValue creates a RoleValue, returning an error if empty.
 func NewRoleValue(raw string) (RoleValue, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return RoleValue{}, errRoleValueEmpty
 	}
 
@@ -334,7 +334,7 @@ type GroupName struct {
 
 // NewGroupName creates a GroupName, returning an error if empty.
 func NewGroupName(raw string) (GroupName, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return GroupName{}, errGroupNameEmpty
 	}
 
@@ -351,7 +351,7 @@ type Username struct {
 
 // NewUsername creates a Username, returning an error if empty.
 func NewUsername(raw string) (Username, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return Username{}, errUsernameEmpty
 	}
 
@@ -378,7 +378,7 @@ type Password struct {
 
 // NewPassword creates a Password, returning an error if empty.
 func NewPassword(raw string) (Password, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return Password{}, errPasswordEmpty
 	}
 
@@ -405,7 +405,7 @@ type DisplayName struct {
 
 // NewDisplayName creates a DisplayName, returning an error if empty.
 func NewDisplayName(raw string) (DisplayName, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return DisplayName{}, errDisplayNameEmpty
 	}
 
@@ -432,7 +432,7 @@ type Email struct {
 
 // NewEmail creates an Email, returning an error if empty.
 func NewEmail(raw string) (Email, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return Email{}, errEmailEmpty
 	}
 
@@ -459,7 +459,7 @@ type RedirectURL struct {
 
 // NewRedirectURL creates a RedirectURL, returning an error if empty.
 func NewRedirectURL(raw string) (RedirectURL, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return RedirectURL{}, errRedirectURLEmpty
 	}
 
@@ -494,7 +494,7 @@ type ScopeDescription struct {
 
 // NewScopeDescription creates a ScopeDescription, returning an error if empty.
 func NewScopeDescription(raw string) (ScopeDescription, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return ScopeDescription{}, errScopeDescriptionEmpty
 	}
 
@@ -511,7 +511,7 @@ type RoleDescription struct {
 
 // NewRoleDescription creates a RoleDescription, returning an error if empty.
 func NewRoleDescription(raw string) (RoleDescription, error) {
-	if raw == "" {
+	if raw == emptyString {
 		return RoleDescription{}, errRoleDescriptionEmpty
 	}
 

@@ -1,0 +1,33 @@
+mux.HandleFunc("/token", func(w, r) { write(w, tokenHandler(r, server)) })
+
+// token_handler.go — pure, returns HTTPResponse
+func tokenHandler(r *http.Request, server *Server) HTTPResponse {
+    input, err := parseHttpRequest(r)
+    if err != nil {
+        return BadRequest(err)
+    }
+    output := app.IssueToken(server, input)
+
+    return httpResponse(err, output)
+
+}
+
+The err here should be a domain object with two props a unique error code and a human-readable message.
+
+pay attention to the fact that there is a difference between domain errors and HTTP errors.
+A domain error can result in an http 200 response, typically an empty array reponse
+A non domain err output can result in an http error such as 404 or 409
+
+domain errors are needed when inputs are invalid and there is no longer a path forward.
+In this case when parseHttpRequest cannot construct a valid input to call app.IssueToken
+
+func tokenHandler - Transport layer in this case HTTP
+fun parseTokenRequest - Should be testable separately, converts between transport to domain
+fun IssueToken - domain function, since server and input are validated domain objects and illegal states are not representable, this function cannot return an error. If you encounter such situation you need to go back and redefine domain rules in server or input so the state can never be reached. You cannot have any dependencies to http in here.
+fun httpResponse - converts between domain responses and errors to http responses
+
+Note tha there is no difference in execution path between http success and http failure. There will be a mapping between http status codes and log levels in adapter.go
+
+// app/token.go — pure domain function, no HTTP
+func IssueToken(key *rsa.PrivateKey, req TokenRequest) TokenResponse { ... }
+

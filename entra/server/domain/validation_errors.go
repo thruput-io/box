@@ -2,6 +2,16 @@ package domain
 
 import "errors"
 
+const (
+	emptyLen      = 0
+	emptyString   = ""
+	fmtTenantWrap = "tenant %q: %w"
+	fmtAppRegWrap = "app registration %q: %w"
+	fmtRoleWrap   = "role %q: %w"
+	fmtUserWrap   = "user %q: %w"
+	fmtClientWrap = "client %q: %w"
+)
+
 var (
 	errTenantNameEmpty       = errors.New("tenant name must not be empty")
 	errAppNameEmpty          = errors.New("app name must not be empty")

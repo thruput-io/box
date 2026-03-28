@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"identity/domain"
-	identityhttp "identity/http"
+	identityserver "identity/server"
 )
 
 //go:embed templates/login.html
@@ -17,10 +17,10 @@ var testLoginHTML embed.FS
 //go:embed templates/index.html
 var testIndexHTML embed.FS
 
-func newTestServer(t *testing.T) *identityhttp.Server {
+func newTestServer(t *testing.T) *identityserver.Server {
 	t.Helper()
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeyBitsTest)
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
@@ -35,7 +35,7 @@ func newTestServer(t *testing.T) *identityhttp.Server {
 		t.Fatalf("parse index template: %v", err)
 	}
 
-	return &identityhttp.Server{
+	return &identityserver.Server{
 		Config:        newTestConfig(),
 		Key:           key,
 		LoginTemplate: loginTmpl,
@@ -49,13 +49,13 @@ func newTestConfig() domain.Config {
 	appID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
 	userID := domain.MustUserID("6320573e-360a-426c-829d-649a5b3260c8")
 
-	redirectURL, _ := domain.NewRedirectURL("http://localhost/callback")
+	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
 	identifierURI, _ := domain.NewIdentifierURI("api://testapp")
 
 	user := domain.NewUser(
 		userID,
-		domain.MustUsername("testuser"),
-		domain.MustPassword("password"),
+		domain.MustUsername(testUsername),
+		domain.MustPassword(testPassword),
 		domain.MustDisplayName("Test User"),
 		domain.MustEmail("test@example.com"),
 		nil,
@@ -96,10 +96,10 @@ func newTestConfig() domain.Config {
 	return config
 }
 
-func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Client) *identityhttp.Server {
+func serverWithClient(t *testing.T, base *identityserver.Server, client domain.Client) *identityserver.Server {
 	t.Helper()
 
-	tenant := base.Config.Tenants()[0]
+	tenant := base.Config.Tenants()[firstIndex]
 	clients := append(tenant.Clients(), client)
 
 	newTenant, err := domain.NewTenant(
@@ -116,7 +116,7 @@ func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Cli
 		t.Fatalf("build config: %v", err)
 	}
 
-	return &identityhttp.Server{
+	return &identityserver.Server{
 		Config:        config,
 		Key:           base.Key,
 		LoginTemplate: base.LoginTemplate,

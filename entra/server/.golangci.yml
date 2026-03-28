@@ -21,9 +21,24 @@ linters:
     lll:
       line-length: 120
     revive:
-      # This replaces the old 'golint' with Google-style rules
       enable-all-rules: true
       severity: error
+      rules:
+        - name: line-length-limit
+          arguments: [120]
+        - name: max-public-structs
+          arguments: [30]
+    exhaustruct:
+      exclude:
+        - "^net/http\\.Server$"
+    exhaustive:
+      default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        - G304 # File path is validated/controlled in this dev-only mock server
+        - G112 # HTTP server timeouts are intentionally omitted in this dev-only mock
+        - G706 # Log injection: request fields are developer-controlled in this dev-only mock
+        - G101 # Potential hardcoded credentials: false positive on domain error code constants
     staticcheck:
       checks: ["all"]
 issues:

@@ -1,4 +1,4 @@
-package http
+package server
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func indexHandler(request *http.Request, server *Server) HTTPResponse {
+func indexHandler(request *http.Request, server *Server) Response {
 	if strings.HasPrefix(request.URL.Path, "/test-tokens/") {
 		return testTokenHandler(request, server)
 	}
@@ -29,6 +29,6 @@ func indexHandler(request *http.Request, server *Server) HTTPResponse {
 	return okHTML(buf.Bytes())
 }
 
-func healthHandler(_ *http.Request, _ *Server) HTTPResponse {
-	return HTTPResponse{Status: http.StatusOK, Body: nil, ContentType: "", Headers: nil}
+func healthHandler(_ *http.Request, _ *Server) Response {
+	return Response{Status: http.StatusOK, Body: nil, ContentType: "", Headers: nil}
 }

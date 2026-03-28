@@ -16,353 +16,169 @@ const (
 	accessTokenDuration  = 24 * time.Hour
 	refreshTokenDuration = 90 * 24 * time.Hour
 	authCodeDuration     = 5 * time.Minute
+	accessTokenExpiry    = 3600
+	scopeSeparator       = " "
 	graphClientID        = "00000003-0000-0000-c000-000000000000"
 	graphAudience        = "https://graph.microsoft.com"
+	emptyString          = ""
+	emptySliceLen        = 0
+	defaultDisplayName   = "Mock User"
+	defaultEmail         = "user@example.com"
 )
 
-// RawTokenRequest holds the parsed-but-not-yet-validated inputs from an HTTP token request.
-type RawTokenRequest struct {
-	GrantType     string
-	ClientID      string
-	ClientSecret  string
-	Username      string
-	Password      string
-	Scope         string
-	Code          string
-	RedirectURI   string
-	RefreshToken  string
-	Nonce         string
-	TenantID      string
-	IsV2          bool
-	CorrelationID string
-	BaseURL       string
+// tokenClaimsBase groups the common fields used to build JWT claim sets.
+type tokenClaimsBase struct {
+	issuer   string
+	subject  string
+	audience string
+	tenantID string
+	version  string
+	now      time.Time
 }
 
-// TokenResponse holds the issued tokens and metadata.
-type TokenResponse struct {
-	AccessToken   string
-	TokenType     string
-	ExpiresIn     int
-	Scope         string
-	IDToken       *string
-	RefreshToken  *string
-	ClientInfo    *string
-	CorrelationID string
-}
+// IssueToken issues a signed access token from pre-validated domain inputs.
+// This function is pure: inputs are fully validated before calling it, so it cannot fail.
+func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
+	issuer, version := buildIssuerForInput(input)
+	tenantID := input.Tenant.TenantID().String()
+	subject := resolveSubject(input)
+	displayName, email := resolveUserInfo(input.User)
+	targetAudience, targetAppIDs := resolveAudience(input.Tenant, input.Scope)
 
-// AuthCodeClaims holds the validated claims extracted from an authorization code.
-type AuthCodeClaims struct {
-	Subject     string
-	ClientID    string
-	RedirectURI string
-	Scope       string
-	Nonce       string
-}
-
-// RefreshTokenClaims holds the validated claims extracted from a refresh token.
-type RefreshTokenClaims struct {
-	Subject  string
-	ClientID string
-	Scope    string
-}
-
-// IssueToken resolves tenant/client/user from config and issues a signed access token.
-func IssueToken(config domain.Config, key *rsa.PrivateKey, raw RawTokenRequest) (TokenResponse, error) {
-	tenant, err := FindTenant(config, raw.TenantID)
-	if err != nil {
-		return TokenResponse{}, err
-	}
-
-	switch raw.GrantType {
-	case "password", "test":
-		return issuePasswordGrant(tenant, key, raw)
-	case "client_credentials":
-		return issueClientCredentials(tenant, key, raw)
-	case "authorization_code":
-		return issueAuthorizationCode(tenant, key, raw)
-	case "refresh_token":
-		return issueRefreshToken(tenant, key, raw)
-	default:
-		return TokenResponse{}, domain.ErrUnsupportedGrantType
-	}
-}
-
-// IssueAuthCode issues a short-lived signed JWT used as an authorization code.
-func IssueAuthCode(key *rsa.PrivateKey, user domain.User, clientID domain.ClientID, redirectURI, scope, tenantID, nonce string) string {
-	claims := jwt.MapClaims{
-		"sub":          user.ID().String(),
-		"client_id":    clientID.String(),
-		"redirect_uri": redirectURI,
-		"scope":        scope,
-		"tenant":       tenantID,
-		"nonce":        nonce,
-		"exp":          time.Now().Add(authCodeDuration).Unix(),
-	}
-
-	return SignClaims(key, claims)
-}
-
-// ParseAuthCode validates and extracts claims from a signed authorization code JWT.
-func ParseAuthCode(key *rsa.PrivateKey, code string) (AuthCodeClaims, error) {
-	claims, err := ParseSignedToken(key, code)
-	if err != nil {
-		return AuthCodeClaims{}, err
-	}
-
-	return AuthCodeClaims{
-		Subject:     stringClaim(claims, "sub"),
-		ClientID:    stringClaim(claims, "client_id"),
-		RedirectURI: stringClaim(claims, "redirect_uri"),
-		Scope:       stringClaim(claims, "scope"),
-		Nonce:       stringClaim(claims, "nonce"),
-	}, nil
-}
-
-// ParseRefreshToken validates and extracts claims from a signed refresh token JWT.
-func ParseRefreshToken(key *rsa.PrivateKey, tokenString string) (RefreshTokenClaims, error) {
-	claims, err := ParseSignedToken(key, tokenString)
-	if err != nil {
-		return RefreshTokenClaims{}, err
-	}
-
-	return RefreshTokenClaims{
-		Subject:  stringClaim(claims, "sub"),
-		ClientID: stringClaim(claims, "client_id"),
-		Scope:    stringClaim(claims, "scope"),
-	}, nil
-}
-
-func issuePasswordGrant(tenant domain.Tenant, key *rsa.PrivateKey, raw RawTokenRequest) (TokenResponse, error) {
-	user, err := AuthenticateUser(tenant, raw.Username, raw.Password)
-	if err != nil {
-		return TokenResponse{}, err
-	}
-
-	var activeClient *domain.Client
-
-	if raw.ClientID != "" {
-		clientID, parseErr := parseClientIDString(raw.ClientID)
-		if parseErr == nil {
-			client, findErr := FindClient(tenant, clientID)
-			if findErr == nil {
-				if !client.ClientSecret().IsEmpty() && raw.ClientSecret != "" {
-					validateErr := ValidateClientSecret(client, raw.ClientSecret)
-					if validateErr != nil {
-						return TokenResponse{}, validateErr
-					}
-				}
-
-				activeClient = &client
-			}
-		}
-	}
-
-	return buildTokenResponse(tenant, key, raw, &user, activeClient), nil
-}
-
-func issueClientCredentials(tenant domain.Tenant, key *rsa.PrivateKey, raw RawTokenRequest) (TokenResponse, error) {
-	clientID, err := parseClientIDString(raw.ClientID)
-	if err != nil {
-		return TokenResponse{}, domain.ErrClientNotFound
-	}
-
-	client, err := FindClient(tenant, clientID)
-	if err != nil {
-		return TokenResponse{}, err
-	}
-
-	if err = ValidateClientSecret(client, raw.ClientSecret); err != nil {
-		return TokenResponse{}, err
-	}
-
-	return buildTokenResponse(tenant, key, raw, nil, &client), nil
-}
-
-func issueAuthorizationCode(tenant domain.Tenant, key *rsa.PrivateKey, raw RawTokenRequest) (TokenResponse, error) {
-	codeClaims, err := ParseAuthCode(key, raw.Code)
-	if err != nil {
-		return TokenResponse{}, domain.ErrInvalidCredentials
-	}
-
-	if raw.RedirectURI != "" && raw.RedirectURI != codeClaims.RedirectURI {
-		return TokenResponse{}, domain.ErrInvalidRedirectURI
-	}
-
-	effectiveScope := raw.Scope
-	if effectiveScope == "" {
-		effectiveScope = codeClaims.Scope
-	}
-
-	effectiveClientID := raw.ClientID
-	if effectiveClientID == "" {
-		effectiveClientID = codeClaims.ClientID
-	}
-
-	enriched := raw
-	enriched.Scope = effectiveScope
-	enriched.ClientID = effectiveClientID
-	enriched.Nonce = codeClaims.Nonce
-
-	var activeUser *domain.User
-
-	if user, found := FindUserByID(tenant, codeClaims.Subject); found {
-		activeUser = &user
-	}
-
-	var activeClient *domain.Client
-
-	if clientID, parseErr := parseClientIDString(effectiveClientID); parseErr == nil {
-		if client, findErr := FindClient(tenant, clientID); findErr == nil {
-			activeClient = &client
-		}
-	}
-
-	return buildTokenResponse(tenant, key, enriched, activeUser, activeClient), nil
-}
-
-func issueRefreshToken(tenant domain.Tenant, key *rsa.PrivateKey, raw RawTokenRequest) (TokenResponse, error) {
-	refreshClaims, err := ParseRefreshToken(key, raw.RefreshToken)
-	if err != nil {
-		return TokenResponse{}, domain.ErrInvalidCredentials
-	}
-
-	effectiveScope := raw.Scope
-	if effectiveScope == "" {
-		effectiveScope = refreshClaims.Scope
-	}
-
-	effectiveClientID := raw.ClientID
-	if effectiveClientID == "" {
-		effectiveClientID = refreshClaims.ClientID
-	}
-
-	enriched := raw
-	enriched.Scope = effectiveScope
-	enriched.ClientID = effectiveClientID
-
-	var activeUser *domain.User
-
-	if user, found := FindUserByID(tenant, refreshClaims.Subject); found {
-		activeUser = &user
-	}
-
-	var activeClient *domain.Client
-
-	if clientID, parseErr := parseClientIDString(effectiveClientID); parseErr == nil {
-		if client, findErr := FindClient(tenant, clientID); findErr == nil {
-			activeClient = &client
-		}
-	}
-
-	return buildTokenResponse(tenant, key, enriched, activeUser, activeClient), nil
-}
-
-func buildTokenResponse(tenant domain.Tenant, key *rsa.PrivateKey, raw RawTokenRequest, user *domain.User, client *domain.Client) TokenResponse {
-	issuer, version := buildIssuer(raw.BaseURL, tenant.TenantID().String(), raw.IsV2)
-	tenantID := tenant.TenantID().String()
-
-	subject := resolveSubject(raw, user, client)
-	displayName, email := resolveUserInfo(user)
-
-	targetAudience, targetAppIDs := resolveAudience(tenant, raw.Scope)
-	roles := resolveRoles(tenant, client, user, targetAppIDs, strings.Split(raw.Scope, " "))
+	requestedScopes := strings.Split(input.Scope, scopeSeparator)
+	roles := resolveRoles(
+		input.Tenant, input.Client, input.User,
+		targetAppIDs, requestedScopes,
+	)
 
 	now := time.Now()
+	base := tokenClaimsBase{
+		issuer:   issuer,
+		subject:  subject,
+		audience: targetAudience,
+		tenantID: tenantID,
+		version:  version,
+		now:      now,
+	}
 
-	claims := buildAccessClaims(issuer, subject, targetAudience, tenantID, version, raw, user, client, email, displayName, roles, now)
+	accessToken := SignClaims(key, buildAccessClaims(base, input, email, displayName, roles))
 
-	accessToken := SignClaims(key, claims)
-
-	response := TokenResponse{
+	response := domain.TokenResponse{
 		AccessToken:   accessToken,
 		TokenType:     "Bearer",
-		ExpiresIn:     3600,
-		Scope:         raw.Scope,
+		ExpiresIn:     accessTokenExpiry,
+		Scope:         input.Scope,
 		IDToken:       nil,
 		RefreshToken:  nil,
 		ClientInfo:    nil,
-		CorrelationID: raw.CorrelationID,
+		CorrelationID: input.CorrelationID,
 	}
 
-	requestedScopes := strings.Split(raw.Scope, " ")
-
-	if containsScope(requestedScopes, "openid") && user != nil {
-		idToken := SignClaims(key, buildIDClaims(issuer, subject, raw.ClientID, tenantID, version, raw.Nonce, displayName, email, now))
+	if slices.Contains(requestedScopes, "openid") && input.User != nil {
+		idToken := SignClaims(key, buildIDClaims(base, clientIDStr(input), input.Nonce, displayName, email))
 		response.IDToken = &idToken
 	}
 
-	if containsScope(requestedScopes, "offline_access") || raw.GrantType == "refresh_token" {
-		refreshToken := SignClaims(key, buildRefreshClaims(issuer, subject, raw.ClientID, tenantID, raw.Scope, now))
+	if slices.Contains(requestedScopes, "offline_access") || input.Grant == domain.GrantRefreshToken {
+		refreshToken := SignClaims(
+			key,
+			buildRefreshClaims(issuer, subject, clientIDStr(input), tenantID, input.Scope, now),
+		)
 		response.RefreshToken = &refreshToken
 	}
 
-	if user != nil {
-		clientInfo := BuildClientInfo(user.ID().String(), tenantID)
+	if input.User != nil {
+		clientInfo := BuildClientInfo(input.User.ID().String(), tenantID)
 		response.ClientInfo = &clientInfo
 	}
 
 	return response
 }
 
-func buildAccessClaims(issuer, subject, audience, tenantID, version string, raw RawTokenRequest, user *domain.User, client *domain.Client, email, displayName string, roles []string, now time.Time) jwt.MapClaims {
+// IssueAuthCode issues a short-lived signed JWT used as an authorization code.
+func IssueAuthCode(
+	key *rsa.PrivateKey,
+	user domain.User,
+	clientID domain.ClientID,
+	redirectURI, scope, tenantID, nonce string,
+) string {
 	claims := jwt.MapClaims{
-		"iss":   issuer,
-		"sub":   subject,
-		"aud":   audience,
-		"exp":   now.Add(accessTokenDuration).Unix(),
-		"iat":   now.Unix(),
-		"nbf":   now.Unix(),
-		"jti":   uuid.New().String(),
-		"tid":   tenantID,
-		"ver":   version,
-		"oid":   subject,
-		"roles": roles,
+		claimSub:         user.ID().String(),
+		claimClientID:    clientID.String(),
+		claimRedirectURI: redirectURI,
+		claimScope:       scope,
+		claimTenant:      tenantID,
+		claimNonce:       nonce,
+		claimExp:         time.Now().Add(authCodeDuration).Unix(),
 	}
 
-	if client != nil {
-		claims["azp"] = client.ClientID().String()
-		claims["azpacls"] = "0"
-		claims["appid"] = client.ClientID().String()
+	return SignClaims(key, claims)
+}
+
+func buildAccessClaims(
+	base tokenClaimsBase,
+	input domain.TokenInput,
+	email, displayName string,
+	roles []string,
+) jwt.MapClaims {
+	claims := jwt.MapClaims{
+		claimIss:   base.issuer,
+		claimSub:   base.subject,
+		claimAud:   base.audience,
+		claimExp:   base.now.Add(accessTokenDuration).Unix(),
+		claimIat:   base.now.Unix(),
+		claimNbf:   base.now.Unix(),
+		claimJti:   uuid.New().String(),
+		claimTid:   base.tenantID,
+		claimVer:   base.version,
+		claimOid:   base.subject,
+		claimRoles: roles,
 	}
 
-	if user != nil {
-		claims["name"] = displayName
-		claims["preferred_username"] = email
-		claims["email"] = email
-		claims["unique_name"] = email
+	if input.Client != nil {
+		claims[claimAzp] = input.Client.ClientID().String()
+		claims[claimAzpacls] = claimAzpacls0
+		claims[claimAppid] = input.Client.ClientID().String()
+	}
 
-		if audience == graphClientID || audience == graphAudience {
-			claims["scp"] = strings.Join(roles, " ")
+	if input.User != nil {
+		claims[claimName] = displayName
+		claims[claimPreferredUsername] = email
+		claims[claimEmail] = email
+		claims[claimUniqueName] = email
+
+		if base.audience == graphClientID || base.audience == graphAudience {
+			claims[claimScp] = strings.Join(roles, scopeSeparator)
 		} else {
-			claims["scp"] = raw.Scope
+			claims[claimScp] = input.Scope
 		}
 	}
 
-	if raw.Nonce != "" {
-		claims["nonce"] = raw.Nonce
+	if input.Nonce != emptyString {
+		claims[claimNonce] = input.Nonce
 	}
 
 	return claims
 }
 
-func buildIDClaims(issuer, subject, clientID, tenantID, version, nonce, displayName, email string, now time.Time) jwt.MapClaims {
+func buildIDClaims(base tokenClaimsBase, clientID, nonce, displayName, email string) jwt.MapClaims {
 	claims := jwt.MapClaims{
-		"iss":                issuer,
-		"sub":                subject,
-		"aud":                clientID,
-		"exp":                now.Add(accessTokenDuration).Unix(),
-		"iat":                now.Unix(),
-		"nbf":                now.Unix(),
-		"tid":                tenantID,
-		"ver":                version,
-		"oid":                subject,
-		"name":               displayName,
-		"preferred_username": email,
-		"email":              email,
+		claimIss:               base.issuer,
+		claimSub:               base.subject,
+		claimAud:               clientID,
+		claimExp:               base.now.Add(accessTokenDuration).Unix(),
+		claimIat:               base.now.Unix(),
+		claimNbf:               base.now.Unix(),
+		claimTid:               base.tenantID,
+		claimVer:               base.version,
+		claimOid:               base.subject,
+		claimName:              displayName,
+		claimPreferredUsername: email,
+		claimEmail:             email,
 	}
 
-	if nonce != "" {
-		claims["nonce"] = nonce
+	if nonce != emptyString {
+		claims[claimNonce] = nonce
 	}
 
 	return claims
@@ -370,28 +186,32 @@ func buildIDClaims(issuer, subject, clientID, tenantID, version, nonce, displayN
 
 func buildRefreshClaims(issuer, subject, clientID, tenantID, scope string, now time.Time) jwt.MapClaims {
 	return jwt.MapClaims{
-		"iss":       issuer,
-		"sub":       subject,
-		"aud":       issuer,
-		"exp":       now.Add(refreshTokenDuration).Unix(),
-		"iat":       now.Unix(),
-		"client_id": clientID,
-		"scope":     scope,
-		"tid":       tenantID,
-		"typ":       "Refresh",
+		claimIss:      issuer,
+		claimSub:      subject,
+		claimAud:      issuer,
+		claimExp:      now.Add(refreshTokenDuration).Unix(),
+		claimIat:      now.Unix(),
+		claimClientID: clientID,
+		claimScope:    scope,
+		claimTid:      tenantID,
+		claimTyp:      claimRefreshTyp,
 	}
 }
 
-func resolveSubject(raw RawTokenRequest, user *domain.User, client *domain.Client) string {
-	if user != nil {
-		return user.ID().String()
+func resolveSubject(input domain.TokenInput) string {
+	if input.User != nil {
+		return input.User.ID().String()
 	}
 
-	if client != nil {
-		return client.ClientID().String()
+	return clientIDStr(input)
+}
+
+func clientIDStr(input domain.TokenInput) string {
+	if input.Client != nil {
+		return input.Client.ClientID().String()
 	}
 
-	return raw.ClientID
+	return emptyString
 }
 
 func resolveUserInfo(user *domain.User) (displayName, email string) {
@@ -399,112 +219,190 @@ func resolveUserInfo(user *domain.User) (displayName, email string) {
 		return user.DisplayName().String(), user.Email().String()
 	}
 
-	return "Mock User", "user@example.com"
+	return defaultDisplayName, defaultEmail
 }
 
-func buildIssuer(baseURL, tenantID string, isV2 bool) (string, string) {
-	if isV2 {
-		return baseURL + "/" + tenantID + "/v2.0", "2.0"
+func buildIssuerForInput(input domain.TokenInput) (issuer, version string) {
+	tenantID := input.Tenant.TenantID().String()
+
+	if input.IsV2 {
+		return input.BaseURL + "/" + tenantID + "/v2.0", "2.0"
 	}
 
-	return baseURL + "/" + tenantID, "1.0"
-}
-
-func containsScope(scopes []string, target string) bool {
-	return slices.Contains(scopes, target)
+	return input.BaseURL + "/" + tenantID, "1.0"
 }
 
 func resolveAudience(tenant domain.Tenant, scope string) (string, map[string]bool) {
 	targetAudience := "api://default"
 	targetAppIDs := make(map[string]bool)
 
-	for scopePart := range strings.SplitSeq(scope, " ") {
+	for scopePart := range strings.SplitSeq(scope, scopeSeparator) {
 		if isOIDCScope(scopePart) {
 			continue
 		}
 
-		for _, registration := range tenant.AppRegistrations() {
-			identifierURI := registration.IdentifierURI().String()
-			clientIDStr := registration.ClientID().String()
-
-			if clientIDStr == scopePart ||
-				identifierURI == scopePart ||
-				strings.HasPrefix(scopePart, identifierURI+"/") ||
-				scopePart == identifierURI+"/.default" {
-				targetAppIDs[clientIDStr] = true
-				targetAudience = identifierURI
-			}
-
-			for _, role := range registration.AppRoles() {
-				for _, roleScope := range role.Scopes() {
-					roleScopeValue := roleScope.Value().String()
-
-					if roleScopeValue == scopePart || strings.HasSuffix(scopePart, "/"+roleScopeValue) {
-						targetAppIDs[clientIDStr] = true
-						targetAudience = identifierURI
-					}
-				}
-			}
-		}
+		matchAudienceForScope(tenant, scopePart, targetAppIDs, &targetAudience)
 	}
 
 	return targetAudience, targetAppIDs
 }
 
-func resolveRoles(tenant domain.Tenant, client *domain.Client, user *domain.User, targetAppIDs map[string]bool, requestedScopes []string) []string {
+func matchAudienceForScope(
+	tenant domain.Tenant,
+	scopePart string,
+	targetAppIDs map[string]bool,
+	targetAudience *string,
+) {
+	for _, registration := range tenant.AppRegistrations() {
+		identifierURI := registration.IdentifierURI().String()
+		clientIDString := registration.ClientID().String()
+
+		if clientIDString == scopePart || identifierURI == scopePart ||
+			strings.HasPrefix(scopePart, identifierURI+"/") ||
+			scopePart == identifierURI+"/.default" {
+			targetAppIDs[clientIDString] = true
+			*targetAudience = identifierURI
+		}
+
+		matchRoleScopesForScope(registration, clientIDString, identifierURI, scopePart, targetAppIDs, targetAudience)
+	}
+}
+
+func matchRoleScopesForScope(
+	registration domain.AppRegistration,
+	clientIDString, identifierURI, scopePart string,
+	targetAppIDs map[string]bool,
+	targetAudience *string,
+) {
+	for _, role := range registration.AppRoles() {
+		for _, roleScope := range role.Scopes() {
+			roleScopeValue := roleScope.Value().String()
+
+			if roleScopeValue == scopePart || strings.HasSuffix(scopePart, "/"+roleScopeValue) {
+				targetAppIDs[clientIDString] = true
+				*targetAudience = identifierURI
+			}
+		}
+	}
+}
+
+func resolveRoles(
+	tenant domain.Tenant,
+	client *domain.Client,
+	user *domain.User,
+	targetAppIDs map[string]bool,
+	requestedScopes []string,
+) []string {
 	resolved := make(map[string]bool)
 
-	userGroups := make(map[string]bool)
+	resolveClientAssignmentRoles(client, user, targetAppIDs, resolved)
+	resolveScopeMatchedRoles(tenant, targetAppIDs, requestedScopes, resolved)
 
-	if user != nil {
-		for _, groupName := range user.Groups() {
-			userGroups[groupName.String()] = true
-		}
-	}
-
-	if client != nil {
-		for _, assignment := range client.GroupRoleAssignments() {
-			if user != nil && !userGroups[assignment.GroupName().String()] {
-				continue
-			}
-
-			appIDStr := assignment.ApplicationID().String()
-			if appIDStr != uuid.Nil.String() && !targetAppIDs[appIDStr] {
-				continue
-			}
-
-			for _, roleValue := range assignment.Roles() {
-				resolved[roleValue.String()] = true
-			}
-		}
-	}
-
-	for _, registration := range tenant.AppRegistrations() {
-		if !targetAppIDs[registration.ClientID().String()] {
-			continue
-		}
-
-		for _, role := range registration.AppRoles() {
-			for _, requestedScope := range requestedScopes {
-				if isOIDCScope(requestedScope) {
-					continue
-				}
-
-				for _, roleScope := range role.Scopes() {
-					if roleScope.Value().String() == requestedScope || strings.HasSuffix(requestedScope, "/"+roleScope.Value().String()) {
-						resolved[role.Value().String()] = true
-					}
-				}
-			}
-		}
-	}
-
-	roles := make([]string, 0, len(resolved))
+	roles := make([]string, emptySliceLen, len(resolved))
 	for role := range resolved {
 		roles = append(roles, role)
 	}
 
 	return roles
+}
+
+func resolveClientAssignmentRoles(
+	client *domain.Client,
+	user *domain.User,
+	targetAppIDs map[string]bool,
+	resolved map[string]bool,
+) {
+	if client == nil {
+		return
+	}
+
+	userGroups := buildUserGroupSet(user)
+
+	for _, assignment := range client.GroupRoleAssignments() {
+		addAssignmentRoles(assignment, user, userGroups, targetAppIDs, resolved)
+	}
+}
+
+func addAssignmentRoles(
+	assignment domain.GroupRoleAssignment,
+	user *domain.User,
+	userGroups map[string]bool,
+	targetAppIDs map[string]bool,
+	resolved map[string]bool,
+) {
+	if user != nil && !userGroups[assignment.GroupName().String()] {
+		return
+	}
+
+	appIDStr := assignment.ApplicationID().String()
+	if appIDStr != uuid.Nil.String() && !targetAppIDs[appIDStr] {
+		return
+	}
+
+	for _, roleValue := range assignment.Roles() {
+		resolved[roleValue.String()] = true
+	}
+}
+
+func buildUserGroupSet(user *domain.User) map[string]bool {
+	groups := make(map[string]bool)
+
+	if user == nil {
+		return groups
+	}
+
+	for _, groupName := range user.Groups() {
+		groups[groupName.String()] = true
+	}
+
+	return groups
+}
+
+func resolveScopeMatchedRoles(
+	tenant domain.Tenant,
+	targetAppIDs map[string]bool,
+	requestedScopes []string,
+	resolved map[string]bool,
+) {
+	for _, registration := range tenant.AppRegistrations() {
+		if !targetAppIDs[registration.ClientID().String()] {
+			continue
+		}
+
+		matchRolesToScopes(registration, requestedScopes, resolved)
+	}
+}
+
+func matchRolesToScopes(registration domain.AppRegistration, requestedScopes []string, resolved map[string]bool) {
+	for _, role := range registration.AppRoles() {
+		if roleMatchesAnyScope(role, requestedScopes) {
+			resolved[role.Value().String()] = true
+		}
+	}
+}
+
+func roleMatchesAnyScope(role domain.Role, requestedScopes []string) bool {
+	for _, requestedScope := range requestedScopes {
+		if !isOIDCScope(requestedScope) && roleScopesMatchScope(role.Scopes(), requestedScope) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func roleScopesMatchScope(scopes []domain.Scope, requestedScope string) bool {
+	for _, roleScope := range scopes {
+		if roleScopeMatchesRequested(roleScope.Value().String(), requestedScope) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func roleScopeMatchesRequested(roleScopeValue, requestedScope string) bool {
+	return roleScopeValue == requestedScope || strings.HasSuffix(requestedScope, "/"+roleScopeValue)
 }
 
 func isOIDCScope(scope string) bool {
@@ -516,27 +414,18 @@ func isOIDCScope(scope string) bool {
 	}
 }
 
-func stringClaim(claims jwt.MapClaims, key string) string {
-	value, _ := claims[key].(string)
-
-	return value
-}
-
-func parseClientIDString(raw string) (domain.ClientID, error) {
-	parsed, err := uuid.Parse(raw)
-	if err != nil {
-		return domain.ClientID{}, domain.ErrClientNotFound
-	}
-
-	return domain.ClientIDFromUUID(parsed), nil
-}
-
 // ResolveAudienceForTest exposes resolveAudience for testing.
 func ResolveAudienceForTest(tenant domain.Tenant, scope string) (string, map[string]bool) {
 	return resolveAudience(tenant, scope)
 }
 
 // ResolveRolesForTest exposes resolveRoles for testing.
-func ResolveRolesForTest(tenant domain.Tenant, client *domain.Client, user *domain.User, targetAppIDs map[string]bool, requestedScopes []string) []string {
+func ResolveRolesForTest(
+	tenant domain.Tenant,
+	client *domain.Client,
+	user *domain.User,
+	targetAppIDs map[string]bool,
+	requestedScopes []string,
+) []string {
 	return resolveRoles(tenant, client, user, targetAppIDs, requestedScopes)
 }

@@ -10,7 +10,7 @@ type Config struct {
 
 // NewConfig constructs a Config, enforcing that at least one tenant is present.
 func NewConfig(tenants []Tenant) (Config, error) {
-	if len(tenants) == 0 {
+	if len(tenants) == emptyLen {
 		return Config{}, errConfigNoTenants
 	}
 
@@ -39,12 +39,12 @@ func NewTenant(
 	users []User,
 	clients []Client,
 ) (Tenant, error) {
-	if len(appRegistrations) == 0 {
-		return Tenant{}, fmt.Errorf("tenant %q must have at least one app registration", name)
+	if len(appRegistrations) == emptyLen {
+		return Tenant{}, fmt.Errorf("%w: %s", ErrTenantNoAppRegistrations, name)
 	}
 
-	if len(users) == 0 {
-		return Tenant{}, fmt.Errorf("tenant %q must have at least one user", name)
+	if len(users) == emptyLen {
+		return Tenant{}, fmt.Errorf("%w: %s", ErrTenantNoUsers, name)
 	}
 
 	return Tenant{
@@ -202,7 +202,7 @@ type User struct {
 
 // NewUser constructs a User, enforcing all required fields.
 func NewUser(
-	id UserID,
+	userID UserID,
 	username Username,
 	password Password,
 	displayName DisplayName,
@@ -210,7 +210,7 @@ func NewUser(
 	groups []GroupName,
 ) User {
 	return User{
-		id:          id,
+		id:          userID,
 		username:    username,
 		password:    password,
 		displayName: displayName,

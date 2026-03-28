@@ -1,4 +1,4 @@
-package http
+package server
 
 import (
 	"log"
@@ -9,7 +9,7 @@ import (
 func buildRoutes(server *Server) http.Handler {
 	mux := http.NewServeMux()
 
-	adapt := func(handler func(*http.Request, *Server) HTTPResponse) http.HandlerFunc {
+	adapt := func(handler func(*http.Request, *Server) Response) http.HandlerFunc {
 		return func(writer http.ResponseWriter, request *http.Request) {
 			write(writer, handler(request, server))
 		}
@@ -87,8 +87,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 type statusRecorder struct {
-	status int
 	http.ResponseWriter
+
+	status int
 }
 
 func (recorder *statusRecorder) WriteHeader(status int) {

@@ -14,26 +14,37 @@ import (
 	"identity/domain"
 )
 
-func TestToken_PasswordGrant(t *testing.T) {
-	t.Parallel()
+func postToken(t *testing.T, server interface{ Handler() http.Handler }, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
 
-	server := newTestServer(t)
-	clientID := server.Config.Tenants()[0].Clients()[0].ClientID().String()
-
-	form := url.Values{}
-	form.Set("grant_type", "password")
-	form.Set("username", "testuser")
-	form.Set("password", "password")
-	form.Set("client_id", clientID)
-
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost, tokenEndpoint,
+		strings.NewReader(form.Encode()),
+	)
+	request.Header.Set(headerContentType, headerValueForm)
 
 	recorder := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recorder, request)
 
+	return recorder
+}
+
+func TestToken_PasswordGrant(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+
+	form := url.Values{}
+	form.Set(formGrantType, grantTypePassword)
+	form.Set(formUsername, testUsername)
+	form.Set(formPassword, testPassword)
+	form.Set(formClientID, clientID)
+
+	recorder := postToken(t, server, form)
+
 	if recorder.Code != http.StatusOK {
-		t.Errorf("status = %v, body = %s", recorder.Code, recorder.Body.String())
+		t.Errorf(statusBodyFmt, recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -43,18 +54,14 @@ func TestToken_PasswordGrant_WrongPassword(t *testing.T) {
 	server := newTestServer(t)
 
 	form := url.Values{}
-	form.Set("grant_type", "password")
-	form.Set("username", "testuser")
-	form.Set("password", "wrong")
+	form.Set(formGrantType, grantTypePassword)
+	form.Set(formUsername, testUsername)
+	form.Set(formPassword, "wrong")
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusUnauthorized {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
 
@@ -64,16 +71,12 @@ func TestToken_PasswordGrant_MissingUsername(t *testing.T) {
 	server := newTestServer(t)
 
 	form := url.Values{}
-	form.Set("grant_type", "password")
+	form.Set(formGrantType, grantTypePassword)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusUnauthorized {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
 
@@ -83,11 +86,11 @@ func TestToken_ClientCredentials(t *testing.T) {
 	server := newTestServer(t)
 
 	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
-	redirectURL, _ := domain.NewRedirectURL("http://localhost/callback")
+	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
 	secretClient := domain.NewClient(
 		domain.MustAppName("SecretClient"),
 		secretClientID,
-		domain.NewClientSecret("secret"),
+		domain.NewClientSecret(testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -95,18 +98,14 @@ func TestToken_ClientCredentials(t *testing.T) {
 	srv := serverWithClient(t, server, secretClient)
 
 	form := url.Values{}
-	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", secretClientID.String())
-	form.Set("client_secret", "secret")
+	form.Set(formGrantType, "client_credentials")
+	form.Set(formClientID, secretClientID.String())
+	form.Set(formClientSecret, testClientSecret)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, srv, form)
 
 	if recorder.Code != http.StatusOK {
-		t.Errorf("status = %v, body = %s", recorder.Code, recorder.Body.String())
+		t.Errorf(statusBodyFmt, recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -116,11 +115,11 @@ func TestToken_ClientCredentials_WrongSecret(t *testing.T) {
 	server := newTestServer(t)
 
 	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
-	redirectURL, _ := domain.NewRedirectURL("http://localhost/callback")
+	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
 	secretClient := domain.NewClient(
 		domain.MustAppName("SecretClient"),
 		secretClientID,
-		domain.NewClientSecret("secret"),
+		domain.NewClientSecret(testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -128,18 +127,14 @@ func TestToken_ClientCredentials_WrongSecret(t *testing.T) {
 	srv := serverWithClient(t, server, secretClient)
 
 	form := url.Values{}
-	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", secretClientID.String())
-	form.Set("client_secret", "wrong")
+	form.Set(formGrantType, "client_credentials")
+	form.Set(formClientID, secretClientID.String())
+	form.Set(formClientSecret, "wrong")
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, srv, form)
 
 	if recorder.Code != http.StatusUnauthorized {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
 
@@ -147,30 +142,26 @@ func TestToken_AuthorizationCode(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[0].Clients()[0].ClientID().String()
+	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	claims := jwt.MapClaims{
 		"sub":          "user1",
 		"client_id":    clientID,
-		"redirect_uri": "http://localhost/callback",
+		"redirect_uri": testRedirectURL,
 		"scope":        "openid",
 		"exp":          time.Now().Add(5 * time.Minute).Unix(),
 	}
 	authCode, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.Key)
 
 	form := url.Values{}
-	form.Set("grant_type", "authorization_code")
-	form.Set("code", authCode)
-	form.Set("redirect_uri", "http://localhost/callback")
+	form.Set(formGrantType, "authorization_code")
+	form.Set(formCode, authCode)
+	form.Set(formRedirectURI, testRedirectURL)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusOK {
-		t.Errorf("status = %v, body = %s", recorder.Code, recorder.Body.String())
+		t.Errorf(statusBodyFmt, recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -178,7 +169,7 @@ func TestToken_RefreshToken(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.Config.Tenants()[0].Clients()[0].ClientID().String()
+	clientID := server.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
 
 	claims := jwt.MapClaims{
 		"sub":       "user1",
@@ -189,17 +180,13 @@ func TestToken_RefreshToken(t *testing.T) {
 	refreshToken, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.Key)
 
 	form := url.Values{}
-	form.Set("grant_type", "refresh_token")
-	form.Set("refresh_token", refreshToken)
+	form.Set(formGrantType, "refresh_token")
+	form.Set(formRefreshToken, refreshToken)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusOK {
-		t.Errorf("status = %v, body = %s", recorder.Code, recorder.Body.String())
+		t.Errorf(statusBodyFmt, recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -209,16 +196,12 @@ func TestToken_UnsupportedGrant(t *testing.T) {
 	server := newTestServer(t)
 
 	form := url.Values{}
-	form.Set("grant_type", "implicit")
+	form.Set(formGrantType, "implicit")
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusBadRequest {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
 
@@ -228,15 +211,11 @@ func TestToken_ParamTooLong(t *testing.T) {
 	server := newTestServer(t)
 
 	form := url.Values{}
-	form.Set("grant_type", strings.Repeat("a", 2049))
+	form.Set(formGrantType, strings.Repeat("a", overMaxParamLength))
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/oauth2/token", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(recorder, request)
+	recorder := postToken(t, server, form)
 
 	if recorder.Code != http.StatusBadRequest {
-		t.Errorf("status = %v", recorder.Code)
+		t.Errorf(statusFmt, recorder.Code)
 	}
 }
