@@ -1,15 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"embed"
-	"encoding/pem"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"time"
+
+	"identity/domain"
+	identityhttp "identity/http"
 )
 
 //go:embed templates/login.html
@@ -18,83 +19,47 @@ var loginHTML embed.FS
 //go:embed templates/index.html
 var indexHTML embed.FS
 
-var (
-	privateKey    *rsa.PrivateKey
-	configData    Config
-	loginTemplate *template.Template
-	indexTemplate *template.Template
-)
-
 func main() {
-	const defaultKeyPath = "/certs/identity-signing.key"
-
-	keyPath := os.Getenv("PRIVATE_KEY_PATH")
-	if keyPath == "" {
-		keyPath = defaultKeyPath
-	}
-
-	loadResources(keyPath)
-
-	mux := setupRouter()
-
-	log.Println("Mock Entra ID server starting on :8080")
-
-	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      logger(corsMiddleware(maxBytesMiddleware(mux))),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-	err := srv.ListenAndServe()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to generate RSA key: %v", err)
 	}
-}
 
-func loadResources(keyPath string) {
-	keyData, err := os.ReadFile(keyPath)
+	configPath := "Config.yaml"
+	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+		configPath = "DefaultConfig.yaml"
+	}
+
+	config, err := domain.LoadConfig(configPath, "Config.schema.json")
 	if err != nil {
-		log.Printf("failed to read key: %v", err)
-
-		return
+		log.Fatalf("failed to load config: %v", err)
 	}
 
-	block, _ := pem.Decode(keyData)
-	if block == nil {
-		log.Printf("failed to decode PEM block")
-
-		return
-	}
-
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	loginTemplate, err := template.ParseFS(loginHTML, "templates/login.html")
 	if err != nil {
-		privateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			log.Printf("failed to parse private key: %v", err)
-
-			return
-		}
-	} else {
-		var ok bool
-
-		privateKey, ok = key.(*rsa.PrivateKey)
-		if !ok {
-			log.Printf("not an RSA private key")
-
-			return
-		}
+		log.Fatalf("failed to parse login template: %v", err)
 	}
 
-	configData = loadConfig()
-
-	loginTemplate, err = template.ParseFS(loginHTML, "templates/login.html")
+	indexTemplate, err := template.ParseFS(indexHTML, "templates/index.html")
 	if err != nil {
-		log.Printf("failed to parse login template: %v", err)
+		log.Fatalf("failed to parse index template: %v", err)
 	}
 
-	indexTemplate, err = template.ParseFS(indexHTML, "templates/index.html")
-	if err != nil {
-		log.Printf("failed to parse index template: %v", err)
+	server := &identityhttp.Server{
+		Config:        config,
+		Key:           key,
+		LoginTemplate: loginTemplate,
+		IndexTemplate: indexTemplate,
+	}
+
+	addr := ":8080"
+	if port := os.Getenv("PORT"); port != "" {
+		addr = ":" + port
+	}
+
+	log.Printf("starting entra mock on %s", addr)
+
+	if err = http.ListenAndServe(addr, server.Handler()); err != nil {
+		log.Fatalf("server error: %v", err)
 	}
 }

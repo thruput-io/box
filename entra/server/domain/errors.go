@@ -22,3 +22,6 @@ var ErrInvalidRedirectURI = errors.New("invalid redirect URI")
 
 // ErrInvalidConfig is returned when the config file fails schema validation.
 var ErrInvalidConfig = errors.New("invalid config")
+
+// ErrUnsupportedGrantType is returned when the grant_type is not supported.
+var ErrUnsupportedGrantType = errors.New("unsupported grant_type")

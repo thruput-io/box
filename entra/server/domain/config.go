@@ -1,9 +1,6 @@
 package domain
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 // Config is the immutable root domain object loaded once at startup.
 // It must contain at least one tenant to be valid.
@@ -14,7 +11,7 @@ type Config struct {
 // NewConfig constructs a Config, enforcing that at least one tenant is present.
 func NewConfig(tenants []Tenant) (Config, error) {
 	if len(tenants) == 0 {
-		return Config{}, errors.New("config must contain at least one tenant")
+		return Config{}, errConfigNoTenants
 	}
 
 	return Config{tenants: tenants}, nil

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -231,10 +230,20 @@ type TenantName struct {
 // NewTenantName creates a TenantName, returning an error if empty.
 func NewTenantName(raw string) (TenantName, error) {
 	if raw == "" {
-		return TenantName{}, errors.New("tenant name must not be empty")
+		return TenantName{}, errTenantNameEmpty
 	}
 
 	return TenantName{value: raw}, nil
+}
+
+// MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
+func MustTenantName(raw string) TenantName {
+	name, err := NewTenantName(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return name
 }
 
 // String returns the tenant name value.
@@ -248,10 +257,20 @@ type AppName struct {
 // NewAppName creates an AppName, returning an error if empty.
 func NewAppName(raw string) (AppName, error) {
 	if raw == "" {
-		return AppName{}, errors.New("app name must not be empty")
+		return AppName{}, errAppNameEmpty
 	}
 
 	return AppName{value: raw}, nil
+}
+
+// MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
+func MustAppName(raw string) AppName {
+	name, err := NewAppName(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return name
 }
 
 // String returns the app name value.
@@ -265,7 +284,7 @@ type IdentifierURI struct {
 // NewIdentifierURI creates an IdentifierURI, returning an error if empty.
 func NewIdentifierURI(raw string) (IdentifierURI, error) {
 	if raw == "" {
-		return IdentifierURI{}, errors.New("identifier URI must not be empty")
+		return IdentifierURI{}, errIdentifierURIEmpty
 	}
 
 	return IdentifierURI{value: raw}, nil
@@ -282,7 +301,7 @@ type ScopeValue struct {
 // NewScopeValue creates a ScopeValue, returning an error if empty.
 func NewScopeValue(raw string) (ScopeValue, error) {
 	if raw == "" {
-		return ScopeValue{}, errors.New("scope value must not be empty")
+		return ScopeValue{}, errScopeValueEmpty
 	}
 
 	return ScopeValue{value: raw}, nil
@@ -299,7 +318,7 @@ type RoleValue struct {
 // NewRoleValue creates a RoleValue, returning an error if empty.
 func NewRoleValue(raw string) (RoleValue, error) {
 	if raw == "" {
-		return RoleValue{}, errors.New("role value must not be empty")
+		return RoleValue{}, errRoleValueEmpty
 	}
 
 	return RoleValue{value: raw}, nil
@@ -316,7 +335,7 @@ type GroupName struct {
 // NewGroupName creates a GroupName, returning an error if empty.
 func NewGroupName(raw string) (GroupName, error) {
 	if raw == "" {
-		return GroupName{}, errors.New("group name must not be empty")
+		return GroupName{}, errGroupNameEmpty
 	}
 
 	return GroupName{value: raw}, nil
@@ -333,10 +352,20 @@ type Username struct {
 // NewUsername creates a Username, returning an error if empty.
 func NewUsername(raw string) (Username, error) {
 	if raw == "" {
-		return Username{}, errors.New("username must not be empty")
+		return Username{}, errUsernameEmpty
 	}
 
 	return Username{value: raw}, nil
+}
+
+// MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
+func MustUsername(raw string) Username {
+	username, err := NewUsername(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return username
 }
 
 // String returns the username value.
@@ -350,10 +379,20 @@ type Password struct {
 // NewPassword creates a Password, returning an error if empty.
 func NewPassword(raw string) (Password, error) {
 	if raw == "" {
-		return Password{}, errors.New("password must not be empty")
+		return Password{}, errPasswordEmpty
 	}
 
 	return Password{value: raw}, nil
+}
+
+// MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
+func MustPassword(raw string) Password {
+	password, err := NewPassword(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return password
 }
 
 // String returns the password value.
@@ -367,10 +406,20 @@ type DisplayName struct {
 // NewDisplayName creates a DisplayName, returning an error if empty.
 func NewDisplayName(raw string) (DisplayName, error) {
 	if raw == "" {
-		return DisplayName{}, errors.New("display name must not be empty")
+		return DisplayName{}, errDisplayNameEmpty
 	}
 
 	return DisplayName{value: raw}, nil
+}
+
+// MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
+func MustDisplayName(raw string) DisplayName {
+	displayName, err := NewDisplayName(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return displayName
 }
 
 // String returns the display name value.
@@ -384,10 +433,20 @@ type Email struct {
 // NewEmail creates an Email, returning an error if empty.
 func NewEmail(raw string) (Email, error) {
 	if raw == "" {
-		return Email{}, errors.New("email must not be empty")
+		return Email{}, errEmailEmpty
 	}
 
 	return Email{value: raw}, nil
+}
+
+// MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
+func MustEmail(raw string) Email {
+	email, err := NewEmail(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return email
 }
 
 // String returns the email value.
@@ -401,7 +460,7 @@ type RedirectURL struct {
 // NewRedirectURL creates a RedirectURL, returning an error if empty.
 func NewRedirectURL(raw string) (RedirectURL, error) {
 	if raw == "" {
-		return RedirectURL{}, errors.New("redirect URL must not be empty")
+		return RedirectURL{}, errRedirectURLEmpty
 	}
 
 	return RedirectURL{value: raw}, nil
@@ -436,7 +495,7 @@ type ScopeDescription struct {
 // NewScopeDescription creates a ScopeDescription, returning an error if empty.
 func NewScopeDescription(raw string) (ScopeDescription, error) {
 	if raw == "" {
-		return ScopeDescription{}, errors.New("scope description must not be empty")
+		return ScopeDescription{}, errScopeDescriptionEmpty
 	}
 
 	return ScopeDescription{value: raw}, nil
@@ -453,7 +512,7 @@ type RoleDescription struct {
 // NewRoleDescription creates a RoleDescription, returning an error if empty.
 func NewRoleDescription(raw string) (RoleDescription, error) {
 	if raw == "" {
-		return RoleDescription{}, errors.New("role description must not be empty")
+		return RoleDescription{}, errRoleDescriptionEmpty
 	}
 
 	return RoleDescription{value: raw}, nil

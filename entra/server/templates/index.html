@@ -126,10 +126,10 @@
                     {{- end }}
 
                     <h3>Link to login page for it</h3>
-                    {{- if gt (len $app.RedirectUrls) 0 }}
+                    {{- if gt (len $app.RedirectURLs) 0 }}
                     <ul>
                         <li>
-                            <a href="/authorize?client_id={{ $app.ClientID }}&redirect_uri={{ index $app.RedirectUrls 0 }}&response_type=code&scope=openid">Start login (first redirect URL)</a>
+                            <a href="/authorize?client_id={{ $app.ClientID }}&redirect_uri={{ index $app.RedirectURLs 0 }}&response_type=code&scope=openid">Start login (first redirect URL)</a>
                         </li>
                     </ul>
                     {{- else }}
