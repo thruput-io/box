@@ -86,9 +86,11 @@ func TestConfig_ScopeRoleGroupGetters(t *testing.T) {
 	if scope.ID() != scopeID {
 		t.Fatal("Scope ID mismatch")
 	}
+
 	if scope.Description().String() != "desc" {
 		t.Fatal("Scope Description mismatch")
 	}
+
 	if scope.Value().String() != "access" {
 		t.Fatal("Scope Value mismatch")
 	}
@@ -101,12 +103,15 @@ func TestConfig_ScopeRoleGroupGetters(t *testing.T) {
 	if role.ID() != roleID {
 		t.Fatal("Role ID mismatch")
 	}
+
 	if role.Description().String() != "desc" {
 		t.Fatal("Role Description mismatch")
 	}
+
 	if role.Value().String() != "Admin" {
 		t.Fatal("Role Value mismatch")
 	}
+
 	if len(role.Scopes()) != 1 || role.Scopes()[0].ID() != scopeID {
 		t.Fatal("Role Scopes mismatch")
 	}
@@ -118,6 +123,7 @@ func TestConfig_ScopeRoleGroupGetters(t *testing.T) {
 	if group.ID() != groupID {
 		t.Fatal("Group ID mismatch")
 	}
+
 	if group.Name().String() != "Group" {
 		t.Fatal("Group Name mismatch")
 	}
@@ -133,6 +139,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if tenantID.UUID() != value {
 		t.Fatal("TenantID UUID mismatch")
 	}
+
 	if tenantID.String() != valStr {
 		t.Fatal("TenantID String mismatch")
 	}
@@ -141,6 +148,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if clientID.UUID() != value {
 		t.Fatal("ClientID UUID mismatch")
 	}
+
 	if clientID.String() != valStr {
 		t.Fatal("ClientID String mismatch")
 	}
@@ -149,6 +157,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if userID.UUID() != value {
 		t.Fatal("UserID UUID mismatch")
 	}
+
 	if userID.String() != valStr {
 		t.Fatal("UserID String mismatch")
 	}
@@ -157,6 +166,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if groupID.UUID() != value {
 		t.Fatal("GroupID UUID mismatch")
 	}
+
 	if groupID.String() != valStr {
 		t.Fatal("GroupID String mismatch")
 	}
@@ -165,6 +175,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if scopeID.UUID() != value {
 		t.Fatal("ScopeID UUID mismatch")
 	}
+
 	if scopeID.String() != valStr {
 		t.Fatal("ScopeID String mismatch")
 	}
@@ -173,6 +184,7 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	if roleID.UUID() != value {
 		t.Fatal("RoleID UUID mismatch")
 	}
+
 	if roleID.String() != valStr {
 		t.Fatal("RoleID String mismatch")
 	}

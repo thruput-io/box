@@ -74,6 +74,7 @@ func TestMust_Panics(t *testing.T) {
 					t.Errorf("%s: expected panic", tt.name)
 				}
 			}()
+
 			tt.fn()
 		})
 	}
