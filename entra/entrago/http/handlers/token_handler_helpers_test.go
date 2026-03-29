@@ -33,13 +33,13 @@ func TestTokenHelpers_ResolveClientFromID(t *testing.T) {
 		t.Fatal("expected nil for unknown client ID")
 	}
 
-	client := handlers.ExportResolveClientFromID(tenant, fixture.appID.String())
+	client := handlers.ExportResolveClientFromID(tenant, fixture.appID.UUID().String())
 	if client == nil {
 		t.Fatal("expected client")
 	}
 
-	if client.ClientID().String() != fixture.appID.String() {
-		t.Fatalf("expected client ID %s, got %s", fixture.appID.String(), client.ClientID().String())
+	if client.ClientID().UUID().String() != fixture.appID.UUID().String() {
+		t.Fatalf("expected client ID %s, got %s", fixture.appID.UUID().String(), client.ClientID().UUID().String())
 	}
 }
 
@@ -55,13 +55,13 @@ func TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient(t *testing.T) {
 		t.Fatalf(fmtErr, err)
 	}
 
-	client := handlers.ExportResolveClientFromForm(tenant, fixture.appID.String(), "")
+	client := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), "test-secret")
 	if client == nil {
 		t.Fatal("expected client")
 	}
 
-	if client.ClientID().String() != fixture.appID.String() {
-		t.Fatalf("expected client ID %s, got %s", fixture.appID.String(), client.ClientID().String())
+	if client.ClientID().UUID().String() != fixture.appID.UUID().String() {
+		t.Fatalf("expected client ID %s, got %s", fixture.appID.UUID().String(), client.ClientID().UUID().String())
 	}
 }
 
@@ -77,13 +77,13 @@ func TestTokenHelpers_ResolveClientFromForm_WithSecretValidation(t *testing.T) {
 		t.Fatalf(fmtErr, err)
 	}
 
-	if got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.String(), "wrong"); got != nil {
+	if got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), "wrong"); got != nil {
 		t.Fatal("expected nil client for invalid secret")
 	}
 
-	const secret = "" // fixture has empty secret for appID
+	const secret = "test-secret" // fixture has test-secret for appID
 
-	got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.String(), secret)
+	got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), secret)
 	if got == nil {
 		t.Fatal("expected client for valid secret")
 	}

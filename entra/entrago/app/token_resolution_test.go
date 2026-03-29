@@ -48,8 +48,8 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("expected audience %q, got %q", testApp, gotAud)
 	}
 
-	if !gotApps[clientID.String()] {
-		t.Fatalf("expected target apps to include %s", clientID)
+	if !gotApps[clientID.UUID().String()] {
+		t.Fatalf("expected target apps to include %s", clientID.UUID().String())
 	}
 
 	gotAud, gotApps = app.ExportResolveAudienceForTest(tenant, "openid")
@@ -145,10 +145,10 @@ func setupUserAndClientForRoles(
 		domain.MustClientID("00000000-0000-0000-0000-000000000000"),
 	)
 
-	client := domain.NewClient(
+	client := domain.NewClientWithSecret(
 		domain.MustAppName("Client"),
 		appClientID,
-		domain.NewClientSecret(testSecret),
+		domain.MustClientSecret(testSecret),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.GroupRoleAssignment{assignmentMatching, assignmentWrongGroup, assignmentNilApp},
 	)
@@ -165,10 +165,10 @@ func verifyResolvedRoles(
 ) {
 	t.Helper()
 
-	targetApps := map[string]bool{appClientID.String(): true}
+	targetApps := map[string]bool{appClientID.UUID().String(): true}
 	requested := []string{testApp + "/access"}
 
-	roles := app.ExportResolveRolesForTest(tenant, &client, &user, targetApps, requested)
+	roles := app.ExportResolveRolesForTest(tenant, client, &user, targetApps, requested)
 	roleSet := make(map[string]bool)
 
 	for _, r := range roles {

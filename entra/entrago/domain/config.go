@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -274,15 +275,16 @@ func NewClientWithSecret(
 
 func (c ClientWithSecret) Name() AppName                               { return c.name }
 func (c ClientWithSecret) ClientID() ClientID                          { return c.clientID }
+func (c ClientWithSecret) ClientSecret() ClientSecret                  { return c.clientSecret }
 func (c ClientWithSecret) RedirectURLs() []RedirectURL                 { return c.redirectURLs }
 func (c ClientWithSecret) GroupRoleAssignments() []GroupRoleAssignment { return c.groupRoleAssignments }
 func (c ClientWithSecret) Validate(secret *ClientSecret) error {
 	if secret == nil {
-		return fmt.Errorf("client secret required")
+		return errors.New("client secret required")
 	}
 
 	if !c.clientSecret.Match(*secret) {
-		return fmt.Errorf("invalid client secret")
+		return errors.New("invalid client secret")
 	}
 
 	return nil
@@ -318,7 +320,7 @@ func (c ClientWithoutSecret) GroupRoleAssignments() []GroupRoleAssignment {
 
 func (c ClientWithoutSecret) Validate(secret *ClientSecret) error {
 	if secret != nil {
-		return fmt.Errorf("public client does not accept secrets")
+		return errors.New("public client does not accept secrets")
 	}
 
 	return nil

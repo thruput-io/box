@@ -62,10 +62,9 @@ func setupUserAndClientForHelpers(
 		appID,
 	)
 
-	client := domain.NewClient(
+	client := domain.NewClientWithoutSecret(
 		domain.MustAppName("Client"),
 		appID,
-		domain.NewClientSecret(""),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.GroupRoleAssignment{assignmentMatching, assignmentWrongGroup},
 	)
@@ -95,11 +94,11 @@ func verifyAuthHelpers(
 
 	const expectedRolesLen = 1
 
-	if got := appRoles[appID.String()]; len(got) != expectedRolesLen || got[0] != "Role1" {
+	if got := appRoles[appID.UUID().String()]; len(got) != expectedRolesLen || got[0] != "Role1" {
 		t.Fatalf("unexpected appRoles: %#v", appRoles)
 	}
 
-	if got := handlers.ExportResolveAppName(tenant, appID.String()); got != "App" {
+	if got := handlers.ExportResolveAppName(tenant, appID.UUID().String()); got != "App" {
 		t.Fatalf("expected App, got %q", got)
 	}
 
@@ -107,7 +106,7 @@ func verifyAuthHelpers(
 		t.Fatalf("expected fallback app id, got %q", got)
 	}
 
-	roles := handlers.ExportResolveDisplayRoles(user, &client, tenant)
+	roles := handlers.ExportResolveDisplayRoles(user, client, tenant)
 	if len(roles) != expectedRolesLen {
 		t.Fatalf("expected 1 role display, got %d", len(roles))
 	}

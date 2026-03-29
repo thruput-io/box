@@ -66,7 +66,9 @@ func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID
 
 // ExportResolveClientFromID is for testing resolveClientFromID from handlers_test.
 func ExportResolveClientFromID(tenant domain.Tenant, clientID string) domain.Client {
-	return resolveClientFromID(tenant, clientID)
+	id, _ := domain.NewClientID(clientID)
+
+	return resolveClientFromID(tenant, id)
 }
 
 // ExportResolveClientFromForm is for testing resolveClientFromForm from handlers_test.

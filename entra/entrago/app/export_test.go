@@ -40,6 +40,7 @@ func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectU
 	if err != nil {
 		return err
 	}
+
 	return ValidateRedirectURI(redirectURI, allowed)
 }
 
@@ -56,13 +57,16 @@ func ExportFindUserByID(tenant domain.Tenant, subject string) (domain.User, bool
 // ExportValidateClientSecret is for testing ValidateClientSecret from app_test.
 func ExportValidateClientSecret(client domain.Client, secretStr string) error {
 	var secret *domain.ClientSecret
+
 	if secretStr != "" {
 		s, err := domain.NewClientSecret(secretStr)
 		if err != nil {
 			return err
 		}
+
 		secret = &s
 	}
+
 	return ValidateClientSecret(client, secret)
 }
 
@@ -77,8 +81,10 @@ func ExportIssueAuthCode(
 	user domain.User,
 	clientID domain.ClientID,
 	redirectURI domain.RedirectURL,
-	scope, tenantID, nonce string,
-) string {
+	scope string,
+	tenantID domain.TenantID,
+	nonce string,
+) domain.AuthCode {
 	return IssueAuthCode(key, user, clientID, redirectURI, scope, tenantID, nonce)
 }
 
@@ -110,7 +116,7 @@ func ExportSignClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
 
 // ExportBuildRefreshClaims is for testing buildRefreshClaims from app_test.
 func ExportBuildRefreshClaims(
-	issuer, subject, clientID, tenantID, scope string,
+	issuer string, subject any, clientID domain.ClientID, tenantID domain.TenantID, scope string,
 	now time.Time,
 ) jwt.MapClaims {
 	return buildRefreshClaims(issuer, subject, clientID, tenantID, scope, now)

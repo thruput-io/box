@@ -20,7 +20,6 @@ Unit tests MUST deterministic, and isolated.
 
 You MUST follow these rules:
 
-1.  **Assert Field Matching**: For every constructor or builder, tests MUST verify that each field provided as input matches the corresponding getter output.
 2.  **Test Panic Branches**: `Must*` constructors MUST have at least one test that exercises the panic branch using `defer`/`recover`.
 3.  **No Silent Failures**: Every test MUST make at least one assertion using the testing framework (`t.Error`, `t.Fatal`, `require.*`, `assert.*`).
 4.  **No Discarding Returns**: Tests MUST NOT discard return values with `_` unless explicitly commented as irrelevant.

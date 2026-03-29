@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -17,22 +18,34 @@ var (
 )
 
 func testTokenHandler(request *http.Request, application *app.App) Response {
+	tenants := application.Config.Tenants()
+	if len(tenants) == 0 {
+		return internalError("no tenants configured")
+	}
+
 	parts := strings.Split(strings.Trim(request.URL.Path, "/"), "/")
-	if len(parts) < minTestTokenParts {
-		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, errInvalidTestTokenPath.Error()))
+
+	tenant := tenants[rand.Intn(len(tenants))]
+
+	if len(parts) > testTokenTenantPart && parts[testTokenTenantPart] != "" {
+		if t, err := app.FindTenant(application.Config, parts[testTokenTenantPart]); err == nil {
+			tenant = t
+		}
 	}
 
-	tenantIDStr := parts[testTokenTenantPart]
-	appIDStr := parts[testTokenAppPart]
+	var clientID domain.ClientID
 
-	tenant, err := app.FindTenant(application.Config, tenantIDStr)
-	if err != nil {
-		return fromDomainError(domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found"))
+	if len(parts) > testTokenAppPart && parts[testTokenAppPart] != "" {
+		if appUUID, err := uuid.Parse(parts[testTokenAppPart]); err == nil {
+			clientID = domain.ClientIDFromUUID(appUUID)
+		}
 	}
 
-	appUUID, parseErr := uuid.Parse(appIDStr)
-	if parseErr != nil {
-		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, errInvalidAppID.Error()))
+	if clientID.UUID() == uuid.Nil {
+		if clients := tenant.Clients(); len(clients) > 0 {
+			client := clients[rand.Intn(len(clients))]
+			clientID = client.ClientID()
+		}
 	}
 
 	scope := request.URL.Query().Get("scope")
@@ -43,7 +56,7 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 	input := domain.TokenInput{
 		Grant:         domain.GrantTest,
 		Tenant:        tenant,
-		Client:        resolveClientFromID(tenant, domain.ClientIDFromUUID(appUUID).String()),
+		Client:        resolveClientFromID(tenant, clientID),
 		Scope:         scope,
 		IsV2:          true,
 		BaseURL:       extractBaseURL(request),
@@ -54,7 +67,7 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 
 	response := app.IssueToken(application.Key, input)
 
-	return okText([]byte(response.AccessToken + "\n"))
+	return okText([]byte(response.AccessToken.RawString() + "\n"))
 }
 
 func resolveTestUser(tenant domain.Tenant, username string) *domain.User {
@@ -65,7 +78,8 @@ func resolveTestUser(tenant domain.Tenant, username string) *domain.User {
 	}
 
 	if len(tenant.Users()) > minValidIndex {
-		first := tenant.Users()[minValidIndex]
+		users := tenant.Users()
+		first := users[rand.Intn(len(users))]
 
 		return &first
 	}

@@ -30,8 +30,8 @@ func TestNewNonEmptyString_NonEmptyStringSucceeds(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.String() != testVal {
-		t.Fatalf("expected %q, got %q", testVal, result.String())
+	if result.RawString() != testVal {
+		t.Fatalf("expected %q, got %q", testVal, result.RawString())
 	}
 }
 

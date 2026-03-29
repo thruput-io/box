@@ -37,12 +37,12 @@ type TokenInput struct {
 
 // TokenResponse holds the issued tokens returned by IssueToken.
 type TokenResponse struct {
-	AccessToken   string
-	TokenType     string
+	AccessToken   AccessToken
+	TokenType     TokenType
 	ExpiresIn     int
-	Scope         string
-	IDToken       *string
-	RefreshToken  *string
-	ClientInfo    *string
+	Scope         string // TODO: Should this be ScopeValue or similar?
+	IDToken       *IDToken
+	RefreshToken  *RefreshToken
+	ClientInfo    *ClientInfo
 	CorrelationID string
 }

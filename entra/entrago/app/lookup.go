@@ -2,6 +2,7 @@ package app
 
 import (
 	"identity/domain"
+	"slices"
 )
 
 const (
@@ -81,10 +82,8 @@ func FindRedirectURLs(tenant domain.Tenant, clientID domain.ClientID) ([]domain.
 
 // ValidateRedirectURI checks whether redirectURI is in the allowed list.
 func ValidateRedirectURI(redirectURI domain.RedirectURL, allowed []domain.RedirectURL) error {
-	for _, allowedURL := range allowed {
-		if allowedURL == redirectURI {
-			return nil
-		}
+	if slices.Contains(allowed, redirectURI) {
+		return nil
 	}
 
 	return domain.ErrInvalidRedirectURI
@@ -129,7 +128,8 @@ func FindUserByID(tenant domain.Tenant, subjectStr string) (domain.User, bool) {
 
 // ValidateClientSecret checks the client secret using constant-time comparison.
 func ValidateClientSecret(client domain.Client, secret *domain.ClientSecret) error {
-	if err := client.Validate(secret); err != nil {
+	err := client.Validate(secret)
+	if err != nil {
 		return domain.ErrInvalidCredentials
 	}
 

@@ -26,11 +26,11 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 		fixture.client.ClientID(),
 		domain.MustRedirectURL(testCallback),
 		"openid profile",
-		fixture.tenant.TenantID().UUID().String(),
+		fixture.tenant.TenantID(),
 		nonceStr,
 	)
 
-	claims, err := app.ExportParseSignedToken(key, code)
+	claims, err := app.ExportParseSignedToken(key, code.RawString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,14 +38,14 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 	verifyAuthCodeClaims(
 		t,
 		claims,
-		fixture.user.ID().UUID().String(),
-		fixture.client.ClientID().UUID().String(),
+		fixture.user.ID(),
+		fixture.client.ClientID(),
 		nonceStr,
-		fixture.tenant.TenantID().UUID().String(),
+		fixture.tenant.TenantID(),
 	)
 }
 
-func verifyAuthCodeClaims(t *testing.T, claims map[string]any, sub, clientID, nonce, tenant string) {
+func verifyAuthCodeClaims(t *testing.T, claims map[string]any, sub domain.UserID, clientID domain.ClientID, nonce string, tenant domain.TenantID) {
 	t.Helper()
 
 	verifySubAndClient(t, claims, sub, clientID)
@@ -56,28 +56,28 @@ func verifyAuthCodeClaims(t *testing.T, claims map[string]any, sub, clientID, no
 	}
 }
 
-func verifySubAndClient(t *testing.T, claims map[string]any, sub, clientID string) {
+func verifySubAndClient(t *testing.T, claims map[string]any, sub domain.UserID, clientID domain.ClientID) {
 	t.Helper()
 
 	gotSub, subFound := claims[app.ClaimSub].(string)
-	if !subFound || gotSub != sub {
-		t.Fatalf("expected sub %q, got %q", sub, gotSub)
+	if !subFound || gotSub != sub.RawString() {
+		t.Fatalf("expected sub %q, got %q", sub.RawString(), gotSub)
 	}
 
 	gotCID, cidFound := claims[app.ClaimClientID].(string)
-	if !cidFound || gotCID != clientID {
-		t.Fatalf("expected client_id %q, got %q", clientID, gotCID)
+	if !cidFound || gotCID != clientID.RawString() {
+		t.Fatalf("expected client_id %q, got %q", clientID.RawString(), gotCID)
 	}
 }
 
-func verifyOtherClaims(t *testing.T, claims map[string]any, nonce, tenant string) {
+func verifyOtherClaims(t *testing.T, claims map[string]any, nonce string, tenant domain.TenantID) {
 	t.Helper()
 
 	verifyAuthURIAndScope(t, claims)
 
 	gotTID, tidFound := claims[app.ClaimTenant].(string)
-	if !tidFound || gotTID != tenant {
-		t.Fatalf("expected tenant %q, got %q", tenant, gotTID)
+	if !tidFound || gotTID != tenant.RawString() {
+		t.Fatalf("expected tenant %q, got %q", tenant.RawString(), gotTID)
 	}
 
 	gotNonce, nonceFound := claims[app.ClaimNonce].(string)
@@ -136,9 +136,14 @@ func TestParseSignedToken_InvalidSignature(t *testing.T) {
 func TestBuildClientInfo(t *testing.T) {
 	t.Parallel()
 
-	encoded := app.BuildClientInfo("user-id", "tenant-id")
+	const (
+		userID   = "00000000-0000-0000-0000-000000000001"
+		tenantID = "00000000-0000-0000-0000-000000000002"
+	)
 
-	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	encoded := app.BuildClientInfo(domain.MustUserID(userID), domain.MustTenantID(tenantID))
+
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded.RawString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,12 +155,12 @@ func TestBuildClientInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if payload["uid"] != "user-id" {
-		t.Fatalf("expected uid user-id, got %q", payload["uid"])
+	if payload["uid"] != userID {
+		t.Fatalf("expected uid %s, got %q", userID, payload["uid"])
 	}
 
-	if payload["utid"] != "tenant-id" {
-		t.Fatalf("expected utid tenant-id, got %q", payload["utid"])
+	if payload["utid"] != tenantID {
+		t.Fatalf("expected utid %s, got %q", tenantID, payload["utid"])
 	}
 }
 

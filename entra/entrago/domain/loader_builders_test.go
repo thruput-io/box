@@ -69,6 +69,7 @@ func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
 	t.Parallel()
 
 	clientSecret := domain.MustClientSecret("secret")
+
 	client, err := domain.ExportBuildClient(domain.RawClient{
 		Name:         "Client",
 		ClientID:     testClientID,

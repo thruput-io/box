@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"identity/domain"
 )
 
 var errInvalidClaimsType = errors.New("invalid claims type in JWT")
@@ -35,15 +37,18 @@ func PublicKey(key *rsa.PrivateKey) JWKSKey {
 }
 
 // BuildClientInfo encodes uid+utid as a base64url JSON blob for MSAL.
-func BuildClientInfo(userID, tenantID string) string {
-	info := map[string]string{"uid": userID, "utid": tenantID}
+func BuildClientInfo(userID domain.UserID, tenantID domain.TenantID) domain.ClientInfo {
+	info := map[string]string{
+		"uid":  userID.RawString(),
+		"utid": tenantID.RawString(),
+	}
 
 	data, err := json.Marshal(info)
 	if err != nil {
 		panic("failed to marshal client_info: " + err.Error())
 	}
 
-	return base64URLEncode(data)
+	return domain.MustClientInfo(base64URLEncode(data))
 }
 
 // SignClaims signs a JWT with RS256 and kid=1.

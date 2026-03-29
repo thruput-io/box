@@ -2,6 +2,7 @@ package domain
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -40,8 +41,22 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 // UUID returns the underlying uuid.UUID value.
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
+func (tenantID TenantID) RawString() string { return tenantID.value.String() }
+
+func (tenantID TenantID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(tenantID.value.String())
+}
+
 // ClientID is the unique identifier for an app registration or client.
 type ClientID struct {
+	value uuid.UUID
+}
+
+func AppIDAsClientID(id AppID) ClientID {
+	return ClientID(id)
+}
+
+type AppID struct {
 	value uuid.UUID
 }
 
@@ -70,8 +85,18 @@ func ClientIDFromUUID(value uuid.UUID) ClientID {
 	return ClientID{value: value}
 }
 
+func AppIDFromUUID(value uuid.UUID) AppID {
+	return AppID{value: value}
+}
+
 // UUID returns the underlying uuid.UUID value.
 func (clientID ClientID) UUID() uuid.UUID { return clientID.value }
+
+func (clientID ClientID) RawString() string { return clientID.value.String() }
+
+func (clientID ClientID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(clientID.value.String())
+}
 
 // UserID is the unique identifier for a user.
 type UserID struct {
@@ -106,6 +131,12 @@ func UserIDFromUUID(value uuid.UUID) UserID {
 // UUID returns the underlying uuid.UUID value.
 func (userID UserID) UUID() uuid.UUID { return userID.value }
 
+func (userID UserID) RawString() string { return userID.value.String() }
+
+func (userID UserID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(userID.value.String())
+}
+
 // GroupID is the unique identifier for a group.
 type GroupID struct {
 	value uuid.UUID
@@ -138,6 +169,12 @@ func GroupIDFromUUID(value uuid.UUID) GroupID {
 
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
+
+func (groupID GroupID) RawString() string { return groupID.value.String() }
+
+func (groupID GroupID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(groupID.value.String())
+}
 
 // ScopeID is the unique identifier for a scope.
 type ScopeID struct {
@@ -172,6 +209,12 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
+func (scopeID ScopeID) RawString() string { return scopeID.value.String() }
+
+func (scopeID ScopeID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(scopeID.value.String())
+}
+
 // RoleID is the unique identifier for a role.
 type RoleID struct {
 	value uuid.UUID
@@ -205,6 +248,12 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
+func (roleID RoleID) RawString() string { return roleID.value.String() }
+
+func (roleID RoleID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(roleID.value.String())
+}
+
 // TenantName is the display name of a tenant.
 type TenantName struct {
 	value NonEmptyString
@@ -225,7 +274,7 @@ func (tenantName TenantName) MarshalJSON() ([]byte, error) {
 }
 
 func (tenantName TenantName) RawString() string {
-	return tenantName.value.Raw()
+	return tenantName.value.value
 }
 
 // MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
@@ -258,7 +307,7 @@ func (appName AppName) MarshalJSON() ([]byte, error) {
 }
 
 func (appName AppName) RawString() string {
-	return appName.value.Raw()
+	return appName.value.value
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
@@ -291,7 +340,7 @@ func (identifierURI IdentifierURI) MarshalJSON() ([]byte, error) {
 }
 
 func (identifierURI IdentifierURI) RawString() string {
-	return identifierURI.value.Raw()
+	return identifierURI.value.value
 }
 
 // MustIdentifierURI creates an IdentifierURI, panicking if invalid. For use in tests and constants only.
@@ -324,7 +373,7 @@ func (scopeValue ScopeValue) MarshalJSON() ([]byte, error) {
 }
 
 func (scopeValue ScopeValue) RawString() string {
-	return scopeValue.value.Raw()
+	return scopeValue.value.value
 }
 
 // MustScopeValue creates a ScopeValue, panicking if invalid. For use in tests and constants only.
@@ -357,7 +406,7 @@ func (roleValue RoleValue) MarshalJSON() ([]byte, error) {
 }
 
 func (roleValue RoleValue) RawString() string {
-	return roleValue.value.Raw()
+	return roleValue.value.value
 }
 
 // MustRoleValue creates a RoleValue, panicking if invalid. For use in tests and constants only.
@@ -390,7 +439,7 @@ func (groupName GroupName) MarshalJSON() ([]byte, error) {
 }
 
 func (groupName GroupName) RawString() string {
-	return groupName.value.Raw()
+	return groupName.value.value
 }
 
 // MustGroupName creates a GroupName, panicking if invalid. For use in tests and constants only.
@@ -423,7 +472,7 @@ func (username Username) MarshalJSON() ([]byte, error) {
 }
 
 func (username Username) RawString() string {
-	return username.value.Raw()
+	return username.value.value
 }
 
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
@@ -456,7 +505,7 @@ func (password Password) MarshalJSON() ([]byte, error) {
 }
 
 func (password Password) RawString() string {
-	return password.value.Raw()
+	return password.value.value
 }
 
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
@@ -489,7 +538,7 @@ func (displayName DisplayName) MarshalJSON() ([]byte, error) {
 }
 
 func (displayName DisplayName) RawString() string {
-	return displayName.value.Raw()
+	return displayName.value.value
 }
 
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
@@ -522,7 +571,7 @@ func (email Email) MarshalJSON() ([]byte, error) {
 }
 
 func (email Email) RawString() string {
-	return email.value.Raw()
+	return email.value.value
 }
 
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
@@ -555,7 +604,7 @@ func (redirectURL RedirectURL) MarshalJSON() ([]byte, error) {
 }
 
 func (redirectURL RedirectURL) RawString() string {
-	return redirectURL.value.Raw()
+	return redirectURL.value.value
 }
 
 // MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
@@ -588,7 +637,7 @@ func (clientSecret ClientSecret) MarshalJSON() ([]byte, error) {
 }
 
 func (clientSecret ClientSecret) RawString() string {
-	return clientSecret.value.Raw()
+	return clientSecret.value.value
 }
 
 // MustClientSecret creates a ClientSecret, panicking if invalid. For use in tests and constants only.
@@ -634,7 +683,7 @@ func (scopeDescription ScopeDescription) MarshalJSON() ([]byte, error) {
 }
 
 func (scopeDescription ScopeDescription) RawString() string {
-	return scopeDescription.value.Raw()
+	return scopeDescription.value.value
 }
 
 // MustScopeDescription creates a ScopeDescription, panicking if invalid. For use in tests and constants only.
@@ -667,7 +716,7 @@ func (roleDescription RoleDescription) MarshalJSON() ([]byte, error) {
 }
 
 func (roleDescription RoleDescription) RawString() string {
-	return roleDescription.value.Raw()
+	return roleDescription.value.value
 }
 
 // MustRoleDescription creates a RoleDescription, panicking if invalid. For use in tests and constants only.
@@ -679,3 +728,159 @@ func MustRoleDescription(raw string) RoleDescription {
 
 	return v
 }
+
+// AccessToken is an issued OAuth2 access token.
+type AccessToken struct {
+	value NonEmptyString
+}
+
+func NewAccessToken(raw string) (AccessToken, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return AccessToken{}, err
+	}
+
+	return AccessToken{value: v}, nil
+}
+
+func MustAccessToken(raw string) AccessToken {
+	v, err := NewAccessToken(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (at AccessToken) MarshalJSON() ([]byte, error) { return at.value.MarshalJSON() }
+func (at AccessToken) RawString() string            { return at.value.value }
+
+// TokenType is the type of an issued token (e.g. "Bearer").
+type TokenType struct {
+	value NonEmptyString
+}
+
+func NewTokenType(raw string) (TokenType, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return TokenType{}, err
+	}
+
+	return TokenType{value: v}, nil
+}
+
+func MustTokenType(raw string) TokenType {
+	v, err := NewTokenType(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (tt TokenType) MarshalJSON() ([]byte, error) { return tt.value.MarshalJSON() }
+func (tt TokenType) RawString() string            { return tt.value.value }
+
+// IDToken is an issued OIDC ID token.
+type IDToken struct {
+	value NonEmptyString
+}
+
+func NewIDToken(raw string) (IDToken, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return IDToken{}, err
+	}
+
+	return IDToken{value: v}, nil
+}
+
+func MustIDToken(raw string) IDToken {
+	v, err := NewIDToken(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (it IDToken) MarshalJSON() ([]byte, error) { return it.value.MarshalJSON() }
+func (it IDToken) RawString() string            { return it.value.value }
+
+// RefreshToken is an issued OAuth2 refresh token.
+type RefreshToken struct {
+	value NonEmptyString
+}
+
+func NewRefreshToken(raw string) (RefreshToken, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return RefreshToken{}, err
+	}
+
+	return RefreshToken{value: v}, nil
+}
+
+func MustRefreshToken(raw string) RefreshToken {
+	v, err := NewRefreshToken(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (rt RefreshToken) MarshalJSON() ([]byte, error) { return rt.value.MarshalJSON() }
+func (rt RefreshToken) RawString() string            { return rt.value.value }
+
+// ClientInfo is the base64-encoded MSAL client information.
+type ClientInfo struct {
+	value NonEmptyString
+}
+
+func NewClientInfo(raw string) (ClientInfo, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return ClientInfo{}, err
+	}
+
+	return ClientInfo{value: v}, nil
+}
+
+func MustClientInfo(raw string) ClientInfo {
+	v, err := NewClientInfo(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (ci ClientInfo) MarshalJSON() ([]byte, error) { return ci.value.MarshalJSON() }
+func (ci ClientInfo) RawString() string            { return ci.value.value }
+
+// AuthCode is an issued OAuth2 authorization code.
+type AuthCode struct {
+	value NonEmptyString
+}
+
+func NewAuthCode(raw string) (AuthCode, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return AuthCode{}, err
+	}
+
+	return AuthCode{value: v}, nil
+}
+
+func MustAuthCode(raw string) AuthCode {
+	v, err := NewAuthCode(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+func (ac AuthCode) MarshalJSON() ([]byte, error) { return ac.value.MarshalJSON() }
+func (ac AuthCode) RawString() string            { return ac.value.value }

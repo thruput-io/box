@@ -23,10 +23,14 @@ func mustRSAKey(t *testing.T) *rsa.PrivateKey {
 	return key
 }
 
-func parseJWT(t *testing.T, raw string, key *rsa.PrivateKey) jwt.MapClaims {
+type rawStringer interface {
+	RawString() string
+}
+
+func parseJWT(t *testing.T, token rawStringer, key *rsa.PrivateKey) jwt.MapClaims {
 	t.Helper()
 
-	parsed, err := jwt.Parse(raw, func(_ *jwt.Token) (any, error) { return &key.PublicKey, nil })
+	parsed, err := jwt.Parse(token.RawString(), func(_ *jwt.Token) (any, error) { return &key.PublicKey, nil })
 	if err != nil {
 		t.Fatalf("jwt.Parse: %v", err)
 	}
@@ -49,7 +53,7 @@ func TestIssueToken_OpenIDNonceRefreshAndClientInfo(t *testing.T) {
 		Grant:         domain.GrantPassword,
 		Tenant:        fixture.tenant,
 		User:          &fixture.user,
-		Client:        &fixture.client,
+		Client:        fixture.client,
 		Scope:         testScope,
 		Nonce:         testNonce,
 		IsV2:          true,
@@ -71,17 +75,13 @@ func TestIssueToken_OpenIDNonceRefreshAndClientInfo(t *testing.T) {
 		t.Fatalf("expected id_token nonce %q, got %#v", testNonce, idClaims["nonce"])
 	}
 
-	if gotAud, ok := idClaims["aud"].(string); !ok || gotAud != fixture.client.ClientID().String() {
-		t.Fatalf("expected id_token aud %q, got %#v", fixture.client.ClientID().String(), idClaims["aud"])
+	if gotAud, ok := idClaims["aud"].(string); !ok || gotAud != fixture.client.ClientID().UUID().String() {
+		t.Fatalf("expected id_token aud %q, got %#v", fixture.client.ClientID().UUID().String(), idClaims["aud"])
 	}
 }
 
 func verifyResponse(t *testing.T, resp domain.TokenResponse, corr string) {
 	t.Helper()
-
-	if resp.AccessToken == "" {
-		t.Fatal("expected access token")
-	}
 
 	if resp.IDToken == nil {
 		t.Fatal("expected id token")
@@ -115,7 +115,7 @@ func TestIssueToken_GraphAudienceUsesRolesForScp(t *testing.T) {
 		Grant:         domain.GrantPassword,
 		Tenant:        fixture.tenant,
 		User:          &fixture.user,
-		Client:        &fixture.client,
+		Client:        fixture.client,
 		Scope:         "https://graph.microsoft.com/User.Read",
 		Nonce:         testNonce,
 		IsV2:          true,
@@ -133,7 +133,7 @@ func TestIssueToken_GraphAudienceUsesRolesForScp(t *testing.T) {
 		sigErr    = "signature invalid"
 	)
 
-	_, err := jwt.Parse(resp.AccessToken, func(_ *jwt.Token) (any, error) {
+	_, err := jwt.Parse(resp.AccessToken.RawString(), func(_ *jwt.Token) (any, error) {
 		return &key.PublicKey, nil
 	})
 	if err != nil {
@@ -177,10 +177,10 @@ func setupGraphTest(t *testing.T) graphTestFixture {
 		[]domain.Scope{scope},
 		[]domain.Role{role},
 	)
-	client := domain.NewClient(
+	client := domain.NewClientWithSecret(
 		domain.MustAppName("Client"),
 		graphClientID,
-		domain.NewClientSecret(testSecret),
+		domain.MustClientSecret(testSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)

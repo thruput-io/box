@@ -36,6 +36,7 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 	}
 
 	redirectURIStr := request.URL.Query().Get("redirect_uri")
+
 	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
 	if err != nil {
 		return badRequest(err)
@@ -77,7 +78,6 @@ type validatedLogin struct {
 	tenant      domain.Tenant
 	clientID    domain.ClientID
 	redirectURI domain.RedirectURL
-	tenantIDStr string
 }
 
 func validateLoginRequest(request *http.Request, application *app.App) (validatedLogin, *domain.Error) {
@@ -94,6 +94,7 @@ func validateLoginRequest(request *http.Request, application *app.App) (validate
 	}
 
 	redirectURIStr := request.Form.Get("redirect_uri")
+
 	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
 	if err != nil {
 		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid redirect_uri format")
@@ -109,7 +110,7 @@ func validateLoginRequest(request *http.Request, application *app.App) (validate
 		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRedirectURI, "invalid redirect_uri")
 	}
 
-	return validatedLogin{tenant: tenant, clientID: clientID, redirectURI: redirectURI, tenantIDStr: tenantIDStr}, nil
+	return validatedLogin{tenant: tenant, clientID: clientID, redirectURI: redirectURI}, nil
 }
 
 func loginHandler(request *http.Request, application *app.App) Response {
@@ -141,7 +142,7 @@ func loginHandler(request *http.Request, application *app.App) Response {
 
 	authCode := app.IssueAuthCode(
 		application.Key, user, validated.clientID, validated.redirectURI,
-		request.Form.Get("scope"), validated.tenantIDStr, request.Form.Get("nonce"),
+		request.Form.Get("scope"), validated.tenant.TenantID(), request.Form.Get("nonce"),
 	)
 
 	target, err := url.Parse(validated.redirectURI.RawString())
@@ -152,9 +153,9 @@ func loginHandler(request *http.Request, application *app.App) Response {
 	return buildLoginRedirect(target, authCode, request.Form.Get("state"), request.Form.Get("response_mode"))
 }
 
-func buildLoginRedirect(target *url.URL, authCode, state, responseMode string) Response {
+func buildLoginRedirect(target *url.URL, authCode domain.AuthCode, state, responseMode string) Response {
 	values := url.Values{}
-	values.Set("code", authCode)
+	values.Set("code", authCode.RawString())
 
 	if state != emptyType {
 		values.Set(formKeyState, state)

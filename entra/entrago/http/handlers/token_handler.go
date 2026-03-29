@@ -118,12 +118,14 @@ func buildClientCredentialsInput(
 	}
 
 	var secret *domain.ClientSecret
+
 	secretRaw := request.Form.Get("client_secret")
 	if secretRaw != "" {
 		s, err := domain.NewClientSecret(secretRaw)
 		if err != nil {
 			return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid client secret format")
 		}
+
 		secret = &s
 	}
 
@@ -154,7 +156,8 @@ func buildAuthCodeInput(
 	}
 
 	base.Nonce = parsed.nonce
-	base.Client = resolveClientFromID(tenant, firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
+	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
+	base.Client = resolveClientFromID(tenant, clientID)
 
 	if user, found := app.FindUserByID(tenant, parsed.subject); found {
 		base.User = &user
@@ -175,7 +178,8 @@ func buildRefreshTokenInput(
 		base.Scope = parsed.scope
 	}
 
-	base.Client = resolveClientFromID(tenant, firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
+	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
+	base.Client = resolveClientFromID(tenant, clientID)
 
 	if user, found := app.FindUserByID(tenant, parsed.subject); found {
 		base.User = &user
@@ -185,17 +189,24 @@ func buildRefreshTokenInput(
 }
 
 func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) domain.Client {
-	client := resolveClientFromID(tenant, clientIDStr)
+	clientID, err := domain.NewClientID(clientIDStr)
+	if err != nil {
+		return nil
+	}
+
+	client := resolveClientFromID(tenant, clientID)
 	if client == nil {
 		return nil
 	}
 
 	var secret *domain.ClientSecret
+
 	if clientSecret != "" {
 		s, err := domain.NewClientSecret(clientSecret)
 		if err != nil {
 			return nil
 		}
+
 		secret = &s
 	}
 
@@ -206,16 +217,7 @@ func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret strin
 	return client
 }
 
-func resolveClientFromID(tenant domain.Tenant, clientIDStr string) domain.Client {
-	if clientIDStr == emptyValue {
-		return nil
-	}
-
-	clientID, err := domain.NewClientID(clientIDStr)
-	if err != nil {
-		return nil
-	}
-
+func resolveClientFromID(tenant domain.Tenant, clientID domain.ClientID) domain.Client {
 	client, err := app.FindClient(tenant, clientID)
 	if err != nil {
 		return nil

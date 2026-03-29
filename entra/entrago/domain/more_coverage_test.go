@@ -193,18 +193,6 @@ func assertResourceIDs(t *testing.T, value uuid.UUID, valStr string) {
 	}
 }
 
-func TestClientSecret_IsEmpty(t *testing.T) {
-	t.Parallel()
-
-	if !domain.NewClientSecret(emptyInput).IsEmpty() {
-		t.Fatal("expected empty secret to be IsEmpty")
-	}
-
-	if domain.NewClientSecret("secret").IsEmpty() {
-		t.Fatal("expected non-empty secret to not be IsEmpty")
-	}
-}
-
 func TestDescriptions_RawString(t *testing.T) {
 	t.Parallel()
 

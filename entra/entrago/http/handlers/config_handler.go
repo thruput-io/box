@@ -62,9 +62,9 @@ func configCsharpAppHandler(request *http.Request, server *app.App) Response {
 
 	content := fmt.Sprintf(
 		"AzureAd__Instance=https://%s/\nAzureAd__TenantId=%s\nAzureAd__ClientId=%s\n",
-		request.Host, tenant.TenantID(), registration.ClientID(),
+		request.Host, tenant.TenantID().RawString(), registration.ClientID().RawString(),
 	)
-	disposition := fmt.Sprintf(fmtDisposition, registration.Name().String()+"-appsettings.env")
+	disposition := fmt.Sprintf(fmtDisposition, registration.Name().RawString()+"-appsettings.env")
 
 	return Response{
 		Status:      http.StatusOK,
@@ -92,8 +92,8 @@ func configJsAppHandler(request *http.Request, server *app.App) Response {
 
 	msalFmt := "const msalConfig = {\n  auth: {\n    clientId: %q," +
 		"\n    authority: \"https://%s/%s\",\n    knownAuthorities: [%q],\n  },\n};\n"
-	content := fmt.Sprintf(msalFmt, registration.ClientID(), request.Host, tenant.TenantID(), request.Host)
-	disposition := fmt.Sprintf(fmtDisposition, registration.Name().String()+"-msal-config.js")
+	content := fmt.Sprintf(msalFmt, registration.ClientID().RawString(), request.Host, tenant.TenantID().RawString(), request.Host)
+	disposition := fmt.Sprintf(fmtDisposition, registration.Name().RawString()+"-msal-config.js")
 
 	return Response{
 		Status:      http.StatusOK,
@@ -121,14 +121,14 @@ func configCsharpClientHandler(request *http.Request, server *app.App) Response 
 
 	content := fmt.Sprintf(
 		"AzureAd__Instance=https://%s/\nAzureAd__TenantId=%s\nAzureAd__ClientId=%s\n",
-		request.Host, tenant.TenantID(), client.ClientID(),
+		request.Host, tenant.TenantID().RawString(), client.ClientID().RawString(),
 	)
 
-	if !client.ClientSecret().IsEmpty() {
-		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", client.ClientSecret())
+	if confidential, ok := client.(domain.ClientWithSecret); ok {
+		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", confidential.ClientSecret().RawString())
 	}
 
-	disposition := fmt.Sprintf(fmtDisposition, client.Name().String()+"-client.env")
+	disposition := fmt.Sprintf(fmtDisposition, client.Name().RawString()+"-client.env")
 
 	return Response{
 		Status:      http.StatusOK,

@@ -84,8 +84,12 @@ func TestCorsMiddleware_AddsHeaders(t *testing.T) {
 
 	middleware.ServeHTTP(recorder, request)
 
-	if !inner.called {
-		t.Fatal("inner handler not called")
+	if inner.called {
+		t.Fatal("inner handler should not be called for OPTIONS request")
+	}
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
 	}
 
 	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "*" {

@@ -62,10 +62,9 @@ func newTestConfig() domain.Config {
 		nil,
 	)
 
-	client := domain.NewClient(
+	client := domain.NewClientWithoutSecret(
 		domain.MustAppName("TestClient"),
 		clientID,
-		domain.NewClientSecret(""),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)

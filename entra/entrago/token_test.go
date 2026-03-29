@@ -33,7 +33,7 @@ func TestToken_PasswordGrant(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().UUID().String()
 
 	form := url.Values{}
 	form.Set(formGrantType, grantTypePassword)
@@ -87,10 +87,10 @@ func TestToken_ClientCredentials(t *testing.T) {
 
 	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
 	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
-	secretClient := domain.NewClient(
+	secretClient := domain.NewClientWithSecret(
 		domain.MustAppName("SecretClient"),
 		secretClientID,
-		domain.NewClientSecret(testClientSecret),
+		domain.MustClientSecret(testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -99,7 +99,7 @@ func TestToken_ClientCredentials(t *testing.T) {
 
 	form := url.Values{}
 	form.Set(formGrantType, "client_credentials")
-	form.Set(formClientID, secretClientID.String())
+	form.Set(formClientID, secretClientID.UUID().String())
 	form.Set(formClientSecret, testClientSecret)
 
 	recorder := postToken(t, srv, form)
@@ -116,10 +116,10 @@ func TestToken_ClientCredentials_WrongSecret(t *testing.T) {
 
 	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
 	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
-	secretClient := domain.NewClient(
+	secretClient := domain.NewClientWithSecret(
 		domain.MustAppName("SecretClient"),
 		secretClientID,
-		domain.NewClientSecret(testClientSecret),
+		domain.MustClientSecret(testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -128,7 +128,7 @@ func TestToken_ClientCredentials_WrongSecret(t *testing.T) {
 
 	form := url.Values{}
 	form.Set(formGrantType, "client_credentials")
-	form.Set(formClientID, secretClientID.String())
+	form.Set(formClientID, secretClientID.UUID().String())
 	form.Set(formClientSecret, "wrong")
 
 	recorder := postToken(t, srv, form)
@@ -142,7 +142,7 @@ func TestToken_AuthorizationCode(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().UUID().String()
 
 	claims := jwt.MapClaims{
 		"sub":          "user1",
@@ -169,7 +169,7 @@ func TestToken_RefreshToken(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
-	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().String()
+	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().UUID().String()
 
 	claims := jwt.MapClaims{
 		"sub":       "user1",
