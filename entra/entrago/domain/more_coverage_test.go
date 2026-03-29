@@ -104,11 +104,11 @@ func assertScopeFields(t *testing.T, scope domain.Scope, expectedID domain.Scope
 		t.Fatal("Scope ID mismatch")
 	}
 
-	if scope.Description().String() != testDesc {
+	if scope.Description().RawString() != testDesc {
 		t.Fatal("Scope Description mismatch")
 	}
 
-	if scope.Value().String() != testAccess {
+	if scope.Value().RawString() != testAccess {
 		t.Fatal("Scope Value mismatch")
 	}
 }
@@ -120,11 +120,11 @@ func assertRoleFields(t *testing.T, role domain.Role, expectedID domain.RoleID, 
 		t.Fatal("Role ID mismatch")
 	}
 
-	if role.Description().String() != testDesc {
+	if role.Description().RawString() != testDesc {
 		t.Fatal("Role Description mismatch")
 	}
 
-	if role.Value().String() != testAdmin {
+	if role.Value().RawString() != testAdmin {
 		t.Fatal("Role Value mismatch")
 	}
 
@@ -140,7 +140,7 @@ func assertGroupFields(t *testing.T, group domain.Group, expectedID domain.Group
 		t.Fatal("Group ID mismatch")
 	}
 
-	if group.Name().String() != testGroup {
+	if group.Name().RawString() != testGroup {
 		t.Fatal("Group Name mismatch")
 	}
 }
@@ -164,15 +164,15 @@ func assertIDAccessors(t *testing.T, value uuid.UUID, valStr string) {
 func assertCoreIDs(t *testing.T, value uuid.UUID, valStr string) {
 	t.Helper()
 
-	if id := domain.TenantIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.TenantIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("TenantID mismatch")
 	}
 
-	if id := domain.ClientIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.ClientIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("ClientID mismatch")
 	}
 
-	if id := domain.UserIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.UserIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("UserID mismatch")
 	}
 }
@@ -180,15 +180,15 @@ func assertCoreIDs(t *testing.T, value uuid.UUID, valStr string) {
 func assertResourceIDs(t *testing.T, value uuid.UUID, valStr string) {
 	t.Helper()
 
-	if id := domain.GroupIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.GroupIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("GroupID mismatch")
 	}
 
-	if id := domain.ScopeIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.ScopeIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("ScopeID mismatch")
 	}
 
-	if id := domain.RoleIDFromUUID(value); id.UUID() != value || id.String() != valStr {
+	if id := domain.RoleIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
 		t.Fatal("RoleID mismatch")
 	}
 }
@@ -205,16 +205,16 @@ func TestClientSecret_IsEmpty(t *testing.T) {
 	}
 }
 
-func TestDescriptions_String(t *testing.T) {
+func TestDescriptions_RawString(t *testing.T) {
 	t.Parallel()
 
 	sd := mustScopeDescription(t, "scope description")
-	if sd.String() != "scope description" {
+	if sd.RawString() != "scope description" {
 		t.Fatal("unexpected scope description")
 	}
 
 	rd := mustRoleDescription(t, "role description")
-	if rd.String() != "role description" {
+	if rd.RawString() != "role description" {
 		t.Fatal("unexpected role description")
 	}
 }

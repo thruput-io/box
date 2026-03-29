@@ -82,8 +82,8 @@ func TestLoadConfig_Success(t *testing.T) {
 		t.Fatalf("expected 1 tenant, got %d", len(tenants))
 	}
 
-	if tenants[0].Name().String() != "Tenant" {
-		t.Fatalf("expected tenant name %q, got %q", "Tenant", tenants[0].Name().String())
+	if tenants[0].Name() != domain.MustTenantName("Tenant") {
+		t.Fatalf("expected tenant name %v, got %v", domain.MustTenantName("Tenant"), tenants[0].Name())
 	}
 }
 
