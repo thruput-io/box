@@ -7,7 +7,6 @@ Unit tests MUST deterministic, and isolated.
 1. Check guidelines
 2. Check git state 
 3. Run make all – everything should be green
-4. 
 
 
 ### 1. Principles
