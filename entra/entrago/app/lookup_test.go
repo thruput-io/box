@@ -35,10 +35,10 @@ func mustTenantFixture(t *testing.T) tenantFixture {
 
 	clientID := domain.MustClientID(testClientID)
 	redirectURL := mustRedirectURL(t, testCallback)
-	client := domain.NewClient(
+	client := domain.NewClientWithSecret(
 		domain.MustAppName("Client"),
 		clientID,
-		domain.NewClientSecret(testSecret),
+		domain.MustClientSecret(testSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -98,8 +98,8 @@ func runSelectionTests(t *testing.T, cfg domain.Config, tenant domain.Tenant) {
 		t.Fatal(err)
 	}
 
-	if got.TenantID().String() != tenant.TenantID().String() {
-		t.Fatalf("expected first tenant, got %s", got.TenantID())
+	if got.TenantID() != tenant.TenantID() {
+		t.Fatalf("expected first tenant, got %s", got.TenantID().UUID())
 	}
 
 	got, err = app.ExportFindTenant(cfg, "common")
@@ -107,17 +107,17 @@ func runSelectionTests(t *testing.T, cfg domain.Config, tenant domain.Tenant) {
 		t.Fatal(err)
 	}
 
-	if got.TenantID().String() != tenant.TenantID().String() {
-		t.Fatalf("expected first tenant for common, got %s", got.TenantID())
+	if got.TenantID() != tenant.TenantID() {
+		t.Fatalf("expected first tenant for common, got %s", got.TenantID().UUID())
 	}
 
-	got, err = app.ExportFindTenant(cfg, tenant.TenantID().String())
+	got, err = app.ExportFindTenant(cfg, tenant.TenantID().UUID().String())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if got.TenantID().String() != tenant.TenantID().String() {
-		t.Fatalf("expected tenant %s, got %s", tenant.TenantID(), got.TenantID())
+	if got.TenantID() != tenant.TenantID() {
+		t.Fatalf("expected tenant %s, got %s", tenant.TenantID().UUID(), got.TenantID().UUID())
 	}
 
 	const unknownID = "99999999-9999-4999-8999-999999999999"
@@ -139,8 +139,8 @@ func TestLookup_TenantByID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got.TenantID().String() != fixture.tenant.TenantID().String() {
-		t.Fatalf("expected tenant %s, got %s", fixture.tenant.TenantID(), got.TenantID())
+	if got.TenantID() != fixture.tenant.TenantID() {
+		t.Fatalf("expected tenant %s, got %s", fixture.tenant.TenantID().UUID(), got.TenantID().UUID())
 	}
 }
 
@@ -165,7 +165,7 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 		t.Fatalf("expected %d allowed redirect url, got %d", expectedAllowedLen, len(allowed))
 	}
 
-	err = app.ExportValidateRedirectURI(allowed[0].String(), allowed)
+	err = app.ExportValidateRedirectURI(allowed[0].RawString(), allowed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,8 +191,8 @@ func validateClientAndApp(
 		return fmt.Errorf("ExportFindClient: %w", err)
 	}
 
-	if gotClient.ClientID().String() != client.ClientID().String() {
-		t.Fatalf("expected client %s, got %s", client.ClientID(), gotClient.ClientID())
+	if gotClient.ClientID() != client.ClientID() {
+		t.Fatalf("expected client %s, got %s", client.ClientID().UUID(), gotClient.ClientID().UUID())
 	}
 
 	gotReg, err := app.ExportFindAppRegistration(tenant, client.ClientID())
@@ -200,8 +200,8 @@ func validateClientAndApp(
 		return fmt.Errorf("ExportFindAppRegistration: %w", err)
 	}
 
-	if gotReg.IdentifierURI().String() != appReg.IdentifierURI().String() {
-		t.Fatalf("expected identifier URI %s, got %s", appReg.IdentifierURI(), gotReg.IdentifierURI())
+	if gotReg.IdentifierURI() != appReg.IdentifierURI() {
+		t.Fatalf("expected identifier URI %s, got %s", appReg.IdentifierURI().RawString(), gotReg.IdentifierURI().RawString())
 	}
 
 	return nil
@@ -262,12 +262,12 @@ func TestLookup_UserByID(t *testing.T) {
 		t.Fatal("expected not found")
 	}
 
-	got, found := app.ExportFindUserByID(fixture.tenant, fixture.user.ID().String())
+	got, found := app.ExportFindUserByID(fixture.tenant, fixture.user.ID().UUID().String())
 	if !found {
 		t.Fatal("expected found")
 	}
 
-	if got.ID().String() != fixture.user.ID().String() {
-		t.Fatalf("expected user %s, got %s", fixture.user.ID(), got.ID())
+	if got.ID() != fixture.user.ID() {
+		t.Fatalf("expected user %s, got %s", fixture.user.ID().UUID(), got.ID().UUID())
 	}
 }

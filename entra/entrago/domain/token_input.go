@@ -27,7 +27,7 @@ type TokenInput struct {
 	Grant         GrantType
 	Tenant        Tenant
 	User          *User
-	Client        *Client
+	Client        Client
 	Scope         string
 	Nonce         string
 	IsV2          bool

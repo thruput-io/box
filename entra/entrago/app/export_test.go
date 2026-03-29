@@ -35,7 +35,11 @@ func ExportFindRedirectURLs(tenant domain.Tenant, clientID domain.ClientID) ([]d
 }
 
 // ExportValidateRedirectURI is for testing ValidateRedirectURI from app_test.
-func ExportValidateRedirectURI(redirectURI string, allowed []domain.RedirectURL) error {
+func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectURL) error {
+	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
+	if err != nil {
+		return err
+	}
 	return ValidateRedirectURI(redirectURI, allowed)
 }
 
@@ -50,7 +54,15 @@ func ExportFindUserByID(tenant domain.Tenant, subject string) (domain.User, bool
 }
 
 // ExportValidateClientSecret is for testing ValidateClientSecret from app_test.
-func ExportValidateClientSecret(client domain.Client, secret string) error {
+func ExportValidateClientSecret(client domain.Client, secretStr string) error {
+	var secret *domain.ClientSecret
+	if secretStr != "" {
+		s, err := domain.NewClientSecret(secretStr)
+		if err != nil {
+			return err
+		}
+		secret = &s
+	}
 	return ValidateClientSecret(client, secret)
 }
 
@@ -64,7 +76,8 @@ func ExportIssueAuthCode(
 	key *rsa.PrivateKey,
 	user domain.User,
 	clientID domain.ClientID,
-	redirectURI, scope, tenantID, nonce string,
+	redirectURI domain.RedirectURL,
+	scope, tenantID, nonce string,
 ) string {
 	return IssueAuthCode(key, user, clientID, redirectURI, scope, tenantID, nonce)
 }
@@ -82,7 +95,7 @@ func ExportResolveAudienceForTest(tenant domain.Tenant, scope string) (string, m
 // ExportResolveRolesForTest is for testing ResolveRoles from app_test.
 func ExportResolveRolesForTest(
 	tenant domain.Tenant,
-	client *domain.Client,
+	client domain.Client,
 	user *domain.User,
 	targetAppIDs map[string]bool,
 	requestedScopes []string,

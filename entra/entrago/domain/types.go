@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"crypto/subtle"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -39,9 +40,6 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 // UUID returns the underlying uuid.UUID value.
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
-// String returns the canonical UUID string representation.
-func (tenantID TenantID) String() string { return tenantID.value.String() }
-
 // ClientID is the unique identifier for an app registration or client.
 type ClientID struct {
 	value uuid.UUID
@@ -74,9 +72,6 @@ func ClientIDFromUUID(value uuid.UUID) ClientID {
 
 // UUID returns the underlying uuid.UUID value.
 func (clientID ClientID) UUID() uuid.UUID { return clientID.value }
-
-// String returns the canonical UUID string representation.
-func (clientID ClientID) String() string { return clientID.value.String() }
 
 // UserID is the unique identifier for a user.
 type UserID struct {
@@ -111,9 +106,6 @@ func UserIDFromUUID(value uuid.UUID) UserID {
 // UUID returns the underlying uuid.UUID value.
 func (userID UserID) UUID() uuid.UUID { return userID.value }
 
-// String returns the canonical UUID string representation.
-func (userID UserID) String() string { return userID.value.String() }
-
 // GroupID is the unique identifier for a group.
 type GroupID struct {
 	value uuid.UUID
@@ -146,9 +138,6 @@ func GroupIDFromUUID(value uuid.UUID) GroupID {
 
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
-
-// String returns the canonical UUID string representation.
-func (groupID GroupID) String() string { return groupID.value.String() }
 
 // ScopeID is the unique identifier for a scope.
 type ScopeID struct {
@@ -183,9 +172,6 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
-// String returns the canonical UUID string representation.
-func (scopeID ScopeID) String() string { return scopeID.value.String() }
-
 // RoleID is the unique identifier for a role.
 type RoleID struct {
 	value uuid.UUID
@@ -219,9 +205,6 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
-// String returns the canonical UUID string representation.
-func (roleID RoleID) String() string { return roleID.value.String() }
-
 // TenantName is the display name of a tenant.
 type TenantName struct {
 	value NonEmptyString
@@ -237,6 +220,14 @@ func NewTenantName(raw string) (TenantName, error) {
 	return TenantName{value: v}, nil
 }
 
+func (tenantName TenantName) MarshalJSON() ([]byte, error) {
+	return tenantName.value.MarshalJSON()
+}
+
+func (tenantName TenantName) RawString() string {
+	return tenantName.value.Raw()
+}
+
 // MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
 func MustTenantName(raw string) TenantName {
 	name, err := NewTenantName(raw)
@@ -246,9 +237,6 @@ func MustTenantName(raw string) TenantName {
 
 	return name
 }
-
-// String returns the tenant name value.
-func (tenantName TenantName) String() string { return tenantName.value.String() }
 
 // AppName is the display name of an app registration or client.
 type AppName struct {
@@ -265,6 +253,14 @@ func NewAppName(raw string) (AppName, error) {
 	return AppName{value: v}, nil
 }
 
+func (appName AppName) MarshalJSON() ([]byte, error) {
+	return appName.value.MarshalJSON()
+}
+
+func (appName AppName) RawString() string {
+	return appName.value.Raw()
+}
+
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
 func MustAppName(raw string) AppName {
 	name, err := NewAppName(raw)
@@ -274,9 +270,6 @@ func MustAppName(raw string) AppName {
 
 	return name
 }
-
-// String returns the app name value.
-func (appName AppName) String() string { return appName.value.String() }
 
 // IdentifierURI is the application ID URI of an app registration.
 type IdentifierURI struct {
@@ -293,8 +286,23 @@ func NewIdentifierURI(raw string) (IdentifierURI, error) {
 	return IdentifierURI{value: v}, nil
 }
 
-// String returns the identifier URI value.
-func (identifierURI IdentifierURI) String() string { return identifierURI.value.String() }
+func (identifierURI IdentifierURI) MarshalJSON() ([]byte, error) {
+	return identifierURI.value.MarshalJSON()
+}
+
+func (identifierURI IdentifierURI) RawString() string {
+	return identifierURI.value.Raw()
+}
+
+// MustIdentifierURI creates an IdentifierURI, panicking if invalid. For use in tests and constants only.
+func MustIdentifierURI(raw string) IdentifierURI {
+	identifierURI, err := NewIdentifierURI(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return identifierURI
+}
 
 // ScopeValue is the string value of a scope (e.g. "read", "api://xxx/.default").
 type ScopeValue struct {
@@ -311,8 +319,23 @@ func NewScopeValue(raw string) (ScopeValue, error) {
 	return ScopeValue{value: v}, nil
 }
 
-// String returns the scope value.
-func (scopeValue ScopeValue) String() string { return scopeValue.value.String() }
+func (scopeValue ScopeValue) MarshalJSON() ([]byte, error) {
+	return scopeValue.value.MarshalJSON()
+}
+
+func (scopeValue ScopeValue) RawString() string {
+	return scopeValue.value.Raw()
+}
+
+// MustScopeValue creates a ScopeValue, panicking if invalid. For use in tests and constants only.
+func MustScopeValue(raw string) ScopeValue {
+	v, err := NewScopeValue(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
 
 // RoleValue is the string value of a role (e.g. "Admin", "Reader").
 type RoleValue struct {
@@ -329,8 +352,23 @@ func NewRoleValue(raw string) (RoleValue, error) {
 	return RoleValue{value: v}, nil
 }
 
-// String returns the role value.
-func (roleValue RoleValue) String() string { return roleValue.value.String() }
+func (roleValue RoleValue) MarshalJSON() ([]byte, error) {
+	return roleValue.value.MarshalJSON()
+}
+
+func (roleValue RoleValue) RawString() string {
+	return roleValue.value.Raw()
+}
+
+// MustRoleValue creates a RoleValue, panicking if invalid. For use in tests and constants only.
+func MustRoleValue(raw string) RoleValue {
+	v, err := NewRoleValue(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
 
 // GroupName is the name of a group.
 type GroupName struct {
@@ -347,8 +385,23 @@ func NewGroupName(raw string) (GroupName, error) {
 	return GroupName{value: v}, nil
 }
 
-// String returns the group name value.
-func (groupName GroupName) String() string { return groupName.value.String() }
+func (groupName GroupName) MarshalJSON() ([]byte, error) {
+	return groupName.value.MarshalJSON()
+}
+
+func (groupName GroupName) RawString() string {
+	return groupName.value.Raw()
+}
+
+// MustGroupName creates a GroupName, panicking if invalid. For use in tests and constants only.
+func MustGroupName(raw string) GroupName {
+	v, err := NewGroupName(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
 
 // Username is the login name of a user.
 type Username struct {
@@ -365,6 +418,14 @@ func NewUsername(raw string) (Username, error) {
 	return Username{value: v}, nil
 }
 
+func (username Username) MarshalJSON() ([]byte, error) {
+	return username.value.MarshalJSON()
+}
+
+func (username Username) RawString() string {
+	return username.value.Raw()
+}
+
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
 func MustUsername(raw string) Username {
 	username, err := NewUsername(raw)
@@ -374,9 +435,6 @@ func MustUsername(raw string) Username {
 
 	return username
 }
-
-// String returns the username value.
-func (username Username) String() string { return username.value.String() }
 
 // Password is the credential of a user.
 type Password struct {
@@ -393,6 +451,14 @@ func NewPassword(raw string) (Password, error) {
 	return Password{value: v}, nil
 }
 
+func (password Password) MarshalJSON() ([]byte, error) {
+	return password.value.MarshalJSON()
+}
+
+func (password Password) RawString() string {
+	return password.value.Raw()
+}
+
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
 func MustPassword(raw string) Password {
 	password, err := NewPassword(raw)
@@ -402,9 +468,6 @@ func MustPassword(raw string) Password {
 
 	return password
 }
-
-// String returns the password value.
-func (password Password) String() string { return password.value.String() }
 
 // DisplayName is the human-readable name of a user.
 type DisplayName struct {
@@ -421,6 +484,14 @@ func NewDisplayName(raw string) (DisplayName, error) {
 	return DisplayName{value: v}, nil
 }
 
+func (displayName DisplayName) MarshalJSON() ([]byte, error) {
+	return displayName.value.MarshalJSON()
+}
+
+func (displayName DisplayName) RawString() string {
+	return displayName.value.Raw()
+}
+
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
 func MustDisplayName(raw string) DisplayName {
 	displayName, err := NewDisplayName(raw)
@@ -430,9 +501,6 @@ func MustDisplayName(raw string) DisplayName {
 
 	return displayName
 }
-
-// String returns the display name value.
-func (displayName DisplayName) String() string { return displayName.value.String() }
 
 // Email is the email address of a user.
 type Email struct {
@@ -449,6 +517,14 @@ func NewEmail(raw string) (Email, error) {
 	return Email{value: v}, nil
 }
 
+func (email Email) MarshalJSON() ([]byte, error) {
+	return email.value.MarshalJSON()
+}
+
+func (email Email) RawString() string {
+	return email.value.Raw()
+}
+
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
 func MustEmail(raw string) Email {
 	email, err := NewEmail(raw)
@@ -458,9 +534,6 @@ func MustEmail(raw string) Email {
 
 	return email
 }
-
-// String returns the email value.
-func (email Email) String() string { return email.value.String() }
 
 // RedirectURL is a permitted OAuth2 redirect URI.
 type RedirectURL struct {
@@ -477,26 +550,69 @@ func NewRedirectURL(raw string) (RedirectURL, error) {
 	return RedirectURL{value: v}, nil
 }
 
-// String returns the redirect URL value.
-func (redirectURL RedirectURL) String() string { return redirectURL.value.String() }
+func (redirectURL RedirectURL) MarshalJSON() ([]byte, error) {
+	return redirectURL.value.MarshalJSON()
+}
+
+func (redirectURL RedirectURL) RawString() string {
+	return redirectURL.value.Raw()
+}
+
+// MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
+func MustRedirectURL(raw string) RedirectURL {
+	redirectURL, err := NewRedirectURL(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return redirectURL
+}
 
 // ClientSecret is the secret credential of a confidential client.
-// Optional — public clients have no secret.
 type ClientSecret struct {
-	value string
+	value NonEmptyString
 }
 
-// NewClientSecret creates a ClientSecret from a raw string.
-// An empty string is valid and represents a public client.
-func NewClientSecret(raw string) ClientSecret {
-	return ClientSecret{value: raw}
+// NewClientSecret creates a ClientSecret, returning an error if empty.
+func NewClientSecret(raw string) (ClientSecret, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return ClientSecret{}, errClientSecretEmpty
+	}
+
+	return ClientSecret{value: v}, nil
 }
 
-// String returns the client secret value.
-func (clientSecret ClientSecret) String() string { return clientSecret.value }
+func (clientSecret ClientSecret) MarshalJSON() ([]byte, error) {
+	return clientSecret.value.MarshalJSON()
+}
 
-// IsEmpty reports whether this is a public client (no secret).
-func (clientSecret ClientSecret) IsEmpty() bool { return clientSecret.value == "" }
+func (clientSecret ClientSecret) RawString() string {
+	return clientSecret.value.Raw()
+}
+
+// MustClientSecret creates a ClientSecret, panicking if invalid. For use in tests and constants only.
+func MustClientSecret(raw string) ClientSecret {
+	clientSecret, err := NewClientSecret(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return clientSecret
+}
+
+// Match reports whether this client secret matches the raw secret provided,
+// using constant-time comparison.
+func (clientSecret ClientSecret) Match(other ClientSecret) bool {
+	expected := []byte(clientSecret.value.value)
+	provided := []byte(other.value.value)
+
+	if len(expected) != len(provided) {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare(expected, provided) == 1
+}
 
 // ScopeDescription is the human-readable description of a scope.
 type ScopeDescription struct {
@@ -513,8 +629,23 @@ func NewScopeDescription(raw string) (ScopeDescription, error) {
 	return ScopeDescription{value: v}, nil
 }
 
-// String returns the scope description value.
-func (scopeDescription ScopeDescription) String() string { return scopeDescription.value.String() }
+func (scopeDescription ScopeDescription) MarshalJSON() ([]byte, error) {
+	return scopeDescription.value.MarshalJSON()
+}
+
+func (scopeDescription ScopeDescription) RawString() string {
+	return scopeDescription.value.Raw()
+}
+
+// MustScopeDescription creates a ScopeDescription, panicking if invalid. For use in tests and constants only.
+func MustScopeDescription(raw string) ScopeDescription {
+	v, err := NewScopeDescription(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
 
 // RoleDescription is the human-readable description of a role.
 type RoleDescription struct {
@@ -531,5 +662,20 @@ func NewRoleDescription(raw string) (RoleDescription, error) {
 	return RoleDescription{value: v}, nil
 }
 
-// String returns the role description value.
-func (roleDescription RoleDescription) String() string { return roleDescription.value.String() }
+func (roleDescription RoleDescription) MarshalJSON() ([]byte, error) {
+	return roleDescription.value.MarshalJSON()
+}
+
+func (roleDescription RoleDescription) RawString() string {
+	return roleDescription.value.Raw()
+}
+
+// MustRoleDescription creates a RoleDescription, panicking if invalid. For use in tests and constants only.
+func MustRoleDescription(raw string) RoleDescription {
+	v, err := NewRoleDescription(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}

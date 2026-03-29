@@ -1,6 +1,8 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Config is the immutable root domain object loaded once at startup.
 // It must contain at least one tenant to be valid.
@@ -238,7 +240,15 @@ func (user User) Email() Email { return user.email }
 func (user User) Groups() []GroupName { return user.groups }
 
 // Client is an immutable OAuth2 confidential or public client.
-type Client struct {
+type Client interface {
+	Name() AppName
+	ClientID() ClientID
+	RedirectURLs() []RedirectURL
+	GroupRoleAssignments() []GroupRoleAssignment
+	Validate(secret *ClientSecret) error
+}
+
+type ClientWithSecret struct {
 	name                 AppName
 	clientID             ClientID
 	clientSecret         ClientSecret
@@ -246,15 +256,14 @@ type Client struct {
 	groupRoleAssignments []GroupRoleAssignment
 }
 
-// NewClient constructs a Client with all required fields.
-func NewClient(
+func NewClientWithSecret(
 	name AppName,
 	clientID ClientID,
 	clientSecret ClientSecret,
 	redirectURLs []RedirectURL,
 	groupRoleAssignments []GroupRoleAssignment,
-) Client {
-	return Client{
+) ClientWithSecret {
+	return ClientWithSecret{
 		name:                 name,
 		clientID:             clientID,
 		clientSecret:         clientSecret,
@@ -263,21 +272,56 @@ func NewClient(
 	}
 }
 
-// Name returns the client's display name.
-func (client Client) Name() AppName { return client.name }
+func (c ClientWithSecret) Name() AppName                               { return c.name }
+func (c ClientWithSecret) ClientID() ClientID                          { return c.clientID }
+func (c ClientWithSecret) RedirectURLs() []RedirectURL                 { return c.redirectURLs }
+func (c ClientWithSecret) GroupRoleAssignments() []GroupRoleAssignment { return c.groupRoleAssignments }
+func (c ClientWithSecret) Validate(secret *ClientSecret) error {
+	if secret == nil {
+		return fmt.Errorf("client secret required")
+	}
 
-// ClientID returns the client's unique identifier.
-func (client Client) ClientID() ClientID { return client.clientID }
+	if !c.clientSecret.Match(*secret) {
+		return fmt.Errorf("invalid client secret")
+	}
 
-// ClientSecret returns the client's secret (empty for public clients).
-func (client Client) ClientSecret() ClientSecret { return client.clientSecret }
+	return nil
+}
 
-// RedirectURLs returns the client's permitted redirect URLs.
-func (client Client) RedirectURLs() []RedirectURL { return client.redirectURLs }
+type ClientWithoutSecret struct {
+	name                 AppName
+	clientID             ClientID
+	redirectURLs         []RedirectURL
+	groupRoleAssignments []GroupRoleAssignment
+}
 
-// GroupRoleAssignments returns the client's group-to-role mappings.
-func (client Client) GroupRoleAssignments() []GroupRoleAssignment {
-	return client.groupRoleAssignments
+func NewClientWithoutSecret(
+	name AppName,
+	clientID ClientID,
+	redirectURLs []RedirectURL,
+	groupRoleAssignments []GroupRoleAssignment,
+) ClientWithoutSecret {
+	return ClientWithoutSecret{
+		name:                 name,
+		clientID:             clientID,
+		redirectURLs:         redirectURLs,
+		groupRoleAssignments: groupRoleAssignments,
+	}
+}
+
+func (c ClientWithoutSecret) Name() AppName               { return c.name }
+func (c ClientWithoutSecret) ClientID() ClientID          { return c.clientID }
+func (c ClientWithoutSecret) RedirectURLs() []RedirectURL { return c.redirectURLs }
+func (c ClientWithoutSecret) GroupRoleAssignments() []GroupRoleAssignment {
+	return c.groupRoleAssignments
+}
+
+func (c ClientWithoutSecret) Validate(secret *ClientSecret) error {
+	if secret != nil {
+		return fmt.Errorf("public client does not accept secrets")
+	}
+
+	return nil
 }
 
 // GroupRoleAssignment maps a group to a set of roles for a specific application.

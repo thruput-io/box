@@ -25,6 +25,7 @@ var (
 	errDisplayNameEmpty      = errors.New("display name must not be empty")
 	errEmailEmpty            = errors.New("email must not be empty")
 	errRedirectURLEmpty      = errors.New("redirect URL must not be empty")
+	errClientSecretEmpty     = errors.New("client secret must not be empty")
 	errScopeDescriptionEmpty = errors.New("scope description must not be empty")
 	errRoleDescriptionEmpty  = errors.New("role description must not be empty")
 	errConfigNoTenants       = errors.New("config must contain at least one tenant")

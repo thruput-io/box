@@ -418,25 +418,34 @@ func buildClients(raws []rawClient) ([]Client, error) {
 func buildClient(raw rawClient) (Client, error) {
 	name, err := NewAppName(raw.Name)
 	if err != nil {
-		return Client{}, fmt.Errorf("client: %w", err)
+		return nil, fmt.Errorf("client: %w", err)
 	}
 
 	clientID, err := NewClientID(raw.ClientID)
 	if err != nil {
-		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
 	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
 	if err != nil {
-		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
 	assignments, err := buildGroupRoleAssignments(raw.GroupRoleAssignments)
 	if err != nil {
-		return Client{}, fmt.Errorf(fmtClientWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
-	return NewClient(name, clientID, NewClientSecret(raw.ClientSecret), redirectURLs, assignments), nil
+	if raw.ClientSecret == "" {
+		return NewClientWithoutSecret(name, clientID, redirectURLs, assignments), nil
+	}
+
+	clientSecret, err := NewClientSecret(raw.ClientSecret)
+	if err != nil {
+		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
+	}
+
+	return NewClientWithSecret(name, clientID, clientSecret, redirectURLs, assignments), nil
 }
 
 func buildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssignment, error) {

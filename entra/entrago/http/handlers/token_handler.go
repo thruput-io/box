@@ -117,12 +117,21 @@ func buildClientCredentialsInput(
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeClientNotFound, "client not found")
 	}
 
-	secretErr := app.ValidateClientSecret(client, request.Form.Get("client_secret"))
-	if secretErr != nil {
+	var secret *domain.ClientSecret
+	secretRaw := request.Form.Get("client_secret")
+	if secretRaw != "" {
+		s, err := domain.NewClientSecret(secretRaw)
+		if err != nil {
+			return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid client secret format")
+		}
+		secret = &s
+	}
+
+	if err := app.ValidateClientSecret(client, secret); err != nil {
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid client secret")
 	}
 
-	base.Client = &client
+	base.Client = client
 
 	return base, nil
 }
@@ -175,22 +184,29 @@ func buildRefreshTokenInput(
 	return base, nil
 }
 
-func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) *domain.Client {
+func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) domain.Client {
 	client := resolveClientFromID(tenant, clientIDStr)
 	if client == nil {
 		return nil
 	}
 
-	if !client.ClientSecret().IsEmpty() && clientSecret != "" {
-		if app.ValidateClientSecret(*client, clientSecret) != nil {
+	var secret *domain.ClientSecret
+	if clientSecret != "" {
+		s, err := domain.NewClientSecret(clientSecret)
+		if err != nil {
 			return nil
 		}
+		secret = &s
+	}
+
+	if err := client.Validate(secret); err != nil {
+		return nil
 	}
 
 	return client
 }
 
-func resolveClientFromID(tenant domain.Tenant, clientIDStr string) *domain.Client {
+func resolveClientFromID(tenant domain.Tenant, clientIDStr string) domain.Client {
 	if clientIDStr == emptyValue {
 		return nil
 	}
@@ -205,7 +221,7 @@ func resolveClientFromID(tenant domain.Tenant, clientIDStr string) *domain.Clien
 		return nil
 	}
 
-	return &client
+	return client
 }
 
 func firstOf(primary, fallback string) string {

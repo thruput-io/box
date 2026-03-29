@@ -1,8 +1,6 @@
 package app
 
 import (
-	"crypto/subtle"
-
 	"identity/domain"
 )
 
@@ -12,13 +10,18 @@ const (
 )
 
 // FindTenant returns the tenant matching tenantID, or the first tenant for "" or "common".
-func FindTenant(config domain.Config, tenantID string) (domain.Tenant, error) {
-	if tenantID == "" || tenantID == "common" {
+func FindTenant(config domain.Config, tenantIDStr string) (domain.Tenant, error) {
+	if tenantIDStr == "" || tenantIDStr == "common" {
 		return config.Tenants()[firstTenant], nil
 	}
 
+	tenantID, err := domain.NewTenantID(tenantIDStr)
+	if err != nil {
+		return domain.Tenant{}, err
+	}
+
 	for _, tenant := range config.Tenants() {
-		if tenant.TenantID().String() == tenantID {
+		if tenant.TenantID() == tenantID {
 			return tenant, nil
 		}
 	}
@@ -29,7 +32,7 @@ func FindTenant(config domain.Config, tenantID string) (domain.Tenant, error) {
 // FindTenantByID returns the tenant matching the given domain.TenantID exactly.
 func FindTenantByID(config domain.Config, tenantID domain.TenantID) (domain.Tenant, error) {
 	for _, tenant := range config.Tenants() {
-		if tenant.TenantID().String() == tenantID.String() {
+		if tenant.TenantID() == tenantID {
 			return tenant, nil
 		}
 	}
@@ -40,18 +43,18 @@ func FindTenantByID(config domain.Config, tenantID domain.TenantID) (domain.Tena
 // FindClient returns the client matching clientID within a tenant.
 func FindClient(tenant domain.Tenant, clientID domain.ClientID) (domain.Client, error) {
 	for _, client := range tenant.Clients() {
-		if client.ClientID().String() == clientID.String() {
+		if client.ClientID() == clientID {
 			return client, nil
 		}
 	}
 
-	return domain.Client{}, domain.ErrClientNotFound
+	return nil, domain.ErrClientNotFound
 }
 
 // FindAppRegistration returns the app registration matching clientID within a tenant.
 func FindAppRegistration(tenant domain.Tenant, clientID domain.ClientID) (domain.AppRegistration, error) {
 	for _, registration := range tenant.AppRegistrations() {
-		if registration.ClientID().String() == clientID.String() {
+		if registration.ClientID() == clientID {
 			return registration, nil
 		}
 	}
@@ -62,13 +65,13 @@ func FindAppRegistration(tenant domain.Tenant, clientID domain.ClientID) (domain
 // FindRedirectURLs returns allowed redirect URLs for a clientID, searching clients then app registrations.
 func FindRedirectURLs(tenant domain.Tenant, clientID domain.ClientID) ([]domain.RedirectURL, error) {
 	for _, client := range tenant.Clients() {
-		if client.ClientID().String() == clientID.String() {
+		if client.ClientID() == clientID {
 			return client.RedirectURLs(), nil
 		}
 	}
 
 	for _, registration := range tenant.AppRegistrations() {
-		if registration.ClientID().String() == clientID.String() {
+		if registration.ClientID() == clientID {
 			return registration.RedirectURLs(), nil
 		}
 	}
@@ -77,9 +80,9 @@ func FindRedirectURLs(tenant domain.Tenant, clientID domain.ClientID) ([]domain.
 }
 
 // ValidateRedirectURI checks whether redirectURI is in the allowed list.
-func ValidateRedirectURI(redirectURI string, allowed []domain.RedirectURL) error {
+func ValidateRedirectURI(redirectURI domain.RedirectURL, allowed []domain.RedirectURL) error {
 	for _, allowedURL := range allowed {
-		if allowedURL.String() == redirectURI {
+		if allowedURL == redirectURI {
 			return nil
 		}
 	}
@@ -88,14 +91,19 @@ func ValidateRedirectURI(redirectURI string, allowed []domain.RedirectURL) error
 }
 
 // AuthenticateUser returns the user matching username and password using constant-time comparison.
-func AuthenticateUser(tenant domain.Tenant, username, password string) (domain.User, error) {
-	for _, user := range tenant.Users() {
-		usernameBytes := []byte(user.Username().String())
-		passwordBytes := []byte(user.Password().String())
-		usernameMatch := subtle.ConstantTimeCompare(usernameBytes, []byte(username)) == constantTimeEqual
-		passwordMatch := subtle.ConstantTimeCompare(passwordBytes, []byte(password)) == constantTimeEqual
+func AuthenticateUser(tenant domain.Tenant, usernameStr, passwordStr string) (domain.User, error) {
+	username, err := domain.NewUsername(usernameStr)
+	if err != nil {
+		return domain.User{}, domain.ErrInvalidCredentials
+	}
 
-		if usernameMatch && passwordMatch {
+	password, err := domain.NewPassword(passwordStr)
+	if err != nil {
+		return domain.User{}, domain.ErrInvalidCredentials
+	}
+
+	for _, user := range tenant.Users() {
+		if user.Username() == username && user.Password() == password {
 			return user, nil
 		}
 	}
@@ -104,9 +112,14 @@ func AuthenticateUser(tenant domain.Tenant, username, password string) (domain.U
 }
 
 // FindUserByID returns the user matching subject (UUID string), and whether it was found.
-func FindUserByID(tenant domain.Tenant, subject string) (domain.User, bool) {
+func FindUserByID(tenant domain.Tenant, subjectStr string) (domain.User, bool) {
+	subject, err := domain.NewUserID(subjectStr)
+	if err != nil {
+		return domain.User{}, false
+	}
+
 	for _, user := range tenant.Users() {
-		if user.ID().String() == subject {
+		if user.ID() == subject {
 			return user, true
 		}
 	}
@@ -115,8 +128,8 @@ func FindUserByID(tenant domain.Tenant, subject string) (domain.User, bool) {
 }
 
 // ValidateClientSecret checks the client secret using constant-time comparison.
-func ValidateClientSecret(client domain.Client, secret string) error {
-	if subtle.ConstantTimeCompare([]byte(client.ClientSecret().String()), []byte(secret)) != constantTimeEqual {
+func ValidateClientSecret(client domain.Client, secret *domain.ClientSecret) error {
+	if err := client.Validate(secret); err != nil {
 		return domain.ErrInvalidCredentials
 	}
 

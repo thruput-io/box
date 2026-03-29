@@ -40,7 +40,7 @@ func ExportResolveAppName(tenant domain.Tenant, appIDStr string) string {
 }
 
 // ExportResolveDisplayRoles is for testing resolveDisplayRoles from handlers_test.
-func ExportResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
+func ExportResolveDisplayRoles(user domain.User, client domain.Client, tenant domain.Tenant) []string {
 	return resolveDisplayRoles(user, client, tenant)
 }
 
@@ -65,12 +65,12 @@ func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID
 }
 
 // ExportResolveClientFromID is for testing resolveClientFromID from handlers_test.
-func ExportResolveClientFromID(tenant domain.Tenant, clientID string) *domain.Client {
+func ExportResolveClientFromID(tenant domain.Tenant, clientID string) domain.Client {
 	return resolveClientFromID(tenant, clientID)
 }
 
 // ExportResolveClientFromForm is for testing resolveClientFromForm from handlers_test.
-func ExportResolveClientFromForm(tenant domain.Tenant, clientID, clientSecret string) *domain.Client {
+func ExportResolveClientFromForm(tenant domain.Tenant, clientID, clientSecret string) domain.Client {
 	return resolveClientFromForm(tenant, clientID, clientSecret)
 }
 

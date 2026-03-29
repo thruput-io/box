@@ -24,9 +24,9 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 		key,
 		fixture.user,
 		fixture.client.ClientID(),
-		testCallback,
+		domain.MustRedirectURL(testCallback),
 		"openid profile",
-		fixture.tenant.TenantID().String(),
+		fixture.tenant.TenantID().UUID().String(),
 		nonceStr,
 	)
 
@@ -38,10 +38,10 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 	verifyAuthCodeClaims(
 		t,
 		claims,
-		fixture.user.ID().String(),
-		fixture.client.ClientID().String(),
+		fixture.user.ID().UUID().String(),
+		fixture.client.ClientID().UUID().String(),
 		nonceStr,
-		fixture.tenant.TenantID().String(),
+		fixture.tenant.TenantID().UUID().String(),
 	)
 }
 
