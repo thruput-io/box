@@ -35,6 +35,15 @@ type TokenInput struct {
 	CorrelationID string
 }
 
+type (
+	RequestedClaim  []string
+	RequestedClaims []RequestedClaim
+	TestTokenInput  struct {
+		RequestedClaims RequestedClaims
+		TokenInput      TokenInput
+	}
+)
+
 // TokenResponse holds the issued tokens returned by IssueToken.
 type TokenResponse struct {
 	AccessToken   AccessToken

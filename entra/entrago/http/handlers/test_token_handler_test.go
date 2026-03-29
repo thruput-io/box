@@ -34,7 +34,7 @@ type tokenHandlerFixture struct {
 	userID      domain.UserID
 }
 
-func mustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
+func MustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
 	t.Helper()
 
 	const (
@@ -117,7 +117,7 @@ func setupEntitiesForTokenHandler(t *testing.T, appID domain.ClientID, userID do
 func TestTestTokenHandler_InvalidPath(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://entra.test/test-tokens", nil)
 
@@ -130,7 +130,7 @@ func TestTestTokenHandler_InvalidPath(t *testing.T) {
 func TestTestTokenHandler_TenantNotFound(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 	url := "http://entra.test/test-tokens/nope/" + fixture.appID.RawString()
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -144,7 +144,7 @@ func TestTestTokenHandler_TenantNotFound(t *testing.T) {
 func TestTestTokenHandler_InvalidAppID(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 	url := "http://entra.test/test-tokens/" + fixture.tenantID.RawString() + "/nope"
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -158,7 +158,7 @@ func TestTestTokenHandler_InvalidAppID(t *testing.T) {
 func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 	baseURL := "http://entra.test/test-tokens/"
 	url := baseURL + fixture.tenantID.RawString() + "/" + fixture.appID.RawString() + "?username=" + fixture.userID.RawString()
 	ctx := context.Background()
@@ -190,14 +190,14 @@ func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 func TestResolveTestUser(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 
 	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {
 		t.Fatalf("FindTenantByID: %v", err)
 	}
 
-	user := handlers.ExportResolveTestUser(tenant, fixture.userID.RawString())
+	user := handlers.ExportResolveTestUser(tenant, fixture.userID)
 	if user == nil {
 		t.Fatal("expected user")
 	}
@@ -210,7 +210,7 @@ func TestResolveTestUser(t *testing.T) {
 func TestResolveTestUser_FallbackToFirstWhenRequestedUserMissing(t *testing.T) {
 	t.Parallel()
 
-	fixture := mustAppForTestTokenHandler(t)
+	fixture := MustAppForTestTokenHandler(t)
 
 	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {

@@ -78,6 +78,19 @@ func (tenant Tenant) Users() []User { return tenant.users }
 // Clients returns the tenant's clients (may be empty).
 func (tenant Tenant) Clients() []Client { return tenant.clients }
 
+func (tenant Tenant) AsClient() Client {
+	return NewClientWithoutSecret(
+		tenant.name.AsAppName(),
+		tenant.tenantID.AsClientID(),
+		[]RedirectURL{},
+		[]GroupRoleAssignment{},
+	)
+}
+
+func (tenantID TenantID) AsUrl(baseUrl string) string {
+	return baseUrl + "/" + tenantID.value.String()
+}
+
 // AppRegistration is an immutable Azure AD application registration.
 type AppRegistration struct {
 	name          AppName

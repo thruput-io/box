@@ -2,11 +2,8 @@ package handlers
 
 import (
 	"errors"
-	"math/rand"
 	"net/http"
 	"strings"
-
-	"github.com/google/uuid"
 
 	"identity/app"
 	"identity/domain"
@@ -17,35 +14,51 @@ var (
 	errInvalidAppID         = errors.New("invalid app ID: must be a UUID")
 )
 
-func testTokenHandler(request *http.Request, application *app.App) Response {
+func testTokenHandler(request *http.Request, application *app.App) error {
 	tenants := application.Config.Tenants()
-	if len(tenants) == 0 {
-		return internalError("no tenants configured")
-	}
 
 	parts := strings.Split(strings.Trim(request.URL.Path, "/"), "/")
 
-	tenant := tenants[rand.Intn(len(tenants))]
+	tenant := tenants[0]
 
 	if len(parts) > testTokenTenantPart && parts[testTokenTenantPart] != "" {
-		if t, err := app.FindTenant(application.Config, parts[testTokenTenantPart]); err == nil {
-			tenant = t
+		id, idErr := domain.NewTenantID(parts[testTokenTenantPart])
+		if idErr != nil {
+			return idErr
 		}
+		ten, err := app.FindTenant(application.Config, id)
+		if err != nil {
+			return err
+		}
+
+		tenant = ten
 	}
 
-	var clientID domain.ClientID
+	var clientIDResult *domain.ClientID = nil
 
-	if len(parts) > testTokenAppPart && parts[testTokenAppPart] != "" {
-		if appUUID, err := uuid.Parse(parts[testTokenAppPart]); err == nil {
-			clientID = domain.ClientIDFromUUID(appUUID)
+	if len(parts) > testTokenClientPart && parts[testTokenClientPart] != "" {
+		clientID, err := domain.NewClientID(parts[testTokenClientPart])
+		if err != nil {
+			return err
 		}
+		clientIDResult = &clientID
 	}
 
-	if clientID.UUID() == uuid.Nil {
-		if clients := tenant.Clients(); len(clients) > 0 {
-			client := clients[rand.Intn(len(clients))]
-			clientID = client.ClientID()
+	var clientResult *domain.Client = nil
+
+	if clientIDResult != nil {
+		client, err := app.FindClient(tenant, *clientIDResult)
+		if err != nil {
+			return err
 		}
+		clientResult = &client
+	} else {
+		if len(tenant.Clients()) > 0 {
+			clientResult = &tenant.Clients()[0]
+		}
+
+		clientResult = &(tenant.AsClient())
+		e
 	}
 
 	scope := request.URL.Query().Get("scope")
@@ -53,6 +66,7 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 		scope = "openid"
 	}
 
+	requestedUsername := request.URL.Query().Get("username")
 	input := domain.TokenInput{
 		Grant:         domain.GrantTest,
 		Tenant:        tenant,
@@ -67,22 +81,5 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 
 	response := app.IssueToken(application.Key, input)
 
-	return okText([]byte(response.AccessToken.RawString() + "\n"))
-}
-
-func resolveTestUser(tenant domain.Tenant, username string) *domain.User {
-	if username != "" {
-		if user, found := app.FindUserByID(tenant, username); found {
-			return &user
-		}
-	}
-
-	if len(tenant.Users()) > minValidIndex {
-		users := tenant.Users()
-		first := users[rand.Intn(len(users))]
-
-		return &first
-	}
-
-	return nil
+	return okText(response.AccessToken.AsByteArray())
 }

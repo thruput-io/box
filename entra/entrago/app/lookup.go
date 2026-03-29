@@ -1,26 +1,13 @@
 package app
 
 import (
-	"identity/domain"
 	"slices"
-)
 
-const (
-	constantTimeEqual = 1
-	firstTenant       = 0
+	"identity/domain"
 )
 
 // FindTenant returns the tenant matching tenantID, or the first tenant for "" or "common".
-func FindTenant(config domain.Config, tenantIDStr string) (domain.Tenant, error) {
-	if tenantIDStr == "" || tenantIDStr == "common" {
-		return config.Tenants()[firstTenant], nil
-	}
-
-	tenantID, err := domain.NewTenantID(tenantIDStr)
-	if err != nil {
-		return domain.Tenant{}, err
-	}
-
+func FindTenant(config domain.Config, tenantID domain.TenantID) (domain.Tenant, error) {
 	for _, tenant := range config.Tenants() {
 		if tenant.TenantID() == tenantID {
 			return tenant, nil
@@ -89,18 +76,7 @@ func ValidateRedirectURI(redirectURI domain.RedirectURL, allowed []domain.Redire
 	return domain.ErrInvalidRedirectURI
 }
 
-// AuthenticateUser returns the user matching username and password using constant-time comparison.
-func AuthenticateUser(tenant domain.Tenant, usernameStr, passwordStr string) (domain.User, error) {
-	username, err := domain.NewUsername(usernameStr)
-	if err != nil {
-		return domain.User{}, domain.ErrInvalidCredentials
-	}
-
-	password, err := domain.NewPassword(passwordStr)
-	if err != nil {
-		return domain.User{}, domain.ErrInvalidCredentials
-	}
-
+func AuthenticateUser(tenant domain.Tenant, username domain.Username, password domain.Password) (domain.User, error) {
 	for _, user := range tenant.Users() {
 		if user.Username() == username && user.Password() == password {
 			return user, nil
@@ -110,15 +86,9 @@ func AuthenticateUser(tenant domain.Tenant, usernameStr, passwordStr string) (do
 	return domain.User{}, domain.ErrInvalidCredentials
 }
 
-// FindUserByID returns the user matching subject (UUID string), and whether it was found.
-func FindUserByID(tenant domain.Tenant, subjectStr string) (domain.User, bool) {
-	subject, err := domain.NewUserID(subjectStr)
-	if err != nil {
-		return domain.User{}, false
-	}
-
+func FindUserByID(tenant domain.Tenant, id domain.UserID) (domain.User, bool) {
 	for _, user := range tenant.Users() {
-		if user.ID() == subject {
+		if user.ID() == id {
 			return user, true
 		}
 	}

@@ -41,11 +41,7 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 // UUID returns the underlying uuid.UUID value.
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
-func (tenantID TenantID) RawString() string { return tenantID.value.String() }
-
-func (tenantID TenantID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(tenantID.value.String())
-}
+func (tenantID TenantID) AsClientID() ClientID { return ClientID{tenantID.value} }
 
 // ClientID is the unique identifier for an app registration or client.
 type ClientID struct {
@@ -83,10 +79,6 @@ func MustClientID(raw string) ClientID {
 // ClientIDFromUUID wraps an already-parsed uuid.UUID.
 func ClientIDFromUUID(value uuid.UUID) ClientID {
 	return ClientID{value: value}
-}
-
-func AppIDFromUUID(value uuid.UUID) AppID {
-	return AppID{value: value}
 }
 
 // UUID returns the underlying uuid.UUID value.
@@ -209,12 +201,6 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
-func (scopeID ScopeID) RawString() string { return scopeID.value.String() }
-
-func (scopeID ScopeID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(scopeID.value.String())
-}
-
 // RoleID is the unique identifier for a role.
 type RoleID struct {
 	value uuid.UUID
@@ -248,16 +234,12 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
-func (roleID RoleID) RawString() string { return roleID.value.String() }
-
-func (roleID RoleID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(roleID.value.String())
-}
-
 // TenantName is the display name of a tenant.
 type TenantName struct {
 	value NonEmptyString
 }
+
+func (tenantName TenantName) AsAppName() AppName { return AppName{value: tenantName.value} }
 
 // NewTenantName creates a TenantName, returning an error if empty.
 func NewTenantName(raw string) (TenantName, error) {
@@ -267,14 +249,6 @@ func NewTenantName(raw string) (TenantName, error) {
 	}
 
 	return TenantName{value: v}, nil
-}
-
-func (tenantName TenantName) MarshalJSON() ([]byte, error) {
-	return tenantName.value.MarshalJSON()
-}
-
-func (tenantName TenantName) RawString() string {
-	return tenantName.value.value
 }
 
 // MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
@@ -300,14 +274,6 @@ func NewAppName(raw string) (AppName, error) {
 	}
 
 	return AppName{value: v}, nil
-}
-
-func (appName AppName) MarshalJSON() ([]byte, error) {
-	return appName.value.MarshalJSON()
-}
-
-func (appName AppName) RawString() string {
-	return appName.value.value
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
@@ -752,8 +718,29 @@ func MustAccessToken(raw string) AccessToken {
 	return v
 }
 
-func (at AccessToken) MarshalJSON() ([]byte, error) { return at.value.MarshalJSON() }
-func (at AccessToken) RawString() string            { return at.value.value }
+func (at AccessToken) AsByteArray() []byte { return ([]byte)(at.value.value + "\n") }
+func (at AccessToken) rawCallback(callback func(string) error) error {
+	return callback(at.value.value)
+}
+
+// ParseTokenAdapter is a standalone function that handles the generics.
+func ParseTokenAdapter[T any](at AccessToken, parserFunc func(string) (T, error)) (T, error) {
+	var zero T
+	var result T
+	var err error
+
+	// We use the struct's callback to get the string, and execute the parser!
+	cbErr := at.rawCallback(func(rawToken string) error {
+		result, err = parserFunc(rawToken)
+		return err
+	})
+
+	if cbErr != nil {
+		return zero, cbErr
+	}
+
+	return result, nil
+}
 
 // TokenType is the type of an issued token (e.g. "Bearer").
 type TokenType struct {
@@ -784,6 +771,50 @@ func (tt TokenType) RawString() string            { return tt.value.value }
 // IDToken is an issued OIDC ID token.
 type IDToken struct {
 	value NonEmptyString
+}
+
+func (rt RefreshToken) rawCallback(callback func(string) error) error {
+	return callback(rt.value.value)
+}
+
+func ParseRefreshTokenAdapter[T any](rt RefreshToken, parserFunc func(string) (T, error)) (T, error) {
+	var zero T
+	var result T
+	var err error
+
+	// We use the struct's callback to get the string, and execute the parser!
+	cbErr := rt.rawCallback(func(rawToken string) error {
+		result, err = parserFunc(rawToken)
+		return err
+	})
+
+	if cbErr != nil {
+		return zero, cbErr
+	}
+
+	return result, nil
+}
+
+func (id IDToken) rawCallback(callback func(string) error) error {
+	return callback(id.value.value)
+}
+
+func ParseIdTokenAdapter[T any](id IDToken, parserFunc func(string) (T, error)) (T, error) {
+	var zero T
+	var result T
+	var err error
+
+	// We use the struct's callback to get the string, and execute the parser!
+	cbErr := id.rawCallback(func(rawToken string) error {
+		result, err = parserFunc(rawToken)
+		return err
+	})
+
+	if cbErr != nil {
+		return zero, cbErr
+	}
+
+	return result, nil
 }
 
 func NewIDToken(raw string) (IDToken, error) {

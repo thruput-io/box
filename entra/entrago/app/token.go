@@ -95,6 +95,10 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 	return response
 }
 
+func IssueTestToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
+
+}
+
 // IssueAuthCode issues a short-lived signed JWT used as an authorization code.
 func IssueAuthCode(
 	key *rsa.PrivateKey,
@@ -234,10 +238,10 @@ func buildIssuerForInput(input domain.TokenInput) (issuer, version string) {
 	tenantID := input.Tenant.TenantID()
 
 	if input.IsV2 {
-		return input.BaseURL + "/" + tenantID.RawString() + "/v2.0", "2.0"
+		return tenantID.AsUrl(input.BaseURL) + "/v2.0", "2.0"
 	}
 
-	return input.BaseURL + "/" + tenantID.RawString(), "1.0"
+	return tenantID.AsUrl(input.BaseURL), "1.0"
 }
 
 func resolveAudience(tenant domain.Tenant, scope string) (string, map[string]bool) {

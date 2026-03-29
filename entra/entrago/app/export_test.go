@@ -49,9 +49,8 @@ func ExportAuthenticateUser(tenant domain.Tenant, username, password string) (do
 	return AuthenticateUser(tenant, username, password)
 }
 
-// ExportFindUserByID is for testing FindUserByID from app_test.
-func ExportFindUserByID(tenant domain.Tenant, subject string) (domain.User, bool) {
-	return FindUserByID(tenant, subject)
+func ExportFindUserByID(tenant domain.Tenant, id domain.UserID) (domain.User, bool) {
+	return FindUserByID(tenant, id)
 }
 
 // ExportValidateClientSecret is for testing ValidateClientSecret from app_test.

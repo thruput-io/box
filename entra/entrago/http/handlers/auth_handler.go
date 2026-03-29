@@ -135,10 +135,20 @@ func loginHandler(request *http.Request, application *app.App) Response {
 		return fromDomainError(domErr)
 	}
 
-	user, err := app.AuthenticateUser(validated.tenant, request.Form.Get("username"), request.Form.Get("password"))
+	userNameString := request.Form.Get("username")
+	passwordString := request.Form.Get("password")
+
+	username, err := domain.NewUsername(userNameString)
 	if err != nil {
-		return fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
+		fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
 	}
+
+	password, err := domain.NewPassword(passwordString)
+	if err != nil {
+		fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
+	}
+
+	user, err := app.AuthenticateUser(validated.tenant, username, password)
 
 	authCode := app.IssueAuthCode(
 		application.Key, user, validated.clientID, validated.redirectURI,

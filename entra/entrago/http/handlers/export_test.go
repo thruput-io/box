@@ -45,7 +45,7 @@ func ExportResolveDisplayRoles(user domain.User, client domain.Client, tenant do
 }
 
 // ExportResolveTestUser is for testing resolveTestUser from handlers_test.
-func ExportResolveTestUser(tenant domain.Tenant, username string) *domain.User {
+func ExportResolveTestUser(tenant domain.Tenant, username domain.Username) *domain.User {
 	return resolveTestUser(tenant, username)
 }
 
