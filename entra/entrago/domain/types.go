@@ -14,16 +14,19 @@ type RawValueProvider interface {
 }
 
 func Parse[T any](p RawValueProvider, parserFunc func(string) (T, error)) (T, error) {
-	var result T
-	var err error
+	var (
+		result T
+		err    error
+	)
 
 	cbErr := p.rawCallback(func(raw string) error {
 		result, err = parserFunc(raw)
+
 		return err
 	})
-
 	if cbErr != nil {
 		var zero T
+
 		return zero, cbErr
 	}
 
@@ -63,7 +66,7 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 // UUID returns the underlying uuid.UUID value.
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
-func (tenantID TenantID) AsClientID() ClientID { return ClientID{tenantID.value} }
+func (tenantID TenantID) AsClientID() ClientID { return ClientID(tenantID) }
 
 func (tenantID TenantID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tenantID.value.String())
@@ -291,7 +294,7 @@ type TenantName struct {
 	value NonEmptyString
 }
 
-func (tenantName TenantName) AsAppName() AppName { return AppName{value: tenantName.value} }
+func (tenantName TenantName) AsAppName() AppName { return AppName(tenantName) }
 
 func (tenantName TenantName) MarshalJSON() ([]byte, error) {
 	return tenantName.value.MarshalJSON()
@@ -420,6 +423,7 @@ func (scopeValue ScopeValue) rawCallback(callback func(string) error) error {
 
 func (scopeValue ScopeValue) Matches(raw string) bool {
 	v := scopeValue.value.value
+
 	return v == raw || strings.HasSuffix(raw, "/"+v)
 }
 
@@ -814,16 +818,18 @@ func (at AccessToken) rawCallback(callback func(string) error) error {
 
 // ParseTokenAdapter is a standalone function that handles the generics.
 func ParseTokenAdapter[T any](at AccessToken, parserFunc func(string) (T, error)) (T, error) {
-	var zero T
-	var result T
-	var err error
+	var (
+		zero   T
+		result T
+		err    error
+	)
 
 	// We use the struct's callback to get the string, and execute the parser!
 	cbErr := at.rawCallback(func(rawToken string) error {
 		result, err = parserFunc(rawToken)
+
 		return err
 	})
-
 	if cbErr != nil {
 		return zero, cbErr
 	}

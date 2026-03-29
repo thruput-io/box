@@ -31,6 +31,7 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 	)
 
 	authCodeStr, _ := domain.Parse[string](code, func(s string) (string, error) { return s, nil })
+
 	claims, err := app.ExportParseSignedToken(key, authCodeStr)
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +146,7 @@ func TestBuildClientInfo(t *testing.T) {
 	encoded := app.BuildClientInfo(domain.MustUserID(userID), domain.MustTenantID(tenantID))
 
 	clientInfoStr, _ := domain.Parse[string](encoded, func(s string) (string, error) { return s, nil })
+
 	decoded, err := base64.RawURLEncoding.DecodeString(clientInfoStr)
 	if err != nil {
 		t.Fatal(err)

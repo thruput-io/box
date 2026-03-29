@@ -159,6 +159,7 @@ func loginHandler(request *http.Request, application *app.App) Response {
 	)
 
 	redirectURIStr, _ := domain.Parse[string](validated.redirectURI, func(s string) (string, error) { return s, nil })
+
 	target, err := url.Parse(redirectURIStr)
 	if err != nil {
 		return badRequest(err)
@@ -291,10 +292,12 @@ func resolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
 	for _, registration := range tenant.AppRegistrations() {
 		if registration.ClientID() == appID {
 			appName, _ := domain.Parse[string](registration.Name(), func(s string) (string, error) { return s, nil })
+
 			return appName
 		}
 	}
 
 	appIDStr, _ := domain.Parse[string](appID, func(s string) (string, error) { return s, nil })
+
 	return appIDStr
 }

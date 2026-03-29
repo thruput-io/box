@@ -31,7 +31,7 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 		}
 	}
 
-	var clientResult domain.Client = tenant.AsClient()
+	var clientResult = tenant.AsClient()
 
 	if len(parts) > testTokenClientPart && parts[testTokenClientPart] != emptyValue {
 		clientID, err := domain.NewClientID(parts[testTokenClientPart])

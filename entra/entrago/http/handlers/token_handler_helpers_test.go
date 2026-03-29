@@ -154,6 +154,7 @@ func TestDomain_Parse(t *testing.T) {
 		"sub": "user-123",
 		"tid": "tenant-abc",
 	})
+
 	rawJWT, err := token.SignedString(privateKey)
 	if err != nil {
 		t.Fatal(err)
@@ -167,6 +168,7 @@ func TestDomain_Parse(t *testing.T) {
 	extractedClaims, err := domain.Parse[*TestCustomClaims](accessToken, func(rawToken string) (*TestCustomClaims, error) {
 		// messy framework lifting is strictly safely contained in this closure callback
 		var mapClaims jwt.MapClaims
+
 		_, err := jwt.ParseWithClaims(rawToken, &mapClaims, func(t *jwt.Token) (any, error) {
 			return &privateKey.PublicKey, nil
 		})
@@ -188,6 +190,7 @@ func TestDomain_Parse(t *testing.T) {
 	if extractedClaims.Subject != "user-123" {
 		t.Fatalf("expected subject 'user-123', got %q", extractedClaims.Subject)
 	}
+
 	if extractedClaims.Tenant != "tenant-abc" {
 		t.Fatalf("expected tenant 'tenant-abc', got %q", extractedClaims.Tenant)
 	}
@@ -198,12 +201,14 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("IDToken", func(t *testing.T) {
 		token := domain.MustIDToken("test-id-token")
+
 		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != "parsed-test-id-token" {
 			t.Errorf("expected parsed-test-id-token, got %q", got)
 		}
@@ -211,12 +216,14 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("RefreshToken", func(t *testing.T) {
 		token := domain.MustRefreshToken("test-refresh-token")
+
 		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != "parsed-test-refresh-token" {
 			t.Errorf("expected parsed-test-refresh-token, got %q", got)
 		}
@@ -224,12 +231,14 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("AuthCode", func(t *testing.T) {
 		token := domain.MustAuthCode("test-auth-code")
+
 		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != "parsed-test-auth-code" {
 			t.Errorf("expected parsed-test-auth-code, got %q", got)
 		}
@@ -237,12 +246,14 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("ClientInfo", func(t *testing.T) {
 		token := domain.MustClientInfo("test-client-info")
+
 		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got != "parsed-test-client-info" {
 			t.Errorf("expected parsed-test-client-info, got %q", got)
 		}

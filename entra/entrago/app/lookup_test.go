@@ -166,6 +166,7 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 	}
 
 	redirectURIStr, _ := domain.Parse[string](allowed[0], func(s string) (string, error) { return s, nil })
+
 	err = app.ExportValidateRedirectURI(redirectURIStr, allowed)
 	if err != nil {
 		t.Fatal(err)

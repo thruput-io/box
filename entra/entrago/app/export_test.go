@@ -48,6 +48,7 @@ func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectU
 func ExportAuthenticateUser(tenant domain.Tenant, usernameStr, passwordStr string) (domain.User, error) {
 	username, _ := domain.NewUsername(usernameStr)
 	password, _ := domain.NewPassword(passwordStr)
+
 	return AuthenticateUser(tenant, username, password)
 }
 

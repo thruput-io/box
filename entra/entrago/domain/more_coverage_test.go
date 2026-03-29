@@ -209,6 +209,7 @@ func TestDescriptions_Parse(t *testing.T) {
 
 func parseString(p domain.RawValueProvider) string {
 	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
+
 	return s
 }
 

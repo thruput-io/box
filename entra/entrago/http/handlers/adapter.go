@@ -97,6 +97,7 @@ func internalError(msg string) Response {
 
 func mustParseString(p domain.RawValueProvider) string {
 	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
+
 	return s
 }
 
