@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -9,41 +8,14 @@ import (
 	"identity/domain"
 )
 
-var (
-	errInvalidTestTokenPath = errors.New("invalid test-token path: expected /test-tokens/{tenant}/{appId}")
-	errInvalidAppID         = errors.New("invalid app ID: must be a UUID")
+const (
+	firstIndex = 0
 )
 
 func testTokenHandler(request *http.Request, application *app.App) Response {
-	tenants := application.Config.Tenants()
-
 	parts := strings.Split(strings.Trim(request.URL.Path, pathSeparator), pathSeparator)
-
-	tenant := tenants[0]
-
-	if len(parts) > testTokenTenantPart && parts[testTokenTenantPart] != emptyValue {
-		id, idErr := domain.NewTenantID(parts[testTokenTenantPart])
-		if idErr == nil {
-			ten, err := app.FindTenantByID(application.Config, id)
-			if err == nil {
-				tenant = ten
-			}
-		}
-	}
-
-	var clientResult = tenant.AsClient()
-
-	if len(parts) > testTokenClientPart && parts[testTokenClientPart] != emptyValue {
-		clientID, err := domain.NewClientID(parts[testTokenClientPart])
-		if err == nil {
-			client, err := app.FindClient(tenant, clientID)
-			if err == nil {
-				clientResult = client
-			}
-		}
-	} else if len(tenant.Clients()) > 0 {
-		clientResult = tenant.Clients()[0]
-	}
+	tenant := resolveTestTenant(application.Config, parts)
+	clientResult := resolveTestClient(tenant, parts)
 
 	scope := request.URL.Query().Get("scope")
 	if scope == emptyValue {
@@ -67,20 +39,87 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 	return okText(response.AccessToken.AsByteArray())
 }
 
-func resolveTestUser(tenant domain.Tenant, username string) *domain.User {
-	if username != emptyValue {
-		uname, err := domain.NewUsername(username)
-		if err == nil {
-			for _, user := range tenant.Users() {
-				if user.Username() == uname {
-					return &user
-				}
-			}
+func resolveTestTenant(config *domain.Config, parts []string) *domain.Tenant {
+	tenants := config.Tenants()
+	tenant := &tenants[firstIndex]
+
+	if len(parts) > testTokenTenantPart && parts[testTokenTenantPart] != emptyValue {
+		tenant = resolveTenantFromPart(config, parts[testTokenTenantPart], tenant)
+	}
+
+	return tenant
+}
+
+func resolveTenantFromPart(config *domain.Config, part string, defaultTenant *domain.Tenant) *domain.Tenant {
+	id, idErr := domain.NewTenantID(part)
+	if idErr != nil {
+		return defaultTenant
+	}
+
+	ten, err := app.FindTenantByID(config, id)
+	if err != nil {
+		return defaultTenant
+	}
+
+	return ten
+}
+
+func resolveTestClient(tenant *domain.Tenant, parts []string) *domain.Client {
+	if len(parts) > testTokenClientPart && parts[testTokenClientPart] != emptyValue {
+		return resolveClientFromPart(tenant, parts[testTokenClientPart])
+	}
+
+	clients := tenant.Clients()
+	if len(clients) > emptySliceSize {
+		return &clients[firstIndex]
+	}
+
+	c := tenant.AsClient()
+
+	return &c
+}
+
+func resolveClientFromPart(tenant *domain.Tenant, part string) *domain.Client {
+	clientID, err := domain.NewClientID(part)
+	if err != nil {
+		c := tenant.AsClient()
+
+		return &c
+	}
+
+	client, err := app.FindClient(*tenant, clientID)
+	if err != nil {
+		c := tenant.AsClient()
+
+		return &c
+	}
+
+	return client
+}
+
+func resolveTestUser(tenant *domain.Tenant, username string) *domain.User {
+	if username == emptyValue {
+		return resolveDefaultUser(tenant)
+	}
+
+	uname, err := domain.NewUsername(username)
+	if err != nil {
+		return resolveDefaultUser(tenant)
+	}
+
+	for _, user := range tenant.Users() {
+		if user.Username() == uname {
+			return &user
 		}
 	}
 
-	if len(tenant.Users()) > 0 {
-		return &tenant.Users()[0]
+	return resolveDefaultUser(tenant)
+}
+
+func resolveDefaultUser(tenant *domain.Tenant) *domain.User {
+	users := tenant.Users()
+	if len(users) > emptySliceSize {
+		return &users[firstIndex]
 	}
 
 	return nil

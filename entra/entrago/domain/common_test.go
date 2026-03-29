@@ -14,4 +14,5 @@ const (
 	emptyInput            = ""
 	expectedError         = "expected error"
 	expectedFormat        = "expected %v, got %v"
+	firstIndex            = 0
 )

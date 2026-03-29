@@ -76,22 +76,22 @@ type rawGroupRoleAssignment struct {
 }
 
 // LoadConfig reads, validates, and parses Config.yaml into an immutable domain Config.
-func LoadConfig(configPath, schemaPath string) (Config, error) {
+func LoadConfig(configPath, schemaPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to read %s: %w", configPath, err)
+		return nil, fmt.Errorf("failed to read %s: %w", configPath, err)
 	}
 
 	err = validateYAML(data, schemaPath)
 	if err != nil {
-		return Config{}, fmt.Errorf("config validation failed: %w", err)
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	var raw rawConfig
 
 	err = yaml.Unmarshal(data, &raw)
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to parse %s: %w", configPath, err)
+		return nil, fmt.Errorf("failed to parse %s: %w", configPath, err)
 	}
 
 	return buildConfig(raw)
@@ -130,53 +130,63 @@ func validateYAML(yamlData []byte, schemaPath string) error {
 	return nil
 }
 
-func buildConfig(raw rawConfig) (Config, error) {
+func buildConfig(raw rawConfig) (*Config, error) {
 	tenants := make([]Tenant, emptyLen, len(raw.Tenants))
 
 	for _, rawTenant := range raw.Tenants {
 		tenant, err := buildTenant(rawTenant)
 		if err != nil {
-			return Config{}, err
+			return nil, err
 		}
 
-		tenants = append(tenants, tenant)
+		tenants = append(tenants, *tenant)
 	}
 
-	return NewConfig(tenants)
+	cfg, err := NewConfig(tenants)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
 }
 
-func buildTenant(raw rawTenant) (Tenant, error) {
+func buildTenant(raw rawTenant) (*Tenant, error) {
 	tenantID, err := NewTenantID(raw.TenantID)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	name, err := NewTenantName(raw.Name)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.TenantID, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	appRegistrations, err := buildAppRegistrations(raw.AppRegistrations)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	groups, err := buildGroups(raw.Groups)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	users, err := buildUsers(raw.Users)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
 	clients, err := buildClients(raw.Clients)
 	if err != nil {
-		return Tenant{}, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
 	}
 
-	return NewTenant(tenantID, name, appRegistrations, groups, users, clients)
+	ten, err := NewTenant(tenantID, name, appRegistrations, groups, users, clients)
+	if err != nil {
+		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	}
+
+	return &ten, nil
 }
 
 func buildAppRegistrations(raws []rawAppRegistration) ([]AppRegistration, error) {
@@ -188,44 +198,46 @@ func buildAppRegistrations(raws []rawAppRegistration) ([]AppRegistration, error)
 			return nil, err
 		}
 
-		result = append(result, appRegistration)
+		result = append(result, *appRegistration)
 	}
 
 	return result, nil
 }
 
-func buildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
+func buildAppRegistration(raw rawAppRegistration) (*AppRegistration, error) {
 	name, err := NewAppName(raw.Name)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf("app registration: %w", err)
+		return nil, fmt.Errorf("app registration: %w", err)
 	}
 
 	clientID, err := NewClientID(raw.ClientID)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	identifierURI, err := NewIdentifierURI(raw.IdentifierURI)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	scopes, err := buildScopes(raw.Scopes)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
 	roles, err := buildRoles(raw.AppRoles)
 	if err != nil {
-		return AppRegistration{}, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
 	}
 
-	return NewAppRegistration(name, clientID, identifierURI, redirectURLs, scopes, roles), nil
+	reg := NewAppRegistration(name, clientID, identifierURI, redirectURLs, scopes, roles)
+
+	return &reg, nil
 }
 
 func buildRedirectURLs(raws []string) ([]RedirectURL, error) {
@@ -345,44 +357,46 @@ func buildUsers(raws []rawUser) ([]User, error) {
 			return nil, err
 		}
 
-		result = append(result, user)
+		result = append(result, *user)
 	}
 
 	return result, nil
 }
 
-func buildUser(raw rawUser) (User, error) {
+func buildUser(raw rawUser) (*User, error) {
 	userID, err := NewUserID(raw.ID)
 	if err != nil {
-		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
+		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	username, err := NewUsername(raw.Username)
 	if err != nil {
-		return User{}, fmt.Errorf("user: %w", err)
+		return nil, fmt.Errorf("user: %w", err)
 	}
 
 	password, err := NewPassword(raw.Password)
 	if err != nil {
-		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
+		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	displayName, err := NewDisplayName(raw.DisplayName)
 	if err != nil {
-		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
+		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	email, err := NewEmail(raw.Email)
 	if err != nil {
-		return User{}, fmt.Errorf(fmtUserWrap, raw.Username, err)
+		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
 	}
 
 	groups, err := buildUserGroups(raw.Username, raw.Groups)
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
-	return NewUser(userID, username, password, displayName, email, groups), nil
+	u := NewUser(userID, username, password, displayName, email, groups)
+
+	return &u, nil
 }
 
 func buildUserGroups(username string, rawGroups []string) ([]GroupName, error) {
@@ -409,13 +423,13 @@ func buildClients(raws []rawClient) ([]Client, error) {
 			return nil, err
 		}
 
-		result = append(result, client)
+		result = append(result, *client)
 	}
 
 	return result, nil
 }
 
-func buildClient(raw rawClient) (Client, error) {
+func buildClient(raw rawClient) (*Client, error) {
 	name, err := NewAppName(raw.Name)
 	if err != nil {
 		return nil, fmt.Errorf("client: %w", err)
@@ -437,7 +451,9 @@ func buildClient(raw rawClient) (Client, error) {
 	}
 
 	if raw.ClientSecret == "" {
-		return NewClientWithoutSecret(name, clientID, redirectURLs, assignments), nil
+		c := NewClientWithoutSecret(name, clientID, redirectURLs, assignments)
+
+		return &c, nil
 	}
 
 	clientSecret, err := NewClientSecret(raw.ClientSecret)
@@ -445,7 +461,9 @@ func buildClient(raw rawClient) (Client, error) {
 		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
 	}
 
-	return NewClientWithSecret(name, clientID, clientSecret, redirectURLs, assignments), nil
+	c := NewClientWithSecret(name, clientID, clientSecret, redirectURLs, assignments)
+
+	return &c, nil
 }
 
 func buildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssignment, error) {

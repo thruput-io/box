@@ -90,11 +90,11 @@ func verifyAuthHelpers(
 ) {
 	t.Helper()
 
-	appRoles := handlers.ExportCollectAssignmentRoles(user, client)
+	appRoles := handlers.ExportCollectAssignmentRoles(user, &client)
 
 	const expectedRolesLen = 1
 
-	if got := appRoles[appID]; len(got) != expectedRolesLen || got[0] != "Role1" {
+	if got := appRoles[appID]; len(got) != expectedRolesLen || got[firstIndex] != "Role1" {
 		t.Fatalf("unexpected appRoles: %#v", appRoles)
 	}
 
@@ -106,7 +106,7 @@ func verifyAuthHelpers(
 		t.Fatalf("expected fallback app id, got %q", got)
 	}
 
-	roles := handlers.ExportResolveDisplayRoles(user, client, tenant)
+	roles := handlers.ExportResolveDisplayRoles(user, &client, tenant)
 	if len(roles) != expectedRolesLen {
 		t.Fatalf("expected 1 role display, got %d", len(roles))
 	}

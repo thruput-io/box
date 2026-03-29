@@ -22,7 +22,7 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 
 	code := app.ExportIssueAuthCode(
 		key,
-		fixture.user,
+		&fixture.user,
 		fixture.client.ClientID(),
 		domain.MustRedirectURL(testCallback),
 		"openid profile",
@@ -47,7 +47,14 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 	)
 }
 
-func verifyAuthCodeClaims(t *testing.T, claims map[string]any, sub domain.UserID, clientID domain.ClientID, nonce string, tenant domain.TenantID) {
+func verifyAuthCodeClaims(
+	t *testing.T,
+	claims map[string]any,
+	sub domain.UserID,
+	clientID domain.ClientID,
+	nonce string,
+	tenant domain.TenantID,
+) {
 	t.Helper()
 
 	verifySubAndClient(t, claims, sub, clientID)
@@ -202,12 +209,12 @@ func TestLookup_NotFoundErrors(t *testing.T) {
 
 	missingClientID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-	_, err = app.ExportFindClient(fixture.tenant, missingClientID)
+	_, err = app.ExportFindClient(&fixture.tenant, missingClientID)
 	if !errors.Is(err, domain.ErrClientNotFound) {
 		t.Fatalf("expected ErrClientNotFound, got %v", err)
 	}
 
-	_, err = app.ExportFindAppRegistration(fixture.tenant, missingClientID)
+	_, err = app.ExportFindAppRegistration(&fixture.tenant, missingClientID)
 	if !errors.Is(err, domain.ErrAppNotFound) {
 		t.Fatalf("expected ErrAppNotFound, got %v", err)
 	}

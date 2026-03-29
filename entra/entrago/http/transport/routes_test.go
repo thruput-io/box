@@ -54,7 +54,7 @@ func mustAppForRoutes(t *testing.T) *app.App {
 	}
 
 	return &app.App{
-		Config:        config,
+		Config:        &config,
 		Key:           mustRSAKey(t),
 		LoginTemplate: nil,
 		IndexTemplate: nil,

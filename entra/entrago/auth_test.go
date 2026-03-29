@@ -64,11 +64,11 @@ func TestAuthorize_RendersQuickLoginUsers(t *testing.T) {
 	body := recorder.Body.String()
 
 	if !strings.Contains(body, `class="user-item"`) {
-		t.Fatalf("expected authorize page to render quick-login user entries")
+		t.Fatal("expected authorize page to render quick-login user entries")
 	}
 
 	if !strings.Contains(body, `name="username"`) {
-		t.Fatalf("expected authorize page quick-login controls to submit username")
+		t.Fatal("expected authorize page quick-login controls to submit username")
 	}
 }
 

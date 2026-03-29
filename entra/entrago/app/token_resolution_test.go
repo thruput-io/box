@@ -43,7 +43,7 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("NewTenant: %v", err)
 	}
 
-	gotAud, gotApps := app.ExportResolveAudienceForTest(tenant, "openid api://app/access")
+	gotAud, gotApps := app.ExportResolveAudienceForTest(&tenant, "openid api://app/access")
 	if !gotAud.Matches(testApp) {
 		t.Fatalf("expected audience %q, got %q", testApp, gotAud)
 	}
@@ -52,7 +52,7 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("expected target apps to include %s", clientID.UUID().String())
 	}
 
-	gotAud, gotApps = app.ExportResolveAudienceForTest(tenant, "openid")
+	gotAud, gotApps = app.ExportResolveAudienceForTest(&tenant, "openid")
 	if !gotAud.Matches("api://default") {
 		t.Fatalf("expected default audience %q, got %q", "api://default", gotAud)
 	}
@@ -110,7 +110,7 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 		t.Fatalf("NewTenant: %v", err)
 	}
 
-	verifyResolvedRoles(t, tenant, client, user, appClientID)
+	verifyResolvedRoles(t, &tenant, &client, &user, appClientID)
 }
 
 func setupUserAndClientForRoles(
@@ -158,9 +158,9 @@ func setupUserAndClientForRoles(
 
 func verifyResolvedRoles(
 	t *testing.T,
-	tenant domain.Tenant,
-	client domain.Client,
-	user domain.User,
+	tenant *domain.Tenant,
+	client *domain.Client,
+	user *domain.User,
 	appClientID domain.ClientID,
 ) {
 	t.Helper()
@@ -168,7 +168,7 @@ func verifyResolvedRoles(
 	targetApps := map[domain.ClientID]bool{appClientID: true}
 	requested := []string{testApp + "/access"}
 
-	roles := app.ExportResolveRolesForTest(tenant, client, &user, targetApps, requested)
+	roles := app.ExportResolveRolesForTest(tenant, client, user, targetApps, requested)
 	roleSet := make(map[string]bool)
 
 	for _, r := range roles {

@@ -9,7 +9,7 @@ import (
 	"identity/domain"
 )
 
-func mustConfigWithTenant(t *testing.T, tenant domain.Tenant) domain.Config {
+func mustConfigWithTenant(t *testing.T, tenant domain.Tenant) *domain.Config {
 	t.Helper()
 
 	cfg, err := domain.NewConfig([]domain.Tenant{tenant})
@@ -17,7 +17,7 @@ func mustConfigWithTenant(t *testing.T, tenant domain.Tenant) domain.Config {
 		t.Fatalf("NewConfig: %v", err)
 	}
 
-	return cfg
+	return &cfg
 }
 
 type tenantFixture struct {
@@ -90,7 +90,7 @@ func TestLookup_TenantSelection(t *testing.T) {
 	runSelectionTests(t, cfg, fixture.tenant)
 }
 
-func runSelectionTests(t *testing.T, cfg domain.Config, tenant domain.Tenant) {
+func runSelectionTests(t *testing.T, cfg *domain.Config, tenant domain.Tenant) {
 	t.Helper()
 
 	got, err := app.ExportFindTenant(cfg, "")
@@ -149,12 +149,12 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 
 	fixture := mustTenantFixture(t)
 
-	err := validateClientAndApp(t, fixture.tenant, fixture.client, fixture.appReg)
+	err := validateClientAndApp(t, &fixture.tenant, &fixture.client, &fixture.appReg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	allowed, err := app.ExportFindRedirectURLs(fixture.tenant, fixture.client.ClientID())
+	allowed, err := app.ExportFindRedirectURLs(&fixture.tenant, fixture.client.ClientID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,9 +182,9 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 
 func validateClientAndApp(
 	t *testing.T,
-	tenant domain.Tenant,
-	client domain.Client,
-	appReg domain.AppRegistration,
+	tenant *domain.Tenant,
+	client *domain.Client,
+	appReg *domain.AppRegistration,
 ) error {
 	t.Helper()
 
@@ -214,20 +214,20 @@ func TestLookup_AuthenticateAndSecrets(t *testing.T) {
 
 	fixture := mustTenantFixture(t)
 
-	err := app.ExportValidateClientSecret(fixture.client, testSecret)
+	err := app.ExportValidateClientSecret(&fixture.client, testSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = app.ExportValidateClientSecret(fixture.client, testWrong)
+	err = app.ExportValidateClientSecret(&fixture.client, testWrong)
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Fatalf("expected ErrInvalidCredentials for wrong secret, got %v", err)
 	}
 
-	runAuthTests(t, fixture.tenant)
+	runAuthTests(t, &fixture.tenant)
 }
 
-func runAuthTests(t *testing.T, tenant domain.Tenant) {
+func runAuthTests(t *testing.T, tenant *domain.Tenant) {
 	t.Helper()
 
 	const msgErrCreds = "expected ErrInvalidCredentials for wrong password, got %v"
@@ -248,10 +248,13 @@ func runAuthTests(t *testing.T, tenant domain.Tenant) {
 	}
 }
 
-func checkValidAuth(tenant domain.Tenant) error {
+func checkValidAuth(tenant *domain.Tenant) error {
 	_, err := app.ExportAuthenticateUser(tenant, testUser, testPass)
+	if err != nil {
+		return fmt.Errorf("checkValidAuth: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func TestLookup_UserByID(t *testing.T) {
@@ -259,12 +262,12 @@ func TestLookup_UserByID(t *testing.T) {
 
 	fixture := mustTenantFixture(t)
 
-	_, notFound := app.ExportFindUserByID(fixture.tenant, domain.UserID{})
+	_, notFound := app.ExportFindUserByID(&fixture.tenant, domain.UserID{})
 	if notFound {
 		t.Fatal("expected not found")
 	}
 
-	got, found := app.ExportFindUserByID(fixture.tenant, fixture.user.ID())
+	got, found := app.ExportFindUserByID(&fixture.tenant, fixture.user.ID())
 	if !found {
 		t.Fatal("expected found")
 	}

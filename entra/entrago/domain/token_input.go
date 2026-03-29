@@ -25,9 +25,9 @@ const (
 // have already succeeded. IssueToken receives this and cannot fail.
 type TokenInput struct {
 	Grant         GrantType
-	Tenant        Tenant
+	Tenant        *Tenant
 	User          *User
-	Client        Client
+	Client        *Client
 	Scope         string
 	Nonce         string
 	IsV2          bool
@@ -36,9 +36,12 @@ type TokenInput struct {
 }
 
 type (
-	RequestedClaim  []string
+	// RequestedClaim is a list of claim values.
+	RequestedClaim []string
+	// RequestedClaims is a list of requested claims.
 	RequestedClaims []RequestedClaim
-	TestTokenInput  struct {
+	// TestTokenInput is a container for testing token issuance with specific claims.
+	TestTokenInput struct {
 		RequestedClaims RequestedClaims
 		TokenInput      TokenInput
 	}
@@ -49,7 +52,7 @@ type TokenResponse struct {
 	AccessToken   AccessToken
 	TokenType     TokenType
 	ExpiresIn     int
-	Scope         string // TODO: Should this be ScopeValue or similar?
+	Scope         string
 	IDToken       *IDToken
 	RefreshToken  *RefreshToken
 	ClientInfo    *ClientInfo

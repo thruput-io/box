@@ -25,7 +25,7 @@ type runDeps struct {
 	stat       func(string) (os.FileInfo, error)
 	getenv     func(string) string
 	logf       func(string, ...any)
-	loadConfig func(string) (domain.Config, error)
+	loadConfig func(string) (*domain.Config, error)
 	listen     func(*http.Server) error
 }
 
@@ -109,10 +109,10 @@ func loadTemplates() (login *template.Template, index *template.Template, err er
 	return login, index, nil
 }
 
-func defaultLoadConfig(path string) (domain.Config, error) {
+func defaultLoadConfig(path string) (*domain.Config, error) {
 	cfg, err := domain.LoadConfig(path, "")
 	if err != nil {
-		return domain.Config{}, fmt.Errorf("LoadConfig: %w", err)
+		return nil, fmt.Errorf("LoadConfig: %w", err)
 	}
 
 	return cfg, nil

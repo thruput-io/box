@@ -93,13 +93,9 @@ func TestLoadConfig_ReadError(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 
-	config, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
+	_, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
 	if err == nil {
 		t.Fatal("expected read error")
-	}
-
-	if len(config.Tenants()) != zeroLength {
-		t.Fatal("expected empty config on error")
 	}
 }
 

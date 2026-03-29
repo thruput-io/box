@@ -59,8 +59,8 @@ func TestRun_LoadConfigError(t *testing.T) {
 		stat:    func(string) (os.FileInfo, error) { return nil, nil }, //nolint:nilnil
 		getenv:  func(string) string { return "" },
 		logf:    func(string, ...any) {},
-		loadConfig: func(string) (domain.Config, error) {
-			return domain.Config{}, errBoom
+		loadConfig: func(string) (*domain.Config, error) {
+			return nil, errBoom
 		},
 		listen: func(*http.Server) error { return nil },
 	}
@@ -79,8 +79,8 @@ func TestRun_ListenError(t *testing.T) {
 		stat:    func(string) (os.FileInfo, error) { return nil, nil }, //nolint:nilnil
 		getenv:  func(string) string { return "" },
 		logf:    func(string, ...any) {},
-		loadConfig: func(string) (domain.Config, error) {
-			return domain.Config{}, nil
+		loadConfig: func(string) (*domain.Config, error) {
+			return nil, nil //nolint:nilnil
 		},
 		listen: func(*http.Server) error {
 			return errListenBoom

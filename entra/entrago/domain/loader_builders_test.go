@@ -94,11 +94,13 @@ func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
 	}
 
 	// For secrets, we use Match since it's a secret.
-	if err := client.Validate(&clientSecret); err != nil {
+	err = client.Validate(&clientSecret)
+	if err != nil {
 		t.Fatal("Client secret mismatch")
 	}
 
-	if len(client.RedirectURLs()) != expectedOneAssignment || client.RedirectURLs()[0] != domain.MustRedirectURL(testCallback) {
+	if len(client.RedirectURLs()) != expectedOneAssignment ||
+		client.RedirectURLs()[firstIndex] != domain.MustRedirectURL(testCallback) {
 		t.Fatal("Client RedirectURLs mismatch")
 	}
 
@@ -140,7 +142,8 @@ func TestBuildGroupRoleAssignment_Success(t *testing.T) {
 		t.Fatal("unexpected group name")
 	}
 
-	if len(assignment.Roles()) != expectedOneAssignment || assignment.Roles()[0] != domain.MustRoleValue("RoleA") {
+	if len(assignment.Roles()) != expectedOneAssignment ||
+		assignment.Roles()[firstIndex] != domain.MustRoleValue("RoleA") {
 		t.Fatal("unexpected roles")
 	}
 
@@ -164,7 +167,7 @@ func TestBuildUser_Success(t *testing.T) {
 		t.Fatalf("BuildUser: %v", err)
 	}
 
-	assertUserFields(t, user)
+	assertUserFields(t, *user)
 }
 
 func assertUserFields(t *testing.T, user domain.User) {
@@ -190,7 +193,7 @@ func assertUserFields(t *testing.T, user domain.User) {
 		t.Fatal("User Email mismatch")
 	}
 
-	if len(user.Groups()) != expectedOneAssignment || user.Groups()[0] != domain.MustGroupName("GroupA") {
+	if len(user.Groups()) != expectedOneAssignment || user.Groups()[firstIndex] != domain.MustGroupName("GroupA") {
 		t.Fatal("User Groups mismatch")
 	}
 }
@@ -219,7 +222,7 @@ func TestBuildAppRegistration_Success(t *testing.T) {
 		t.Fatalf("BuildAppRegistration: %v", err)
 	}
 
-	assertAppFields(t, app)
+	assertAppFields(t, *app)
 }
 
 func assertAppFields(t *testing.T, app domain.AppRegistration) {
@@ -243,15 +246,18 @@ func assertAppFields(t *testing.T, app domain.AppRegistration) {
 func assertAppCollections(t *testing.T, app domain.AppRegistration) {
 	t.Helper()
 
-	if len(app.RedirectURLs()) != expectedOneAssignment || app.RedirectURLs()[0] != domain.MustRedirectURL(testCallback) {
+	if len(app.RedirectURLs()) != expectedOneAssignment ||
+		app.RedirectURLs()[firstIndex] != domain.MustRedirectURL(testCallback) {
 		t.Fatal("App RedirectURLs mismatch")
 	}
 
-	if len(app.Scopes()) != expectedOneAssignment || app.Scopes()[0].Value() != domain.MustScopeValue(testAccess) {
+	if len(app.Scopes()) != expectedOneAssignment ||
+		app.Scopes()[firstIndex].Value() != domain.MustScopeValue(testAccess) {
 		t.Fatal("App Scopes mismatch")
 	}
 
-	if len(app.AppRoles()) != expectedOneAssignment || app.AppRoles()[0].Value() != domain.MustRoleValue(testAdmin) {
+	if len(app.AppRoles()) != expectedOneAssignment ||
+		app.AppRoles()[firstIndex].Value() != domain.MustRoleValue(testAdmin) {
 		t.Fatal("App AppRoles mismatch")
 	}
 }
@@ -285,7 +291,7 @@ func TestBuildTenant_Success(t *testing.T) {
 		t.Fatalf("BuildTenant: %v", err)
 	}
 
-	assertTenantFields(t, tenant)
+	assertTenantFields(t, *tenant)
 }
 
 func assertTenantFields(t *testing.T, tenant domain.Tenant) {

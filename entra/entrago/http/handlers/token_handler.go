@@ -59,13 +59,13 @@ func parseTokenRequest(request *http.Request, application *app.App) (domain.Toke
 
 	switch grant {
 	case domain.GrantPassword, domain.GrantTest:
-		return buildPasswordInput(base, request, tenant)
+		return buildPasswordInput(base, request, *tenant)
 	case domain.GrantClientCredentials:
-		return buildClientCredentialsInput(base, request, tenant)
+		return buildClientCredentialsInput(base, request, *tenant)
 	case domain.GrantAuthorizationCode:
-		return buildAuthCodeInput(base, request, tenant, application)
+		return buildAuthCodeInput(base, request, *tenant, application)
 	case domain.GrantRefreshToken:
-		return buildRefreshTokenInput(base, request, tenant, application)
+		return buildRefreshTokenInput(base, request, *tenant, application)
 	default:
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeUnsupportedGrantType, "unsupported grant_type")
 	}
@@ -99,7 +99,7 @@ func buildPasswordInput(
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password")
 	}
 
-	base.User = &user
+	base.User = user
 	base.Client = resolveClientFromForm(tenant, request.Form.Get("client_id"), request.Form.Get("client_secret"))
 
 	return base, nil
@@ -132,7 +132,8 @@ func buildClientCredentialsInput(
 		secret = &s
 	}
 
-	if err := app.ValidateClientSecret(client, secret); err != nil {
+	err = app.ValidateClientSecret(*client, secret)
+	if err != nil {
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid client secret")
 	}
 
@@ -164,7 +165,7 @@ func buildAuthCodeInput(
 
 	userID, _ := domain.NewUserID(parsed.subject)
 	if user, found := app.FindUserByID(tenant, userID); found {
-		base.User = &user
+		base.User = user
 	}
 
 	return base, nil
@@ -187,13 +188,13 @@ func buildRefreshTokenInput(
 
 	userID, _ := domain.NewUserID(parsed.subject)
 	if user, found := app.FindUserByID(tenant, userID); found {
-		base.User = &user
+		base.User = user
 	}
 
 	return base, nil
 }
 
-func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) domain.Client {
+func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) *domain.Client {
 	clientID, err := domain.NewClientID(clientIDStr)
 	if err != nil {
 		return nil
@@ -206,7 +207,7 @@ func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret strin
 
 	var secret *domain.ClientSecret
 
-	if clientSecret != "" {
+	if clientSecret != emptyValue {
 		s, err := domain.NewClientSecret(clientSecret)
 		if err != nil {
 			return nil
@@ -215,14 +216,15 @@ func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret strin
 		secret = &s
 	}
 
-	if err := client.Validate(secret); err != nil {
+	err = client.Validate(secret)
+	if err != nil {
 		return nil
 	}
 
 	return client
 }
 
-func resolveClientFromID(tenant domain.Tenant, clientID domain.ClientID) domain.Client {
+func resolveClientFromID(tenant domain.Tenant, clientID domain.ClientID) *domain.Client {
 	client, err := app.FindClient(tenant, clientID)
 	if err != nil {
 		return nil

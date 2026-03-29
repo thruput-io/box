@@ -2,24 +2,30 @@ package domain
 
 import (
 	"crypto/subtle"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 )
 
+const (
+	comparisonMatch = 1
+)
+
+// RawValueProvider allows secure access to the underlying string value of a domain type via a callback.
 type RawValueProvider interface {
-	rawCallback(func(string) error) error
+	rawCallback(callback func(string) error) error
 }
 
-func Parse[T any](p RawValueProvider, parserFunc func(string) (T, error)) (T, error) {
+// Parse is a generic function that safely extracts a value of type T from a RawValueProvider using a parser callback.
+// The callback prevents the raw string from leaking into the domain layer's public API.
+func Parse[T any](provider RawValueProvider, parserFunc func(string) (T, error)) (T, error) { //nolint:ireturn
 	var (
 		result T
 		err    error
 	)
 
-	cbErr := p.rawCallback(func(raw string) error {
+	cbErr := provider.rawCallback(func(raw string) error {
 		result, err = parserFunc(raw)
 
 		return err
@@ -66,11 +72,8 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 // UUID returns the underlying uuid.UUID value.
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
+// AsClientID returns the tenant ID as a ClientID.
 func (tenantID TenantID) AsClientID() ClientID { return ClientID(tenantID) }
-
-func (tenantID TenantID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(tenantID.value.String())
-}
 
 func (tenantID TenantID) rawCallback(callback func(string) error) error {
 	return callback(tenantID.value.String())
@@ -78,14 +81,6 @@ func (tenantID TenantID) rawCallback(callback func(string) error) error {
 
 // ClientID is the unique identifier for an app registration or client.
 type ClientID struct {
-	value uuid.UUID
-}
-
-func AppIDAsClientID(id AppID) ClientID {
-	return ClientID(id)
-}
-
-type AppID struct {
 	value uuid.UUID
 }
 
@@ -116,10 +111,6 @@ func ClientIDFromUUID(value uuid.UUID) ClientID {
 
 // UUID returns the underlying uuid.UUID value.
 func (clientID ClientID) UUID() uuid.UUID { return clientID.value }
-
-func (clientID ClientID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(clientID.value.String())
-}
 
 func (clientID ClientID) rawCallback(callback func(string) error) error {
 	return callback(clientID.value.String())
@@ -158,10 +149,6 @@ func UserIDFromUUID(value uuid.UUID) UserID {
 // UUID returns the underlying uuid.UUID value.
 func (userID UserID) UUID() uuid.UUID { return userID.value }
 
-func (userID UserID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(userID.value.String())
-}
-
 func (userID UserID) rawCallback(callback func(string) error) error {
 	return callback(userID.value.String())
 }
@@ -198,10 +185,6 @@ func GroupIDFromUUID(value uuid.UUID) GroupID {
 
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
-
-func (groupID GroupID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(groupID.value.String())
-}
 
 func (groupID GroupID) rawCallback(callback func(string) error) error {
 	return callback(groupID.value.String())
@@ -240,10 +223,6 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
-func (scopeID ScopeID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(scopeID.value.String())
-}
-
 func (scopeID ScopeID) rawCallback(callback func(string) error) error {
 	return callback(scopeID.value.String())
 }
@@ -281,10 +260,6 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
-func (roleID RoleID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(roleID.value.String())
-}
-
 func (roleID RoleID) rawCallback(callback func(string) error) error {
 	return callback(roleID.value.String())
 }
@@ -292,16 +267,6 @@ func (roleID RoleID) rawCallback(callback func(string) error) error {
 // TenantName is the display name of a tenant.
 type TenantName struct {
 	value NonEmptyString
-}
-
-func (tenantName TenantName) AsAppName() AppName { return AppName(tenantName) }
-
-func (tenantName TenantName) MarshalJSON() ([]byte, error) {
-	return tenantName.value.MarshalJSON()
-}
-
-func (tenantName TenantName) rawCallback(callback func(string) error) error {
-	return tenantName.value.rawCallback(callback)
 }
 
 // NewTenantName creates a TenantName, returning an error if empty.
@@ -324,6 +289,13 @@ func MustTenantName(raw string) TenantName {
 	return name
 }
 
+// AsAppName returns the tenant name as an AppName.
+func (tenantName TenantName) AsAppName() AppName { return AppName(tenantName) }
+
+func (tenantName TenantName) rawCallback(callback func(string) error) error {
+	return tenantName.value.rawCallback(callback)
+}
+
 // AppName is the display name of an app registration or client.
 type AppName struct {
 	value NonEmptyString
@@ -340,14 +312,6 @@ func NewAppName(raw string) (AppName, error) {
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
-func (appName AppName) MarshalJSON() ([]byte, error) {
-	return appName.value.MarshalJSON()
-}
-
-func (appName AppName) rawCallback(callback func(string) error) error {
-	return appName.value.rawCallback(callback)
-}
-
 func MustAppName(raw string) AppName {
 	name, err := NewAppName(raw)
 	if err != nil {
@@ -355,6 +319,10 @@ func MustAppName(raw string) AppName {
 	}
 
 	return name
+}
+
+func (appName AppName) rawCallback(callback func(string) error) error {
+	return appName.value.rawCallback(callback)
 }
 
 // IdentifierURI is the application ID URI of an app registration.
@@ -372,22 +340,6 @@ func NewIdentifierURI(raw string) (IdentifierURI, error) {
 	return IdentifierURI{value: v}, nil
 }
 
-func (identifierURI IdentifierURI) MarshalJSON() ([]byte, error) {
-	return identifierURI.value.MarshalJSON()
-}
-
-func (identifierURI IdentifierURI) rawCallback(callback func(string) error) error {
-	return identifierURI.value.rawCallback(callback)
-}
-
-func (identifierURI IdentifierURI) Matches(raw string) bool {
-	return identifierURI.value.value == raw
-}
-
-func (identifierURI IdentifierURI) MatchesPrefix(raw string) bool {
-	return strings.HasPrefix(raw, identifierURI.value.value)
-}
-
 // MustIdentifierURI creates an IdentifierURI, panicking if invalid. For use in tests and constants only.
 func MustIdentifierURI(raw string) IdentifierURI {
 	identifierURI, err := NewIdentifierURI(raw)
@@ -398,12 +350,26 @@ func MustIdentifierURI(raw string) IdentifierURI {
 	return identifierURI
 }
 
+// Matches reports whether the identifier URI exactly matches the given raw string.
+func (identifierURI IdentifierURI) Matches(raw string) bool {
+	return identifierURI.value.value == raw
+}
+
+// MatchesPrefix reports whether the given raw string starts with the identifier URI.
+func (identifierURI IdentifierURI) MatchesPrefix(raw string) bool {
+	return strings.HasPrefix(raw, identifierURI.value.value)
+}
+
+func (identifierURI IdentifierURI) rawCallback(callback func(string) error) error {
+	return identifierURI.value.rawCallback(callback)
+}
+
 // ScopeValue is the string value of a scope (e.g. "read", "api://xxx/.default").
 type ScopeValue struct {
 	value NonEmptyString
 }
 
-// NewScopeValue creates a ScopeValue, returning an error if empty.
+// NewScopeValue creates a ScopeValue from a raw string, returning an error if empty.
 func NewScopeValue(raw string) (ScopeValue, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -411,20 +377,6 @@ func NewScopeValue(raw string) (ScopeValue, error) {
 	}
 
 	return ScopeValue{value: v}, nil
-}
-
-func (scopeValue ScopeValue) MarshalJSON() ([]byte, error) {
-	return scopeValue.value.MarshalJSON()
-}
-
-func (scopeValue ScopeValue) rawCallback(callback func(string) error) error {
-	return scopeValue.value.rawCallback(callback)
-}
-
-func (scopeValue ScopeValue) Matches(raw string) bool {
-	v := scopeValue.value.value
-
-	return v == raw || strings.HasSuffix(raw, "/"+v)
 }
 
 // MustScopeValue creates a ScopeValue, panicking if invalid. For use in tests and constants only.
@@ -437,12 +389,23 @@ func MustScopeValue(raw string) ScopeValue {
 	return v
 }
 
+// Matches reports whether the scope value matches the given raw string.
+func (scopeValue ScopeValue) Matches(raw string) bool {
+	v := scopeValue.value.value
+
+	return v == raw || strings.HasSuffix(raw, "/"+v)
+}
+
+func (scopeValue ScopeValue) rawCallback(callback func(string) error) error {
+	return scopeValue.value.rawCallback(callback)
+}
+
 // RoleValue is the string value of a role (e.g. "Admin", "Reader").
 type RoleValue struct {
 	value NonEmptyString
 }
 
-// NewRoleValue creates a RoleValue, returning an error if empty.
+// NewRoleValue creates a RoleValue from a raw string, returning an error if empty.
 func NewRoleValue(raw string) (RoleValue, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -450,18 +413,6 @@ func NewRoleValue(raw string) (RoleValue, error) {
 	}
 
 	return RoleValue{value: v}, nil
-}
-
-func (roleValue RoleValue) MarshalJSON() ([]byte, error) {
-	return roleValue.value.MarshalJSON()
-}
-
-func (roleValue RoleValue) rawCallback(callback func(string) error) error {
-	return roleValue.value.rawCallback(callback)
-}
-
-func (roleValue RoleValue) Matches(raw string) bool {
-	return roleValue.value.value == raw
 }
 
 // MustRoleValue creates a RoleValue, panicking if invalid. For use in tests and constants only.
@@ -474,12 +425,21 @@ func MustRoleValue(raw string) RoleValue {
 	return v
 }
 
+// Matches reports whether the role value matches the given raw string.
+func (roleValue RoleValue) Matches(raw string) bool {
+	return roleValue.value.value == raw
+}
+
+func (roleValue RoleValue) rawCallback(callback func(string) error) error {
+	return roleValue.value.rawCallback(callback)
+}
+
 // GroupName is the name of a group.
 type GroupName struct {
 	value NonEmptyString
 }
 
-// NewGroupName creates a GroupName, returning an error if empty.
+// NewGroupName creates a GroupName from a raw string, returning an error if empty.
 func NewGroupName(raw string) (GroupName, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -487,18 +447,6 @@ func NewGroupName(raw string) (GroupName, error) {
 	}
 
 	return GroupName{value: v}, nil
-}
-
-func (groupName GroupName) MarshalJSON() ([]byte, error) {
-	return groupName.value.MarshalJSON()
-}
-
-func (groupName GroupName) rawCallback(callback func(string) error) error {
-	return groupName.value.rawCallback(callback)
-}
-
-func (groupName GroupName) Matches(raw string) bool {
-	return groupName.value.value == raw
 }
 
 // MustGroupName creates a GroupName, panicking if invalid. For use in tests and constants only.
@@ -511,12 +459,21 @@ func MustGroupName(raw string) GroupName {
 	return v
 }
 
+// Matches reports whether the group name matches the given raw string.
+func (groupName GroupName) Matches(raw string) bool {
+	return groupName.value.value == raw
+}
+
+func (groupName GroupName) rawCallback(callback func(string) error) error {
+	return groupName.value.rawCallback(callback)
+}
+
 // Username is the login name of a user.
 type Username struct {
 	value NonEmptyString
 }
 
-// NewUsername creates a Username, returning an error if empty.
+// NewUsername creates a Username from a raw string, returning an error if empty.
 func NewUsername(raw string) (Username, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -524,14 +481,6 @@ func NewUsername(raw string) (Username, error) {
 	}
 
 	return Username{value: v}, nil
-}
-
-func (username Username) MarshalJSON() ([]byte, error) {
-	return username.value.MarshalJSON()
-}
-
-func (username Username) rawCallback(callback func(string) error) error {
-	return username.value.rawCallback(callback)
 }
 
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
@@ -544,12 +493,16 @@ func MustUsername(raw string) Username {
 	return username
 }
 
+func (username Username) rawCallback(callback func(string) error) error {
+	return username.value.rawCallback(callback)
+}
+
 // Password is the credential of a user.
 type Password struct {
 	value NonEmptyString
 }
 
-// NewPassword creates a Password, returning an error if empty.
+// NewPassword creates a Password from a raw string, returning an error if empty.
 func NewPassword(raw string) (Password, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -557,14 +510,6 @@ func NewPassword(raw string) (Password, error) {
 	}
 
 	return Password{value: v}, nil
-}
-
-func (password Password) MarshalJSON() ([]byte, error) {
-	return password.value.MarshalJSON()
-}
-
-func (password Password) rawCallback(callback func(string) error) error {
-	return password.value.rawCallback(callback)
 }
 
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
@@ -577,12 +522,16 @@ func MustPassword(raw string) Password {
 	return password
 }
 
+func (password Password) rawCallback(callback func(string) error) error {
+	return password.value.rawCallback(callback)
+}
+
 // DisplayName is the human-readable name of a user.
 type DisplayName struct {
 	value NonEmptyString
 }
 
-// NewDisplayName creates a DisplayName, returning an error if empty.
+// NewDisplayName creates a DisplayName from a raw string, returning an error if empty.
 func NewDisplayName(raw string) (DisplayName, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -590,14 +539,6 @@ func NewDisplayName(raw string) (DisplayName, error) {
 	}
 
 	return DisplayName{value: v}, nil
-}
-
-func (displayName DisplayName) MarshalJSON() ([]byte, error) {
-	return displayName.value.MarshalJSON()
-}
-
-func (displayName DisplayName) rawCallback(callback func(string) error) error {
-	return displayName.value.rawCallback(callback)
 }
 
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
@@ -610,12 +551,16 @@ func MustDisplayName(raw string) DisplayName {
 	return displayName
 }
 
+func (displayName DisplayName) rawCallback(callback func(string) error) error {
+	return displayName.value.rawCallback(callback)
+}
+
 // Email is the email address of a user.
 type Email struct {
 	value NonEmptyString
 }
 
-// NewEmail creates an Email, returning an error if empty.
+// NewEmail creates an Email from a raw string, returning an error if empty.
 func NewEmail(raw string) (Email, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -623,14 +568,6 @@ func NewEmail(raw string) (Email, error) {
 	}
 
 	return Email{value: v}, nil
-}
-
-func (email Email) MarshalJSON() ([]byte, error) {
-	return email.value.MarshalJSON()
-}
-
-func (email Email) rawCallback(callback func(string) error) error {
-	return email.value.rawCallback(callback)
 }
 
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
@@ -643,12 +580,16 @@ func MustEmail(raw string) Email {
 	return email
 }
 
+func (email Email) rawCallback(callback func(string) error) error {
+	return email.value.rawCallback(callback)
+}
+
 // RedirectURL is a permitted OAuth2 redirect URI.
 type RedirectURL struct {
 	value NonEmptyString
 }
 
-// NewRedirectURL creates a RedirectURL, returning an error if empty.
+// NewRedirectURL creates a RedirectURL from a raw string, returning an error if empty.
 func NewRedirectURL(raw string) (RedirectURL, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -656,14 +597,6 @@ func NewRedirectURL(raw string) (RedirectURL, error) {
 	}
 
 	return RedirectURL{value: v}, nil
-}
-
-func (redirectURL RedirectURL) MarshalJSON() ([]byte, error) {
-	return redirectURL.value.MarshalJSON()
-}
-
-func (redirectURL RedirectURL) rawCallback(callback func(string) error) error {
-	return redirectURL.value.rawCallback(callback)
 }
 
 // MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
@@ -676,12 +609,16 @@ func MustRedirectURL(raw string) RedirectURL {
 	return redirectURL
 }
 
+func (redirectURL RedirectURL) rawCallback(callback func(string) error) error {
+	return redirectURL.value.rawCallback(callback)
+}
+
 // ClientSecret is the secret credential of a confidential client.
 type ClientSecret struct {
 	value NonEmptyString
 }
 
-// NewClientSecret creates a ClientSecret, returning an error if empty.
+// NewClientSecret creates a ClientSecret from a raw string, returning an error if empty.
 func NewClientSecret(raw string) (ClientSecret, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -689,14 +626,6 @@ func NewClientSecret(raw string) (ClientSecret, error) {
 	}
 
 	return ClientSecret{value: v}, nil
-}
-
-func (clientSecret ClientSecret) MarshalJSON() ([]byte, error) {
-	return clientSecret.value.MarshalJSON()
-}
-
-func (clientSecret ClientSecret) rawCallback(callback func(string) error) error {
-	return clientSecret.value.rawCallback(callback)
 }
 
 // MustClientSecret creates a ClientSecret, panicking if invalid. For use in tests and constants only.
@@ -719,7 +648,11 @@ func (clientSecret ClientSecret) Match(other ClientSecret) bool {
 		return false
 	}
 
-	return subtle.ConstantTimeCompare(expected, provided) == 1
+	return subtle.ConstantTimeCompare(expected, provided) == comparisonMatch
+}
+
+func (clientSecret ClientSecret) rawCallback(callback func(string) error) error {
+	return clientSecret.value.rawCallback(callback)
 }
 
 // ScopeDescription is the human-readable description of a scope.
@@ -727,7 +660,7 @@ type ScopeDescription struct {
 	value NonEmptyString
 }
 
-// NewScopeDescription creates a ScopeDescription, returning an error if empty.
+// NewScopeDescription creates a ScopeDescription from a raw string, returning an error if empty.
 func NewScopeDescription(raw string) (ScopeDescription, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -735,14 +668,6 @@ func NewScopeDescription(raw string) (ScopeDescription, error) {
 	}
 
 	return ScopeDescription{value: v}, nil
-}
-
-func (scopeDescription ScopeDescription) MarshalJSON() ([]byte, error) {
-	return scopeDescription.value.MarshalJSON()
-}
-
-func (scopeDescription ScopeDescription) rawCallback(callback func(string) error) error {
-	return scopeDescription.value.rawCallback(callback)
 }
 
 // MustScopeDescription creates a ScopeDescription, panicking if invalid. For use in tests and constants only.
@@ -755,12 +680,16 @@ func MustScopeDescription(raw string) ScopeDescription {
 	return v
 }
 
+func (scopeDescription ScopeDescription) rawCallback(callback func(string) error) error {
+	return scopeDescription.value.rawCallback(callback)
+}
+
 // RoleDescription is the human-readable description of a role.
 type RoleDescription struct {
 	value NonEmptyString
 }
 
-// NewRoleDescription creates a RoleDescription, returning an error if empty.
+// NewRoleDescription creates a RoleDescription from a raw string, returning an error if empty.
 func NewRoleDescription(raw string) (RoleDescription, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -768,14 +697,6 @@ func NewRoleDescription(raw string) (RoleDescription, error) {
 	}
 
 	return RoleDescription{value: v}, nil
-}
-
-func (roleDescription RoleDescription) MarshalJSON() ([]byte, error) {
-	return roleDescription.value.MarshalJSON()
-}
-
-func (roleDescription RoleDescription) rawCallback(callback func(string) error) error {
-	return roleDescription.value.rawCallback(callback)
 }
 
 // MustRoleDescription creates a RoleDescription, panicking if invalid. For use in tests and constants only.
@@ -788,11 +709,16 @@ func MustRoleDescription(raw string) RoleDescription {
 	return v
 }
 
+func (roleDescription RoleDescription) rawCallback(callback func(string) error) error {
+	return roleDescription.value.rawCallback(callback)
+}
+
 // AccessToken is an issued OAuth2 access token.
 type AccessToken struct {
 	value NonEmptyString
 }
 
+// NewAccessToken creates an AccessToken from a raw string, returning an error if empty.
 func NewAccessToken(raw string) (AccessToken, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -802,6 +728,7 @@ func NewAccessToken(raw string) (AccessToken, error) {
 	return AccessToken{value: v}, nil
 }
 
+// MustAccessToken creates an AccessToken from a raw string, panicking if invalid.
 func MustAccessToken(raw string) AccessToken {
 	v, err := NewAccessToken(raw)
 	if err != nil {
@@ -811,13 +738,15 @@ func MustAccessToken(raw string) AccessToken {
 	return v
 }
 
+// AsByteArray returns the token as a byte slice with a trailing newline.
 func (at AccessToken) AsByteArray() []byte { return ([]byte)(at.value.value + "\n") }
+
 func (at AccessToken) rawCallback(callback func(string) error) error {
 	return callback(at.value.value)
 }
 
 // ParseTokenAdapter is a standalone function that handles the generics.
-func ParseTokenAdapter[T any](at AccessToken, parserFunc func(string) (T, error)) (T, error) {
+func ParseTokenAdapter[T any](token AccessToken, parserFunc func(string) (T, error)) (T, error) { //nolint:ireturn
 	var (
 		zero   T
 		result T
@@ -825,7 +754,7 @@ func ParseTokenAdapter[T any](at AccessToken, parserFunc func(string) (T, error)
 	)
 
 	// We use the struct's callback to get the string, and execute the parser!
-	cbErr := at.rawCallback(func(rawToken string) error {
+	cbErr := token.rawCallback(func(rawToken string) error {
 		result, err = parserFunc(rawToken)
 
 		return err
@@ -842,6 +771,7 @@ type TokenType struct {
 	value NonEmptyString
 }
 
+// NewTokenType creates a TokenType from a raw string, returning an error if empty.
 func NewTokenType(raw string) (TokenType, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -851,6 +781,7 @@ func NewTokenType(raw string) (TokenType, error) {
 	return TokenType{value: v}, nil
 }
 
+// MustTokenType creates a TokenType from a raw string, panicking if invalid.
 func MustTokenType(raw string) TokenType {
 	v, err := NewTokenType(raw)
 	if err != nil {
@@ -859,8 +790,6 @@ func MustTokenType(raw string) TokenType {
 
 	return v
 }
-
-func (tt TokenType) MarshalJSON() ([]byte, error) { return tt.value.MarshalJSON() }
 
 func (tt TokenType) rawCallback(callback func(string) error) error {
 	return tt.value.rawCallback(callback)
@@ -871,12 +800,7 @@ type IDToken struct {
 	value NonEmptyString
 }
 
-func (rt RefreshToken) MarshalJSON() ([]byte, error) { return rt.value.MarshalJSON() }
-
-func (rt RefreshToken) rawCallback(callback func(string) error) error {
-	return rt.value.rawCallback(callback)
-}
-
+// NewIDToken creates an IDToken from a raw string, returning an error if empty.
 func NewIDToken(raw string) (IDToken, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -886,6 +810,7 @@ func NewIDToken(raw string) (IDToken, error) {
 	return IDToken{value: v}, nil
 }
 
+// MustIDToken creates an IDToken from a raw string, panicking if invalid.
 func MustIDToken(raw string) IDToken {
 	v, err := NewIDToken(raw)
 	if err != nil {
@@ -894,8 +819,6 @@ func MustIDToken(raw string) IDToken {
 
 	return v
 }
-
-func (it IDToken) MarshalJSON() ([]byte, error) { return it.value.MarshalJSON() }
 
 func (it IDToken) rawCallback(callback func(string) error) error {
 	return it.value.rawCallback(callback)
@@ -906,6 +829,7 @@ type RefreshToken struct {
 	value NonEmptyString
 }
 
+// NewRefreshToken creates a RefreshToken from a raw string, returning an error if empty.
 func NewRefreshToken(raw string) (RefreshToken, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -915,6 +839,7 @@ func NewRefreshToken(raw string) (RefreshToken, error) {
 	return RefreshToken{value: v}, nil
 }
 
+// MustRefreshToken creates a RefreshToken from a raw string, panicking if invalid.
 func MustRefreshToken(raw string) RefreshToken {
 	v, err := NewRefreshToken(raw)
 	if err != nil {
@@ -924,11 +849,16 @@ func MustRefreshToken(raw string) RefreshToken {
 	return v
 }
 
+func (rt RefreshToken) rawCallback(callback func(string) error) error {
+	return rt.value.rawCallback(callback)
+}
+
 // ClientInfo is the base64-encoded MSAL client information.
 type ClientInfo struct {
 	value NonEmptyString
 }
 
+// NewClientInfo creates a ClientInfo from a raw string, returning an error if empty.
 func NewClientInfo(raw string) (ClientInfo, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -938,6 +868,7 @@ func NewClientInfo(raw string) (ClientInfo, error) {
 	return ClientInfo{value: v}, nil
 }
 
+// MustClientInfo creates a ClientInfo from a raw string, panicking if invalid.
 func MustClientInfo(raw string) ClientInfo {
 	v, err := NewClientInfo(raw)
 	if err != nil {
@@ -946,8 +877,6 @@ func MustClientInfo(raw string) ClientInfo {
 
 	return v
 }
-
-func (ci ClientInfo) MarshalJSON() ([]byte, error) { return ci.value.MarshalJSON() }
 
 func (ci ClientInfo) rawCallback(callback func(string) error) error {
 	return ci.value.rawCallback(callback)
@@ -958,6 +887,7 @@ type AuthCode struct {
 	value NonEmptyString
 }
 
+// NewAuthCode creates an AuthCode from a raw string, returning an error if empty.
 func NewAuthCode(raw string) (AuthCode, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
@@ -967,6 +897,7 @@ func NewAuthCode(raw string) (AuthCode, error) {
 	return AuthCode{value: v}, nil
 }
 
+// MustAuthCode creates an AuthCode from a raw string, panicking if invalid.
 func MustAuthCode(raw string) AuthCode {
 	v, err := NewAuthCode(raw)
 	if err != nil {
@@ -976,12 +907,11 @@ func MustAuthCode(raw string) AuthCode {
 	return v
 }
 
-func (ac AuthCode) MarshalJSON() ([]byte, error) { return ac.value.MarshalJSON() }
-
 func (ac AuthCode) rawCallback(callback func(string) error) error {
 	return ac.value.rawCallback(callback)
 }
 
+// JoinRoleValues joins multiple role values into a single string using the provided separator.
 func JoinRoleValues(roles []RoleValue, sep string) string {
 	ss := make([]string, len(roles))
 	for i, r := range roles {

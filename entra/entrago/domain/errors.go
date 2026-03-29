@@ -31,3 +31,9 @@ var ErrTenantNoAppRegistrations = errors.New("tenant must have at least one app 
 
 // ErrTenantNoUsers is returned when a tenant has no users.
 var ErrTenantNoUsers = errors.New("tenant must have at least one user")
+
+// ErrClientSecretRequired is returned when a client secret is needed but not provided.
+var ErrClientSecretRequired = errors.New("client secret required")
+
+// ErrPublicClientDoesNotAcceptSecrets is returned when a secret is provided for a public client.
+var ErrPublicClientDoesNotAcceptSecrets = errors.New("public client does not accept secrets")

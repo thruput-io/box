@@ -68,7 +68,7 @@ func MustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
 
 	return tokenHandlerFixture{
 		application: &app.App{
-			Config:        config,
+			Config:        &config,
 			Key:           mustRSAKey(t),
 			LoginTemplate: nil,
 			IndexTemplate: nil,
@@ -79,7 +79,9 @@ func MustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
 	}
 }
 
-func setupEntitiesForTokenHandler(t *testing.T, appID domain.ClientID, userID domain.UserID) (domain.User, domain.AppRegistration, domain.Client) {
+func setupEntitiesForTokenHandler(
+	t *testing.T, appID domain.ClientID, userID domain.UserID,
+) (domain.User, domain.AppRegistration, domain.Client) {
 	t.Helper()
 
 	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
@@ -160,7 +162,8 @@ func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 
 	fixture := MustAppForTestTokenHandler(t)
 	baseURL := "http://entra.test/test-tokens/"
-	url := baseURL + parseString(fixture.tenantID) + "/" + parseString(fixture.appID) + "?username=" + parseString(fixture.userID)
+	url := baseURL + parseString(fixture.tenantID) + "/" +
+		parseString(fixture.appID) + "?username=" + parseString(fixture.userID)
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 

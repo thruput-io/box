@@ -52,7 +52,7 @@ func ExportBuildRole(raw rawRole) (Role, error) {
 	return buildRole(raw)
 }
 
-func ExportBuildClient(raw rawClient) (Client, error) {
+func ExportBuildClient(raw rawClient) (*Client, error) {
 	return buildClient(raw)
 }
 
@@ -64,15 +64,15 @@ func ExportBuildGroupRoleAssignment(raw rawGroupRoleAssignment) (GroupRoleAssign
 	return buildGroupRoleAssignment(raw)
 }
 
-func ExportBuildUser(raw rawUser) (User, error) {
+func ExportBuildUser(raw rawUser) (*User, error) {
 	return buildUser(raw)
 }
 
-func ExportBuildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
+func ExportBuildAppRegistration(raw rawAppRegistration) (*AppRegistration, error) {
 	return buildAppRegistration(raw)
 }
 
-func ExportBuildTenant(raw rawTenant) (Tenant, error) {
+func ExportBuildTenant(raw rawTenant) (*Tenant, error) {
 	return buildTenant(raw)
 }
 

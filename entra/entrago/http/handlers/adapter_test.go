@@ -15,7 +15,7 @@ func TestAdapter_OkTextAndInternalError(t *testing.T) {
 
 	resp := handlers.ExportOkText([]byte("hello"))
 	if resp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, resp.Status)
 	}
 
 	if resp.ContentType != handlers.ContentTypePlain {
@@ -24,7 +24,7 @@ func TestAdapter_OkTextAndInternalError(t *testing.T) {
 
 	resp = handlers.ExportInternalError("boom")
 	if resp.Status != http.StatusInternalServerError {
-		t.Fatalf("expected %d, got %d", http.StatusInternalServerError, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusInternalServerError, resp.Status)
 	}
 }
 
@@ -33,7 +33,7 @@ func TestAdapter_FromDomainError_WritesOAuthError(t *testing.T) {
 
 	resp := handlers.ExportFromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "bad"))
 	if resp.Status != http.StatusUnauthorized {
-		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusUnauthorized, resp.Status)
 	}
 
 	if !strings.Contains(string(resp.Body), "\"error\":\"invalid_grant\"") {

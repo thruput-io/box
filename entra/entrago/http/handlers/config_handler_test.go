@@ -59,7 +59,7 @@ func mustAppForConfigTests(t *testing.T) configFixture {
 
 	return configFixture{
 		application: &app.App{
-			Config:        config,
+			Config:        &config,
 			Key:           nil,
 			LoginTemplate: nil,
 			IndexTemplate: nil,
@@ -75,7 +75,7 @@ func setupCoreEntities(
 	t *testing.T,
 	userUUID string,
 	secretCID, publicCID domain.ClientID,
-) (domain.User, domain.Client, domain.Client) {
+) (user domain.User, secretClient domain.Client, publicClient domain.Client) {
 	t.Helper()
 
 	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
@@ -83,7 +83,7 @@ func setupCoreEntities(
 		t.Fatalf("NewRedirectURL: %v", err)
 	}
 
-	user := domain.NewUser(
+	user = domain.NewUser(
 		domain.MustUserID(userUUID),
 		domain.MustUsername("user"),
 		domain.MustPassword("pass"),
@@ -91,14 +91,14 @@ func setupCoreEntities(
 		domain.MustEmail("user@example.com"),
 		nil,
 	)
-	secretClient := domain.NewClientWithSecret(
+	secretClient = domain.NewClientWithSecret(
 		domain.MustAppName("SecretClient"),
 		secretCID,
 		domain.MustClientSecret("secret"),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
-	publicClient := domain.NewClientWithoutSecret(
+	publicClient = domain.NewClientWithoutSecret(
 		domain.MustAppName("PublicClient"),
 		publicCID,
 		[]domain.RedirectURL{redirectURL},
@@ -196,7 +196,9 @@ func TestConfigHandler_CsharpClientIncludesSecretWhenPresent(t *testing.T) {
 
 	const testHost = "entra.test"
 
-	secretPath := pathConfig + fixture.tenantID.UUID().String() + "/client/" + fixture.secretClientID.UUID().String() + pathCsharp
+	tenantID := fixture.tenantID.UUID().String()
+	secretCID := fixture.secretClientID.UUID().String()
+	secretPath := pathConfig + tenantID + "/client/" + secretCID + pathCsharp
 
 	ctx := context.Background()
 	secretReq := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+secretPath, nil)
@@ -211,7 +213,8 @@ func TestConfigHandler_CsharpClientIncludesSecretWhenPresent(t *testing.T) {
 		t.Fatal("expected client secret in body")
 	}
 
-	publicPath := pathConfig + fixture.tenantID.UUID().String() + "/client/" + fixture.publicClientID.UUID().String() + pathCsharp
+	publicCID := fixture.publicClientID.UUID().String()
+	publicPath := pathConfig + tenantID + "/client/" + publicCID + pathCsharp
 	publicReq := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+publicPath, nil)
 	publicReq.Host = testHost
 

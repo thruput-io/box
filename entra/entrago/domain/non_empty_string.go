@@ -1,9 +1,5 @@
 package domain
 
-import (
-	"encoding/json"
-)
-
 // NonEmptyString is an opaque string value object that guarantees the underlying value is not empty.
 //
 // Note: Like most Go value types, the zero value is presentable but invalid; always construct via
@@ -31,9 +27,7 @@ func MustNonEmptyString(raw string) NonEmptyString {
 	return v
 }
 
-func (nes NonEmptyString) MarshalJSON() ([]byte, error) {
-	return json.Marshal(nes.value)
-}
+// MarshalJSON implements json.Marshaler.
 
 func (nes NonEmptyString) rawCallback(callback func(string) error) error {
 	return callback(nes.value)

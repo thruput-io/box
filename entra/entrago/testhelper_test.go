@@ -44,7 +44,7 @@ func newTestServer(t *testing.T) *identityhttp.Server {
 	}}
 }
 
-func newTestConfig() domain.Config {
+func newTestConfig() *domain.Config {
 	tenantID := domain.MustTenantID("b5a920d6-7d3c-44fe-baad-4ffed6b8774d")
 	clientID := domain.MustClientID("e697b97c-9b4b-487f-9f7a-248386f78864")
 	appID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
@@ -93,7 +93,7 @@ func newTestConfig() domain.Config {
 		panic(err)
 	}
 
-	return config
+	return &config
 }
 
 func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Client) *identityhttp.Server {
@@ -117,7 +117,7 @@ func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Cli
 	}
 
 	return &identityhttp.Server{App: &app.App{
-		Config:        config,
+		Config:        &config,
 		Key:           base.App.Key,
 		LoginTemplate: base.App.LoginTemplate,
 		IndexTemplate: base.App.IndexTemplate,

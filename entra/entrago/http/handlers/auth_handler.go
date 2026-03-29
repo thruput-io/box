@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	formKeyState   = "state"
-	emptySliceSize = 0
-	emptyType      = ""
+	formKeyState             = "state"
+	emptySliceSize           = 0
+	emptyType                = ""
+	errInvalidCredentialsMsg = "invalid username or password"
 )
 
 func authorizeHandler(request *http.Request, application *app.App) Response {
@@ -42,7 +43,7 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 		return badRequest(err)
 	}
 
-	allowedURLs, err := app.FindRedirectURLs(tenant, clientID)
+	allowedURLs, err := app.FindRedirectURLs(*tenant, clientID)
 	if err != nil {
 		return badRequest(err)
 	}
@@ -61,7 +62,7 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 		Tenant:       tenantIDStr,
 		Nonce:        request.URL.Query().Get("nonce"),
 		ResponseMode: request.URL.Query().Get("response_mode"),
-		Users:        buildUsersDisplay(tenant, clientID),
+		Users:        buildUsersDisplay(*tenant, clientID),
 	}
 
 	var buf bytes.Buffer
@@ -75,7 +76,7 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 }
 
 type validatedLogin struct {
-	tenant      domain.Tenant
+	tenant      *domain.Tenant
 	clientID    domain.ClientID
 	redirectURI domain.RedirectURL
 }
@@ -100,7 +101,7 @@ func validateLoginRequest(request *http.Request, application *app.App) (validate
 		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid redirect_uri format")
 	}
 
-	allowedURLs, err := app.FindRedirectURLs(tenant, clientID)
+	allowedURLs, err := app.FindRedirectURLs(*tenant, clientID)
 	if err != nil {
 		return validatedLogin{}, domain.NewError(domain.ErrCodeClientNotFound, "client not found")
 	}
@@ -135,26 +136,13 @@ func loginHandler(request *http.Request, application *app.App) Response {
 		return fromDomainError(domErr)
 	}
 
-	userNameString := request.Form.Get("username")
-	passwordString := request.Form.Get("password")
-
-	username, err := domain.NewUsername(userNameString)
-	if err != nil {
-		fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
-	}
-
-	password, err := domain.NewPassword(passwordString)
-	if err != nil {
-		fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
-	}
-
-	user, err := app.AuthenticateUser(validated.tenant, username, password)
-	if err != nil {
-		return fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
+	user, domErr := authenticateLoginRequest(request, *validated.tenant)
+	if domErr != nil {
+		return fromDomainError(domErr)
 	}
 
 	authCode := app.IssueAuthCode(
-		application.Key, user, validated.clientID, validated.redirectURI,
+		application.Key, *user, validated.clientID, validated.redirectURI,
 		request.Form.Get("scope"), validated.tenant.TenantID(), request.Form.Get("nonce"),
 	)
 
@@ -166,6 +154,25 @@ func loginHandler(request *http.Request, application *app.App) Response {
 	}
 
 	return buildLoginRedirect(target, authCode, request.Form.Get("state"), request.Form.Get("response_mode"))
+}
+
+func authenticateLoginRequest(request *http.Request, tenant domain.Tenant) (*domain.User, *domain.Error) {
+	username, err := domain.NewUsername(request.Form.Get("username"))
+	if err != nil {
+		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+	}
+
+	password, err := domain.NewPassword(request.Form.Get("password"))
+	if err != nil {
+		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+	}
+
+	user, err := app.AuthenticateUser(tenant, username, password)
+	if err != nil {
+		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+	}
+
+	return user, nil
 }
 
 func buildLoginRedirect(target *url.URL, authCode domain.AuthCode, state, responseMode string) Response {
@@ -222,7 +229,7 @@ type userDisplay struct {
 }
 
 func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDisplay {
-	var activeClient domain.Client
+	var activeClient *domain.Client
 
 	client, err := app.FindClient(tenant, clientID)
 	if err == nil {
@@ -247,12 +254,12 @@ func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDis
 	return result
 }
 
-func resolveDisplayRoles(user domain.User, client domain.Client, tenant domain.Tenant) []string {
+func resolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
 	if client == nil {
 		return nil
 	}
 
-	appRoles := collectAssignmentRoles(user, client)
+	appRoles := collectAssignmentRoles(user, *client)
 	result := make([]string, emptySliceSize, len(appRoles))
 
 	for appIDStr, roles := range appRoles {
@@ -277,15 +284,19 @@ func collectAssignmentRoles(user domain.User, client domain.Client) map[domain.C
 			continue
 		}
 
-		appID := assignment.ApplicationID()
-
-		for _, roleValue := range assignment.Roles() {
-			roleStr, _ := domain.Parse[string](roleValue, func(s string) (string, error) { return s, nil })
-			appRoles[appID] = append(appRoles[appID], roleStr)
-		}
+		addAssignmentRoles(appRoles, assignment)
 	}
 
 	return appRoles
+}
+
+func addAssignmentRoles(appRoles map[domain.ClientID][]string, assignment domain.GroupRoleAssignment) {
+	appID := assignment.ApplicationID()
+
+	for _, roleValue := range assignment.Roles() {
+		roleStr, _ := domain.Parse[string](roleValue, func(s string) (string, error) { return s, nil })
+		appRoles[appID] = append(appRoles[appID], roleStr)
+	}
 }
 
 func resolveAppName(tenant domain.Tenant, appID domain.ClientID) string {

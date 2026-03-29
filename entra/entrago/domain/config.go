@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -79,6 +78,7 @@ func (tenant Tenant) Users() []User { return tenant.users }
 // Clients returns the tenant's clients (may be empty).
 func (tenant Tenant) Clients() []Client { return tenant.clients }
 
+// AsClient returns the tenant itself as a public client (e.g. for default scopes).
 func (tenant Tenant) AsClient() Client {
 	return NewClientWithoutSecret(
 		tenant.name.AsAppName(),
@@ -88,8 +88,9 @@ func (tenant Tenant) AsClient() Client {
 	)
 }
 
-func (tenantID TenantID) AsUrl(baseUrl string) string {
-	return baseUrl + "/" + tenantID.value.String()
+// AsURL returns the URL for the tenant under the given base URL.
+func (tenantID TenantID) AsURL(baseURL string) string {
+	return baseURL + "/" + tenantID.value.String()
 }
 
 // AppRegistration is an immutable Azure AD application registration.
@@ -143,6 +144,7 @@ func (appRegistration AppRegistration) Scopes() []Scope { return appRegistration
 // AppRoles returns the app registration's roles.
 func (appRegistration AppRegistration) AppRoles() []Role { return appRegistration.appRoles }
 
+// IsAudienceForScope reports whether this app registration matches the given scope audience.
 func (appRegistration AppRegistration) IsAudienceForScope(scopePart string) bool {
 	idURI := appRegistration.identifierURI.value.value
 	cID := appRegistration.clientID.value.String()
@@ -198,6 +200,7 @@ func (role Role) Description() RoleDescription { return role.description }
 // Scopes returns the scopes associated with this role.
 func (role Role) Scopes() []Scope { return role.scopes }
 
+// MatchesScope reports whether this role value matches the given scope string.
 func (role Role) MatchesScope(scopePart string) bool {
 	for _, scope := range role.scopes {
 		v := scope.value.value.value
@@ -274,87 +277,79 @@ func (user User) Email() Email { return user.email }
 // Groups returns the names of groups the user belongs to.
 func (user User) Groups() []GroupName { return user.groups }
 
-// Client is an immutable OAuth2 confidential or public client.
-type Client interface {
-	Name() AppName
-	ClientID() ClientID
-	RedirectURLs() []RedirectURL
-	GroupRoleAssignments() []GroupRoleAssignment
-	Validate(secret *ClientSecret) error
-}
-
-type ClientWithSecret struct {
+// Client is an immutable OAuth2 client registration.
+type Client struct {
 	name                 AppName
 	clientID             ClientID
-	clientSecret         ClientSecret
+	clientSecret         *ClientSecret // nil for public clients
 	redirectURLs         []RedirectURL
 	groupRoleAssignments []GroupRoleAssignment
 }
 
+// NewClientWithSecret constructs a confidential Client with a secret.
 func NewClientWithSecret(
 	name AppName,
 	clientID ClientID,
 	clientSecret ClientSecret,
 	redirectURLs []RedirectURL,
 	groupRoleAssignments []GroupRoleAssignment,
-) ClientWithSecret {
-	return ClientWithSecret{
+) Client {
+	return Client{
 		name:                 name,
 		clientID:             clientID,
-		clientSecret:         clientSecret,
+		clientSecret:         &clientSecret,
 		redirectURLs:         redirectURLs,
 		groupRoleAssignments: groupRoleAssignments,
 	}
 }
 
-func (c ClientWithSecret) Name() AppName                               { return c.name }
-func (c ClientWithSecret) ClientID() ClientID                          { return c.clientID }
-func (c ClientWithSecret) ClientSecret() ClientSecret                  { return c.clientSecret }
-func (c ClientWithSecret) RedirectURLs() []RedirectURL                 { return c.redirectURLs }
-func (c ClientWithSecret) GroupRoleAssignments() []GroupRoleAssignment { return c.groupRoleAssignments }
-func (c ClientWithSecret) Validate(secret *ClientSecret) error {
-	if secret == nil {
-		return errors.New("client secret required")
-	}
-
-	if !c.clientSecret.Match(*secret) {
-		return errors.New("invalid client secret")
-	}
-
-	return nil
-}
-
-type ClientWithoutSecret struct {
-	name                 AppName
-	clientID             ClientID
-	redirectURLs         []RedirectURL
-	groupRoleAssignments []GroupRoleAssignment
-}
-
+// NewClientWithoutSecret constructs a public Client without a secret.
 func NewClientWithoutSecret(
 	name AppName,
 	clientID ClientID,
 	redirectURLs []RedirectURL,
 	groupRoleAssignments []GroupRoleAssignment,
-) ClientWithoutSecret {
-	return ClientWithoutSecret{
+) Client {
+	return Client{
 		name:                 name,
 		clientID:             clientID,
+		clientSecret:         nil,
 		redirectURLs:         redirectURLs,
 		groupRoleAssignments: groupRoleAssignments,
 	}
 }
 
-func (c ClientWithoutSecret) Name() AppName               { return c.name }
-func (c ClientWithoutSecret) ClientID() ClientID          { return c.clientID }
-func (c ClientWithoutSecret) RedirectURLs() []RedirectURL { return c.redirectURLs }
-func (c ClientWithoutSecret) GroupRoleAssignments() []GroupRoleAssignment {
-	return c.groupRoleAssignments
-}
+// Name returns the client's display name.
+func (c Client) Name() AppName { return c.name }
 
-func (c ClientWithoutSecret) Validate(secret *ClientSecret) error {
-	if secret != nil {
-		return errors.New("public client does not accept secrets")
+// ClientID returns the client's unique identifier.
+func (c Client) ClientID() ClientID { return c.clientID }
+
+// ClientSecret returns the client's secret, or nil if it's a public client.
+func (c Client) ClientSecret() *ClientSecret { return c.clientSecret }
+
+// RedirectURLs returns the list of allowed redirect URIs.
+func (c Client) RedirectURLs() []RedirectURL { return c.redirectURLs }
+
+// GroupRoleAssignments returns the role assignments for groups.
+func (c Client) GroupRoleAssignments() []GroupRoleAssignment { return c.groupRoleAssignments }
+
+// Validate checks whether the provided secret matches the client's requirements.
+func (c Client) Validate(secret *ClientSecret) error {
+	if c.clientSecret == nil {
+		if secret != nil {
+			return ErrPublicClientDoesNotAcceptSecrets
+		}
+
+		return nil
+	}
+
+	if secret == nil {
+		return ErrClientSecretRequired
+	}
+
+	if !c.clientSecret.Match(*secret) {
+		return ErrInvalidCredentials
 	}
 
 	return nil

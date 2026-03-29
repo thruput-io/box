@@ -30,8 +30,8 @@ func ExportFromDomainError(domErr *domain.Error) Response {
 }
 
 // ExportCollectAssignmentRoles is for testing collectAssignmentRoles from handlers_test.
-func ExportCollectAssignmentRoles(user domain.User, client domain.Client) map[domain.ClientID][]string {
-	return collectAssignmentRoles(user, client)
+func ExportCollectAssignmentRoles(user domain.User, client *domain.Client) map[domain.ClientID][]string {
+	return collectAssignmentRoles(user, *client)
 }
 
 // ExportResolveAppName is for testing resolveAppName from handlers_test.
@@ -40,13 +40,18 @@ func ExportResolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
 }
 
 // ExportResolveDisplayRoles is for testing resolveDisplayRoles from handlers_test.
-func ExportResolveDisplayRoles(user domain.User, client domain.Client, tenant domain.Tenant) []string {
+func ExportResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
 	return resolveDisplayRoles(user, client, tenant)
 }
 
 // ExportResolveTestUser is for testing resolveTestUser from handlers_test.
-func ExportResolveTestUser(tenant domain.Tenant, username string) *domain.User {
+func ExportResolveTestUser(tenant *domain.Tenant, username string) *domain.User {
 	return resolveTestUser(tenant, username)
+}
+
+// ExportTokenHandler is for testing tokenHandler from handlers_test.
+func ExportTokenHandler(request *http.Request, application *app.App) Response {
+	return tokenHandler(request, application)
 }
 
 // ExportConfigHandler is for testing configHandler from handlers_test.
@@ -65,14 +70,14 @@ func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID
 }
 
 // ExportResolveClientFromID is for testing resolveClientFromID from handlers_test.
-func ExportResolveClientFromID(tenant domain.Tenant, clientID string) domain.Client {
+func ExportResolveClientFromID(tenant domain.Tenant, clientID string) *domain.Client {
 	id, _ := domain.NewClientID(clientID)
 
 	return resolveClientFromID(tenant, id)
 }
 
 // ExportResolveClientFromForm is for testing resolveClientFromForm from handlers_test.
-func ExportResolveClientFromForm(tenant domain.Tenant, clientID, clientSecret string) domain.Client {
+func ExportResolveClientFromForm(tenant domain.Tenant, clientID, clientSecret string) *domain.Client {
 	return resolveClientFromForm(tenant, clientID, clientSecret)
 }
 

@@ -55,7 +55,7 @@ func configCsharpAppHandler(request *http.Request, server *app.App) Response {
 		return notFound(msgTenantNotFound)
 	}
 
-	registration, err := app.FindAppRegistration(tenant, appID)
+	registration, err := app.FindAppRegistration(*tenant, appID)
 	if err != nil {
 		return notFound("app registration not found")
 	}
@@ -85,14 +85,20 @@ func configJsAppHandler(request *http.Request, server *app.App) Response {
 		return notFound(msgTenantNotFound)
 	}
 
-	registration, err := app.FindAppRegistration(tenant, appID)
+	registration, err := app.FindAppRegistration(*tenant, appID)
 	if err != nil {
 		return notFound("app registration not found")
 	}
 
 	msalFmt := "const msalConfig = {\n  auth: {\n    clientId: %q," +
 		"\n    authority: \"https://%s/%s\",\n    knownAuthorities: [%q],\n  },\n};\n"
-	content := fmt.Sprintf(msalFmt, mustParseString(registration.ClientID()), request.Host, mustParseString(tenant.TenantID()), request.Host)
+	content := fmt.Sprintf(
+		msalFmt,
+		mustParseString(registration.ClientID()),
+		request.Host,
+		mustParseString(tenant.TenantID()),
+		request.Host,
+	)
 	disposition := fmt.Sprintf(fmtDisposition, mustParseString(registration.Name())+"-msal-config.js")
 
 	return Response{
@@ -114,7 +120,7 @@ func configCsharpClientHandler(request *http.Request, server *app.App) Response 
 		return notFound(msgTenantNotFound)
 	}
 
-	client, err := app.FindClient(tenant, clientID)
+	client, err := app.FindClient(*tenant, clientID)
 	if err != nil {
 		return notFound("client not found")
 	}
@@ -124,8 +130,8 @@ func configCsharpClientHandler(request *http.Request, server *app.App) Response 
 		request.Host, mustParseString(tenant.TenantID()), mustParseString(client.ClientID()),
 	)
 
-	if confidential, ok := client.(domain.ClientWithSecret); ok {
-		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", mustParseString(confidential.ClientSecret()))
+	if client.ClientSecret() != nil {
+		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", mustParseString(*client.ClientSecret()))
 	}
 
 	disposition := fmt.Sprintf(fmtDisposition, mustParseString(client.Name())+"-client.env")

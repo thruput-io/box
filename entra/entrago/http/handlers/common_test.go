@@ -15,6 +15,7 @@ const (
 	fmtStatus       = "expected %d, got %d"
 	pathConfig      = "/config/"
 	pathCsharp      = "/csharp"
+	firstIndex      = 0
 )
 
 func mustGroupName(t *testing.T, raw string) domain.GroupName {
