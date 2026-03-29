@@ -11,6 +11,15 @@ JOHAN: Introduce two domain types ClientWithSecret and ClientWithoutSecret. Make
   
   - `TestCorsMiddleware_AddsHeaders`: Fix the expectation (the middleware correctly short-circuits `OPTIONS` requests; the test should expect the inner handler *not* to be called).
 
+4. Fix the ANTI-pattern:
+   // String returns the app name value.
+   func (appName AppName) String() string { return appName.value.String() }
+Here is sample of a repeated ANTI pattern killing all benefits of the NonEmptyString type:
+What is carefully created is completely broken by returning a string from AppName, opening up the possibility of a invalid state again.
+Start with removing a all these funtions. There will be alot of compile time errors. Examine each compile error. It is probably so that you should change the receiver to AppName as well.
+If you cannot change the receiver. Skip it and move on to the next compile error. Then iterate, you will slowly "untwine", the ANTI pattern. Kill off branches that no longer make sence in the process.
+At the en you will to convert to string somewhere, but it should only be needed when transporting something out of the app. At that point the tranformation should be done on the AppName object. Not the NonEmotyString.
+
 **3. Coverage via Code Reduction**
 Instead of adding more tests, increase coverage percentage by deleting dead branches.
 - **Action:** Identify "impossible" error handling in handlers (e.g., checking if a `domain.TenantID` is valid after it has already been constructed).
