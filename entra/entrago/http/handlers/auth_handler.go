@@ -149,13 +149,17 @@ func loginHandler(request *http.Request, application *app.App) Response {
 	}
 
 	user, err := app.AuthenticateUser(validated.tenant, username, password)
+	if err != nil {
+		return fromDomainError(domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password"))
+	}
 
 	authCode := app.IssueAuthCode(
 		application.Key, user, validated.clientID, validated.redirectURI,
 		request.Form.Get("scope"), validated.tenant.TenantID(), request.Form.Get("nonce"),
 	)
 
-	target, err := url.Parse(validated.redirectURI.RawString())
+	redirectURIStr, _ := domain.Parse[string](validated.redirectURI, func(s string) (string, error) { return s, nil })
+	target, err := url.Parse(redirectURIStr)
 	if err != nil {
 		return badRequest(err)
 	}
@@ -165,7 +169,8 @@ func loginHandler(request *http.Request, application *app.App) Response {
 
 func buildLoginRedirect(target *url.URL, authCode domain.AuthCode, state, responseMode string) Response {
 	values := url.Values{}
-	values.Set("code", authCode.RawString())
+	codeStr, _ := domain.Parse[string](authCode, func(s string) (string, error) { return s, nil })
+	values.Set("code", codeStr)
 
 	if state != emptyType {
 		values.Set(formKeyState, state)
@@ -226,10 +231,14 @@ func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDis
 	result := make([]userDisplay, emptySliceSize, len(tenant.Users()))
 
 	for _, user := range tenant.Users() {
+		username, _ := domain.Parse[string](user.Username(), func(s string) (string, error) { return s, nil })
+		password, _ := domain.Parse[string](user.Password(), func(s string) (string, error) { return s, nil })
+		displayName, _ := domain.Parse[string](user.DisplayName(), func(s string) (string, error) { return s, nil })
+
 		result = append(result, userDisplay{
-			Username:    user.Username().RawString(),
-			Password:    user.Password().RawString(),
-			DisplayName: user.DisplayName().RawString(),
+			Username:    username,
+			Password:    password,
+			DisplayName: displayName,
 			Roles:       resolveDisplayRoles(user, activeClient, tenant),
 		})
 	}
@@ -253,41 +262,39 @@ func resolveDisplayRoles(user domain.User, client domain.Client, tenant domain.T
 	return result
 }
 
-func collectAssignmentRoles(user domain.User, client domain.Client) map[string][]string {
-	userGroups := make(map[string]bool)
+func collectAssignmentRoles(user domain.User, client domain.Client) map[domain.ClientID][]string {
+	userGroups := make(map[domain.GroupName]bool)
 
 	for _, groupName := range user.Groups() {
-		userGroups[groupName.RawString()] = true
+		userGroups[groupName] = true
 	}
 
-	appRoles := make(map[string][]string)
+	appRoles := make(map[domain.ClientID][]string)
 
 	for _, assignment := range client.GroupRoleAssignments() {
-		if !userGroups[assignment.GroupName().RawString()] {
+		if !userGroups[assignment.GroupName()] {
 			continue
 		}
 
-		appIDStr := assignment.ApplicationID().UUID().String()
+		appID := assignment.ApplicationID()
 
 		for _, roleValue := range assignment.Roles() {
-			appRoles[appIDStr] = append(appRoles[appIDStr], roleValue.RawString())
+			roleStr, _ := domain.Parse[string](roleValue, func(s string) (string, error) { return s, nil })
+			appRoles[appID] = append(appRoles[appID], roleStr)
 		}
 	}
 
 	return appRoles
 }
 
-func resolveAppName(tenant domain.Tenant, appIDStr string) string {
-	appID, err := domain.NewClientID(appIDStr)
-	if err != nil {
-		return appIDStr
-	}
-
+func resolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
 	for _, registration := range tenant.AppRegistrations() {
 		if registration.ClientID() == appID {
-			return registration.Name().RawString()
+			appName, _ := domain.Parse[string](registration.Name(), func(s string) (string, error) { return s, nil })
+			return appName
 		}
 	}
 
+	appIDStr, _ := domain.Parse[string](appID, func(s string) (string, error) { return s, nil })
 	return appIDStr
 }

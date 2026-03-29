@@ -131,7 +131,7 @@ func TestTestTokenHandler_TenantNotFound(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
-	url := "http://entra.test/test-tokens/nope/" + fixture.appID.RawString()
+	url := "http://entra.test/test-tokens/nope/" + parseString(fixture.appID)
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
@@ -145,7 +145,7 @@ func TestTestTokenHandler_InvalidAppID(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
-	url := "http://entra.test/test-tokens/" + fixture.tenantID.RawString() + "/nope"
+	url := "http://entra.test/test-tokens/" + parseString(fixture.tenantID) + "/nope"
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
@@ -160,7 +160,7 @@ func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 
 	fixture := MustAppForTestTokenHandler(t)
 	baseURL := "http://entra.test/test-tokens/"
-	url := baseURL + fixture.tenantID.RawString() + "/" + fixture.appID.RawString() + "?username=" + fixture.userID.RawString()
+	url := baseURL + parseString(fixture.tenantID) + "/" + parseString(fixture.appID) + "?username=" + parseString(fixture.userID)
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
@@ -197,12 +197,12 @@ func TestResolveTestUser(t *testing.T) {
 		t.Fatalf("FindTenantByID: %v", err)
 	}
 
-	user := handlers.ExportResolveTestUser(tenant, fixture.userID)
+	user := handlers.ExportResolveTestUser(tenant, "user")
 	if user == nil {
 		t.Fatal("expected user")
 	}
 
-	if user.ID().RawString() != fixture.userID.RawString() {
+	if user.ID() != fixture.userID {
 		t.Fatal("unexpected user")
 	}
 }
@@ -222,7 +222,7 @@ func TestResolveTestUser_FallbackToFirstWhenRequestedUserMissing(t *testing.T) {
 		t.Fatal("expected fallback user")
 	}
 
-	if user.ID().RawString() != fixture.userID.RawString() {
-		t.Fatalf("expected fallback to first user %s, got %s", fixture.userID.RawString(), user.ID().RawString())
+	if user.ID() != fixture.userID {
+		t.Fatalf("expected fallback to first user %s, got %s", parseString(fixture.userID), parseString(user.ID()))
 	}
 }

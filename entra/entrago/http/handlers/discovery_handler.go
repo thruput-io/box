@@ -23,7 +23,7 @@ func discoveryHandler(request *http.Request, application *app.App) Response {
 	}
 
 	baseURL := extractBaseURL(request)
-	tenantIDResolved := tenant.TenantID().RawString()
+	tenantIDResolved := mustParseString(tenant.TenantID())
 
 	tenantURL := baseURL + pathSeparator + tenantIDStr
 	if isV2 {

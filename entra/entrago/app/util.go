@@ -38,9 +38,9 @@ func PublicKey(key *rsa.PrivateKey) JWKSKey {
 
 // BuildClientInfo encodes uid+utid as a base64url JSON blob for MSAL.
 func BuildClientInfo(userID domain.UserID, tenantID domain.TenantID) domain.ClientInfo {
-	info := map[string]string{
-		"uid":  userID.RawString(),
-		"utid": tenantID.RawString(),
+	info := map[string]any{
+		"uid":  userID,
+		"utid": tenantID,
 	}
 
 	data, err := json.Marshal(info)

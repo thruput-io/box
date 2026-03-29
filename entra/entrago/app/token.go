@@ -30,7 +30,7 @@ const (
 type tokenClaimsBase struct {
 	issuer   string
 	subject  any
-	audience string
+	audience domain.IdentifierURI
 	tenantID domain.TenantID
 	version  string
 	now      time.Time
@@ -95,10 +95,6 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 	return response
 }
 
-func IssueTestToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
-
-}
-
 // IssueAuthCode issues a short-lived signed JWT used as an authorization code.
 func IssueAuthCode(
 	key *rsa.PrivateKey,
@@ -127,7 +123,7 @@ func buildAccessClaims(
 	input domain.TokenInput,
 	email domain.Email,
 	displayName domain.DisplayName,
-	roles []string,
+	roles []domain.RoleValue,
 ) jwt.MapClaims {
 	claims := jwt.MapClaims{
 		claimIss:   base.issuer,
@@ -155,8 +151,8 @@ func buildAccessClaims(
 		claims[claimEmail] = email
 		claims[claimUniqueName] = email
 
-		if base.audience == graphClientID || base.audience == graphAudience {
-			claims[claimScp] = strings.Join(roles, scopeSeparator)
+		if base.audience.Matches(graphClientID) || base.audience.Matches(graphAudience) {
+			claims[claimScp] = domain.JoinRoleValues(roles, scopeSeparator)
 		} else {
 			claims[claimScp] = input.Scope
 		}
@@ -244,9 +240,9 @@ func buildIssuerForInput(input domain.TokenInput) (issuer, version string) {
 	return tenantID.AsUrl(input.BaseURL), "1.0"
 }
 
-func resolveAudience(tenant domain.Tenant, scope string) (string, map[string]bool) {
-	targetAudience := "api://default"
-	targetAppIDs := make(map[string]bool)
+func resolveAudience(tenant domain.Tenant, scope string) (domain.IdentifierURI, map[domain.ClientID]bool) {
+	targetAudience := domain.MustIdentifierURI("api://default")
+	targetAppIDs := make(map[domain.ClientID]bool)
 
 	for scopePart := range strings.SplitSeq(scope, scopeSeparator) {
 		if isOIDCScope(scopePart) {
@@ -262,38 +258,29 @@ func resolveAudience(tenant domain.Tenant, scope string) (string, map[string]boo
 func matchAudienceForScope(
 	tenant domain.Tenant,
 	scopePart string,
-	targetAppIDs map[string]bool,
-	targetAudience *string,
+	targetAppIDs map[domain.ClientID]bool,
+	targetAudience *domain.IdentifierURI,
 ) {
 	for _, registration := range tenant.AppRegistrations() {
-		identifierURI := registration.IdentifierURI().RawString()
-		clientIDString := registration.ClientID().RawString()
-
-		if clientIDString == scopePart || identifierURI == scopePart ||
-			strings.HasPrefix(scopePart, identifierURI+"/") ||
-			scopePart == identifierURI+"/.default" {
-			targetAppIDs[clientIDString] = true
-			*targetAudience = identifierURI
+		if registration.IsAudienceForScope(scopePart) {
+			targetAppIDs[registration.ClientID()] = true
+			*targetAudience = registration.IdentifierURI()
 		}
 
-		matchRoleScopesForScope(registration, clientIDString, identifierURI, scopePart, targetAppIDs, targetAudience)
+		matchRoleScopesForScope(registration, scopePart, targetAppIDs, targetAudience)
 	}
 }
 
 func matchRoleScopesForScope(
 	registration domain.AppRegistration,
-	clientIDString, identifierURI, scopePart string,
-	targetAppIDs map[string]bool,
-	targetAudience *string,
+	scopePart string,
+	targetAppIDs map[domain.ClientID]bool,
+	targetAudience *domain.IdentifierURI,
 ) {
 	for _, role := range registration.AppRoles() {
-		for _, roleScope := range role.Scopes() {
-			roleScopeValue := roleScope.Value().RawString()
-
-			if roleScopeValue == scopePart || strings.HasSuffix(scopePart, "/"+roleScopeValue) {
-				targetAppIDs[clientIDString] = true
-				*targetAudience = identifierURI
-			}
+		if role.MatchesScope(scopePart) {
+			targetAppIDs[registration.ClientID()] = true
+			*targetAudience = registration.IdentifierURI()
 		}
 	}
 }
@@ -302,15 +289,15 @@ func resolveRoles(
 	tenant domain.Tenant,
 	client domain.Client,
 	user *domain.User,
-	targetAppIDs map[string]bool,
+	targetAppIDs map[domain.ClientID]bool,
 	requestedScopes []string,
-) []string {
-	resolved := make(map[string]bool)
+) []domain.RoleValue {
+	resolved := make(map[domain.RoleValue]bool)
 
 	resolveClientAssignmentRoles(client, user, targetAppIDs, resolved)
 	resolveScopeMatchedRoles(tenant, targetAppIDs, requestedScopes, resolved)
 
-	roles := make([]string, emptySliceLen, len(resolved))
+	roles := make([]domain.RoleValue, emptySliceLen, len(resolved))
 	for role := range resolved {
 		roles = append(roles, role)
 	}
@@ -321,8 +308,8 @@ func resolveRoles(
 func resolveClientAssignmentRoles(
 	client domain.Client,
 	user *domain.User,
-	targetAppIDs map[string]bool,
-	resolved map[string]bool,
+	targetAppIDs map[domain.ClientID]bool,
+	resolved map[domain.RoleValue]bool,
 ) {
 	if client == nil {
 		return
@@ -338,33 +325,33 @@ func resolveClientAssignmentRoles(
 func addAssignmentRoles(
 	assignment domain.GroupRoleAssignment,
 	user *domain.User,
-	userGroups map[string]bool,
-	targetAppIDs map[string]bool,
-	resolved map[string]bool,
+	userGroups map[domain.GroupName]bool,
+	targetAppIDs map[domain.ClientID]bool,
+	resolved map[domain.RoleValue]bool,
 ) {
-	if user != nil && !userGroups[assignment.GroupName().RawString()] {
+	if user != nil && !userGroups[assignment.GroupName()] {
 		return
 	}
 
-	appIDStr := assignment.ApplicationID().RawString()
-	if appIDStr != uuid.Nil.String() && !targetAppIDs[appIDStr] {
+	appID := assignment.ApplicationID()
+	if appID.UUID() != uuid.Nil && !targetAppIDs[appID] {
 		return
 	}
 
 	for _, roleValue := range assignment.Roles() {
-		resolved[roleValue.RawString()] = true
+		resolved[roleValue] = true
 	}
 }
 
-func buildUserGroupSet(user *domain.User) map[string]bool {
-	groups := make(map[string]bool)
+func buildUserGroupSet(user *domain.User) map[domain.GroupName]bool {
+	groups := make(map[domain.GroupName]bool)
 
 	if user == nil {
 		return groups
 	}
 
 	for _, groupName := range user.Groups() {
-		groups[groupName.RawString()] = true
+		groups[groupName] = true
 	}
 
 	return groups
@@ -372,12 +359,12 @@ func buildUserGroupSet(user *domain.User) map[string]bool {
 
 func resolveScopeMatchedRoles(
 	tenant domain.Tenant,
-	targetAppIDs map[string]bool,
+	targetAppIDs map[domain.ClientID]bool,
 	requestedScopes []string,
-	resolved map[string]bool,
+	resolved map[domain.RoleValue]bool,
 ) {
 	for _, registration := range tenant.AppRegistrations() {
-		if !targetAppIDs[registration.ClientID().RawString()] {
+		if !targetAppIDs[registration.ClientID()] {
 			continue
 		}
 
@@ -385,10 +372,14 @@ func resolveScopeMatchedRoles(
 	}
 }
 
-func matchRolesToScopes(registration domain.AppRegistration, requestedScopes []string, resolved map[string]bool) {
+func matchRolesToScopes(
+	registration domain.AppRegistration,
+	requestedScopes []string,
+	resolved map[domain.RoleValue]bool,
+) {
 	for _, role := range registration.AppRoles() {
 		if roleMatchesAnyScope(role, requestedScopes) {
-			resolved[role.Value().RawString()] = true
+			resolved[role.Value()] = true
 		}
 	}
 }
@@ -405,16 +396,12 @@ func roleMatchesAnyScope(role domain.Role, requestedScopes []string) bool {
 
 func roleScopesMatchScope(scopes []domain.Scope, requestedScope string) bool {
 	for _, roleScope := range scopes {
-		if roleScopeMatchesRequested(roleScope.Value().RawString(), requestedScope) {
+		if roleScope.Value().Matches(requestedScope) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func roleScopeMatchesRequested(roleScopeValue, requestedScope string) bool {
-	return roleScopeValue == requestedScope || strings.HasSuffix(requestedScope, "/"+roleScopeValue)
 }
 
 func isOIDCScope(scope string) bool {
@@ -427,7 +414,7 @@ func isOIDCScope(scope string) bool {
 }
 
 // ResolveAudienceForTest exposes resolveAudience for testing.
-func ResolveAudienceForTest(tenant domain.Tenant, scope string) (string, map[string]bool) {
+func ResolveAudienceForTest(tenant domain.Tenant, scope string) (domain.IdentifierURI, map[domain.ClientID]bool) {
 	return resolveAudience(tenant, scope)
 }
 
@@ -436,8 +423,8 @@ func ResolveRolesForTest(
 	tenant domain.Tenant,
 	client domain.Client,
 	user *domain.User,
-	targetAppIDs map[string]bool,
+	targetAppIDs map[domain.ClientID]bool,
 	requestedScopes []string,
-) []string {
+) []domain.RoleValue {
 	return resolveRoles(tenant, client, user, targetAppIDs, requestedScopes)
 }

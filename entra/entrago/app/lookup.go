@@ -7,14 +7,17 @@ import (
 )
 
 // FindTenant returns the tenant matching tenantID, or the first tenant for "" or "common".
-func FindTenant(config domain.Config, tenantID domain.TenantID) (domain.Tenant, error) {
-	for _, tenant := range config.Tenants() {
-		if tenant.TenantID() == tenantID {
-			return tenant, nil
-		}
+func FindTenant(config domain.Config, tenantIDStr string) (domain.Tenant, error) {
+	if tenantIDStr == "" || tenantIDStr == "common" {
+		return config.Tenants()[0], nil
 	}
 
-	return domain.Tenant{}, domain.ErrTenantNotFound
+	id, err := domain.NewTenantID(tenantIDStr)
+	if err != nil {
+		return domain.Tenant{}, err
+	}
+
+	return FindTenantByID(config, id)
 }
 
 // FindTenantByID returns the tenant matching the given domain.TenantID exactly.

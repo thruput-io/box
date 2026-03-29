@@ -4,9 +4,31 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 )
+
+type RawValueProvider interface {
+	rawCallback(func(string) error) error
+}
+
+func Parse[T any](p RawValueProvider, parserFunc func(string) (T, error)) (T, error) {
+	var result T
+	var err error
+
+	cbErr := p.rawCallback(func(raw string) error {
+		result, err = parserFunc(raw)
+		return err
+	})
+
+	if cbErr != nil {
+		var zero T
+		return zero, cbErr
+	}
+
+	return result, nil
+}
 
 // TenantID is the unique identifier for a tenant.
 type TenantID struct {
@@ -42,6 +64,14 @@ func TenantIDFromUUID(value uuid.UUID) TenantID {
 func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 
 func (tenantID TenantID) AsClientID() ClientID { return ClientID{tenantID.value} }
+
+func (tenantID TenantID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(tenantID.value.String())
+}
+
+func (tenantID TenantID) rawCallback(callback func(string) error) error {
+	return callback(tenantID.value.String())
+}
 
 // ClientID is the unique identifier for an app registration or client.
 type ClientID struct {
@@ -84,10 +114,12 @@ func ClientIDFromUUID(value uuid.UUID) ClientID {
 // UUID returns the underlying uuid.UUID value.
 func (clientID ClientID) UUID() uuid.UUID { return clientID.value }
 
-func (clientID ClientID) RawString() string { return clientID.value.String() }
-
 func (clientID ClientID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(clientID.value.String())
+}
+
+func (clientID ClientID) rawCallback(callback func(string) error) error {
+	return callback(clientID.value.String())
 }
 
 // UserID is the unique identifier for a user.
@@ -123,10 +155,12 @@ func UserIDFromUUID(value uuid.UUID) UserID {
 // UUID returns the underlying uuid.UUID value.
 func (userID UserID) UUID() uuid.UUID { return userID.value }
 
-func (userID UserID) RawString() string { return userID.value.String() }
-
 func (userID UserID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(userID.value.String())
+}
+
+func (userID UserID) rawCallback(callback func(string) error) error {
+	return callback(userID.value.String())
 }
 
 // GroupID is the unique identifier for a group.
@@ -162,10 +196,12 @@ func GroupIDFromUUID(value uuid.UUID) GroupID {
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
 
-func (groupID GroupID) RawString() string { return groupID.value.String() }
-
 func (groupID GroupID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(groupID.value.String())
+}
+
+func (groupID GroupID) rawCallback(callback func(string) error) error {
+	return callback(groupID.value.String())
 }
 
 // ScopeID is the unique identifier for a scope.
@@ -201,6 +237,14 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
+func (scopeID ScopeID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(scopeID.value.String())
+}
+
+func (scopeID ScopeID) rawCallback(callback func(string) error) error {
+	return callback(scopeID.value.String())
+}
+
 // RoleID is the unique identifier for a role.
 type RoleID struct {
 	value uuid.UUID
@@ -234,12 +278,28 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
+func (roleID RoleID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(roleID.value.String())
+}
+
+func (roleID RoleID) rawCallback(callback func(string) error) error {
+	return callback(roleID.value.String())
+}
+
 // TenantName is the display name of a tenant.
 type TenantName struct {
 	value NonEmptyString
 }
 
 func (tenantName TenantName) AsAppName() AppName { return AppName{value: tenantName.value} }
+
+func (tenantName TenantName) MarshalJSON() ([]byte, error) {
+	return tenantName.value.MarshalJSON()
+}
+
+func (tenantName TenantName) rawCallback(callback func(string) error) error {
+	return tenantName.value.rawCallback(callback)
+}
 
 // NewTenantName creates a TenantName, returning an error if empty.
 func NewTenantName(raw string) (TenantName, error) {
@@ -277,6 +337,14 @@ func NewAppName(raw string) (AppName, error) {
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
+func (appName AppName) MarshalJSON() ([]byte, error) {
+	return appName.value.MarshalJSON()
+}
+
+func (appName AppName) rawCallback(callback func(string) error) error {
+	return appName.value.rawCallback(callback)
+}
+
 func MustAppName(raw string) AppName {
 	name, err := NewAppName(raw)
 	if err != nil {
@@ -305,8 +373,16 @@ func (identifierURI IdentifierURI) MarshalJSON() ([]byte, error) {
 	return identifierURI.value.MarshalJSON()
 }
 
-func (identifierURI IdentifierURI) RawString() string {
-	return identifierURI.value.value
+func (identifierURI IdentifierURI) rawCallback(callback func(string) error) error {
+	return identifierURI.value.rawCallback(callback)
+}
+
+func (identifierURI IdentifierURI) Matches(raw string) bool {
+	return identifierURI.value.value == raw
+}
+
+func (identifierURI IdentifierURI) MatchesPrefix(raw string) bool {
+	return strings.HasPrefix(raw, identifierURI.value.value)
 }
 
 // MustIdentifierURI creates an IdentifierURI, panicking if invalid. For use in tests and constants only.
@@ -338,8 +414,13 @@ func (scopeValue ScopeValue) MarshalJSON() ([]byte, error) {
 	return scopeValue.value.MarshalJSON()
 }
 
-func (scopeValue ScopeValue) RawString() string {
-	return scopeValue.value.value
+func (scopeValue ScopeValue) rawCallback(callback func(string) error) error {
+	return scopeValue.value.rawCallback(callback)
+}
+
+func (scopeValue ScopeValue) Matches(raw string) bool {
+	v := scopeValue.value.value
+	return v == raw || strings.HasSuffix(raw, "/"+v)
 }
 
 // MustScopeValue creates a ScopeValue, panicking if invalid. For use in tests and constants only.
@@ -371,8 +452,12 @@ func (roleValue RoleValue) MarshalJSON() ([]byte, error) {
 	return roleValue.value.MarshalJSON()
 }
 
-func (roleValue RoleValue) RawString() string {
-	return roleValue.value.value
+func (roleValue RoleValue) rawCallback(callback func(string) error) error {
+	return roleValue.value.rawCallback(callback)
+}
+
+func (roleValue RoleValue) Matches(raw string) bool {
+	return roleValue.value.value == raw
 }
 
 // MustRoleValue creates a RoleValue, panicking if invalid. For use in tests and constants only.
@@ -404,8 +489,12 @@ func (groupName GroupName) MarshalJSON() ([]byte, error) {
 	return groupName.value.MarshalJSON()
 }
 
-func (groupName GroupName) RawString() string {
-	return groupName.value.value
+func (groupName GroupName) rawCallback(callback func(string) error) error {
+	return groupName.value.rawCallback(callback)
+}
+
+func (groupName GroupName) Matches(raw string) bool {
+	return groupName.value.value == raw
 }
 
 // MustGroupName creates a GroupName, panicking if invalid. For use in tests and constants only.
@@ -437,8 +526,8 @@ func (username Username) MarshalJSON() ([]byte, error) {
 	return username.value.MarshalJSON()
 }
 
-func (username Username) RawString() string {
-	return username.value.value
+func (username Username) rawCallback(callback func(string) error) error {
+	return username.value.rawCallback(callback)
 }
 
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
@@ -470,8 +559,8 @@ func (password Password) MarshalJSON() ([]byte, error) {
 	return password.value.MarshalJSON()
 }
 
-func (password Password) RawString() string {
-	return password.value.value
+func (password Password) rawCallback(callback func(string) error) error {
+	return password.value.rawCallback(callback)
 }
 
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
@@ -503,8 +592,8 @@ func (displayName DisplayName) MarshalJSON() ([]byte, error) {
 	return displayName.value.MarshalJSON()
 }
 
-func (displayName DisplayName) RawString() string {
-	return displayName.value.value
+func (displayName DisplayName) rawCallback(callback func(string) error) error {
+	return displayName.value.rawCallback(callback)
 }
 
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
@@ -536,8 +625,8 @@ func (email Email) MarshalJSON() ([]byte, error) {
 	return email.value.MarshalJSON()
 }
 
-func (email Email) RawString() string {
-	return email.value.value
+func (email Email) rawCallback(callback func(string) error) error {
+	return email.value.rawCallback(callback)
 }
 
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
@@ -569,8 +658,8 @@ func (redirectURL RedirectURL) MarshalJSON() ([]byte, error) {
 	return redirectURL.value.MarshalJSON()
 }
 
-func (redirectURL RedirectURL) RawString() string {
-	return redirectURL.value.value
+func (redirectURL RedirectURL) rawCallback(callback func(string) error) error {
+	return redirectURL.value.rawCallback(callback)
 }
 
 // MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
@@ -602,8 +691,8 @@ func (clientSecret ClientSecret) MarshalJSON() ([]byte, error) {
 	return clientSecret.value.MarshalJSON()
 }
 
-func (clientSecret ClientSecret) RawString() string {
-	return clientSecret.value.value
+func (clientSecret ClientSecret) rawCallback(callback func(string) error) error {
+	return clientSecret.value.rawCallback(callback)
 }
 
 // MustClientSecret creates a ClientSecret, panicking if invalid. For use in tests and constants only.
@@ -648,8 +737,8 @@ func (scopeDescription ScopeDescription) MarshalJSON() ([]byte, error) {
 	return scopeDescription.value.MarshalJSON()
 }
 
-func (scopeDescription ScopeDescription) RawString() string {
-	return scopeDescription.value.value
+func (scopeDescription ScopeDescription) rawCallback(callback func(string) error) error {
+	return scopeDescription.value.rawCallback(callback)
 }
 
 // MustScopeDescription creates a ScopeDescription, panicking if invalid. For use in tests and constants only.
@@ -681,8 +770,8 @@ func (roleDescription RoleDescription) MarshalJSON() ([]byte, error) {
 	return roleDescription.value.MarshalJSON()
 }
 
-func (roleDescription RoleDescription) RawString() string {
-	return roleDescription.value.value
+func (roleDescription RoleDescription) rawCallback(callback func(string) error) error {
+	return roleDescription.value.rawCallback(callback)
 }
 
 // MustRoleDescription creates a RoleDescription, panicking if invalid. For use in tests and constants only.
@@ -766,55 +855,20 @@ func MustTokenType(raw string) TokenType {
 }
 
 func (tt TokenType) MarshalJSON() ([]byte, error) { return tt.value.MarshalJSON() }
-func (tt TokenType) RawString() string            { return tt.value.value }
+
+func (tt TokenType) rawCallback(callback func(string) error) error {
+	return tt.value.rawCallback(callback)
+}
 
 // IDToken is an issued OIDC ID token.
 type IDToken struct {
 	value NonEmptyString
 }
 
+func (rt RefreshToken) MarshalJSON() ([]byte, error) { return rt.value.MarshalJSON() }
+
 func (rt RefreshToken) rawCallback(callback func(string) error) error {
-	return callback(rt.value.value)
-}
-
-func ParseRefreshTokenAdapter[T any](rt RefreshToken, parserFunc func(string) (T, error)) (T, error) {
-	var zero T
-	var result T
-	var err error
-
-	// We use the struct's callback to get the string, and execute the parser!
-	cbErr := rt.rawCallback(func(rawToken string) error {
-		result, err = parserFunc(rawToken)
-		return err
-	})
-
-	if cbErr != nil {
-		return zero, cbErr
-	}
-
-	return result, nil
-}
-
-func (id IDToken) rawCallback(callback func(string) error) error {
-	return callback(id.value.value)
-}
-
-func ParseIdTokenAdapter[T any](id IDToken, parserFunc func(string) (T, error)) (T, error) {
-	var zero T
-	var result T
-	var err error
-
-	// We use the struct's callback to get the string, and execute the parser!
-	cbErr := id.rawCallback(func(rawToken string) error {
-		result, err = parserFunc(rawToken)
-		return err
-	})
-
-	if cbErr != nil {
-		return zero, cbErr
-	}
-
-	return result, nil
+	return rt.value.rawCallback(callback)
 }
 
 func NewIDToken(raw string) (IDToken, error) {
@@ -836,7 +890,10 @@ func MustIDToken(raw string) IDToken {
 }
 
 func (it IDToken) MarshalJSON() ([]byte, error) { return it.value.MarshalJSON() }
-func (it IDToken) RawString() string            { return it.value.value }
+
+func (it IDToken) rawCallback(callback func(string) error) error {
+	return it.value.rawCallback(callback)
+}
 
 // RefreshToken is an issued OAuth2 refresh token.
 type RefreshToken struct {
@@ -860,9 +917,6 @@ func MustRefreshToken(raw string) RefreshToken {
 
 	return v
 }
-
-func (rt RefreshToken) MarshalJSON() ([]byte, error) { return rt.value.MarshalJSON() }
-func (rt RefreshToken) RawString() string            { return rt.value.value }
 
 // ClientInfo is the base64-encoded MSAL client information.
 type ClientInfo struct {
@@ -888,7 +942,10 @@ func MustClientInfo(raw string) ClientInfo {
 }
 
 func (ci ClientInfo) MarshalJSON() ([]byte, error) { return ci.value.MarshalJSON() }
-func (ci ClientInfo) RawString() string            { return ci.value.value }
+
+func (ci ClientInfo) rawCallback(callback func(string) error) error {
+	return ci.value.rawCallback(callback)
+}
 
 // AuthCode is an issued OAuth2 authorization code.
 type AuthCode struct {
@@ -914,4 +971,16 @@ func MustAuthCode(raw string) AuthCode {
 }
 
 func (ac AuthCode) MarshalJSON() ([]byte, error) { return ac.value.MarshalJSON() }
-func (ac AuthCode) RawString() string            { return ac.value.value }
+
+func (ac AuthCode) rawCallback(callback func(string) error) error {
+	return ac.value.rawCallback(callback)
+}
+
+func JoinRoleValues(roles []RoleValue, sep string) string {
+	ss := make([]string, len(roles))
+	for i, r := range roles {
+		ss[i] = r.value.value
+	}
+
+	return strings.Join(ss, sep)
+}

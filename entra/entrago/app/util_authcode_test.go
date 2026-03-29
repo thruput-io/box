@@ -30,7 +30,8 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 		nonceStr,
 	)
 
-	claims, err := app.ExportParseSignedToken(key, code.RawString())
+	authCodeStr, _ := domain.Parse[string](code, func(s string) (string, error) { return s, nil })
+	claims, err := app.ExportParseSignedToken(key, authCodeStr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,13 +61,13 @@ func verifySubAndClient(t *testing.T, claims map[string]any, sub domain.UserID, 
 	t.Helper()
 
 	gotSub, subFound := claims[app.ClaimSub].(string)
-	if !subFound || gotSub != sub.RawString() {
-		t.Fatalf("expected sub %q, got %q", sub.RawString(), gotSub)
+	if !subFound || gotSub != parseString(sub) {
+		t.Fatalf("expected sub %q, got %q", parseString(sub), gotSub)
 	}
 
 	gotCID, cidFound := claims[app.ClaimClientID].(string)
-	if !cidFound || gotCID != clientID.RawString() {
-		t.Fatalf("expected client_id %q, got %q", clientID.RawString(), gotCID)
+	if !cidFound || gotCID != parseString(clientID) {
+		t.Fatalf("expected client_id %q, got %q", parseString(clientID), gotCID)
 	}
 }
 
@@ -76,8 +77,8 @@ func verifyOtherClaims(t *testing.T, claims map[string]any, nonce string, tenant
 	verifyAuthURIAndScope(t, claims)
 
 	gotTID, tidFound := claims[app.ClaimTenant].(string)
-	if !tidFound || gotTID != tenant.RawString() {
-		t.Fatalf("expected tenant %q, got %q", tenant.RawString(), gotTID)
+	if !tidFound || gotTID != parseString(tenant) {
+		t.Fatalf("expected tenant %q, got %q", parseString(tenant), gotTID)
 	}
 
 	gotNonce, nonceFound := claims[app.ClaimNonce].(string)
@@ -143,7 +144,8 @@ func TestBuildClientInfo(t *testing.T) {
 
 	encoded := app.BuildClientInfo(domain.MustUserID(userID), domain.MustTenantID(tenantID))
 
-	decoded, err := base64.RawURLEncoding.DecodeString(encoded.RawString())
+	clientInfoStr, _ := domain.Parse[string](encoded, func(s string) (string, error) { return s, nil })
+	decoded, err := base64.RawURLEncoding.DecodeString(clientInfoStr)
 	if err != nil {
 		t.Fatal(err)
 	}

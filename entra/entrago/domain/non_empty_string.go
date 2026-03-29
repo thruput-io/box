@@ -35,6 +35,6 @@ func (nes NonEmptyString) MarshalJSON() ([]byte, error) {
 	return json.Marshal(nes.value)
 }
 
-func (nes NonEmptyString) RawString() string {
-	return nes.value
+func (nes NonEmptyString) rawCallback(callback func(string) error) error {
+	return callback(nes.value)
 }

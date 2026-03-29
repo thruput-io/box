@@ -165,7 +165,8 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 		t.Fatalf("expected %d allowed redirect url, got %d", expectedAllowedLen, len(allowed))
 	}
 
-	err = app.ExportValidateRedirectURI(allowed[0].RawString(), allowed)
+	redirectURIStr, _ := domain.Parse[string](allowed[0], func(s string) (string, error) { return s, nil })
+	err = app.ExportValidateRedirectURI(redirectURIStr, allowed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,7 @@ func validateClientAndApp(
 	}
 
 	if gotReg.IdentifierURI() != appReg.IdentifierURI() {
-		t.Fatalf("expected identifier URI %s, got %s", appReg.IdentifierURI().RawString(), gotReg.IdentifierURI().RawString())
+		t.Fatal("expected identifier URI mismatch")
 	}
 
 	return nil
@@ -257,12 +258,12 @@ func TestLookup_UserByID(t *testing.T) {
 
 	fixture := mustTenantFixture(t)
 
-	_, notFound := app.ExportFindUserByID(fixture.tenant, "not-a-user")
+	_, notFound := app.ExportFindUserByID(fixture.tenant, domain.UserID{})
 	if notFound {
 		t.Fatal("expected not found")
 	}
 
-	got, found := app.ExportFindUserByID(fixture.tenant, fixture.user.ID().UUID().String())
+	got, found := app.ExportFindUserByID(fixture.tenant, fixture.user.ID())
 	if !found {
 		t.Fatal("expected found")
 	}

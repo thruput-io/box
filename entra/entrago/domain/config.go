@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Config is the immutable root domain object loaded once at startup.
@@ -142,6 +143,15 @@ func (appRegistration AppRegistration) Scopes() []Scope { return appRegistration
 // AppRoles returns the app registration's roles.
 func (appRegistration AppRegistration) AppRoles() []Role { return appRegistration.appRoles }
 
+func (appRegistration AppRegistration) IsAudienceForScope(scopePart string) bool {
+	idURI := appRegistration.identifierURI.value.value
+	cID := appRegistration.clientID.value.String()
+
+	return cID == scopePart || idURI == scopePart ||
+		strings.HasPrefix(scopePart, idURI+"/") ||
+		scopePart == idURI+"/.default"
+}
+
 // Scope is an immutable OAuth2 scope definition.
 type Scope struct {
 	id          ScopeID
@@ -187,6 +197,17 @@ func (role Role) Description() RoleDescription { return role.description }
 
 // Scopes returns the scopes associated with this role.
 func (role Role) Scopes() []Scope { return role.scopes }
+
+func (role Role) MatchesScope(scopePart string) bool {
+	for _, scope := range role.scopes {
+		v := scope.value.value.value
+		if v == scopePart || strings.HasSuffix(scopePart, "/"+v) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Group is an immutable user group.
 type Group struct {

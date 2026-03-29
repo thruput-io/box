@@ -39,13 +39,13 @@ func TestTokenHelpers_ResolveClientFromID(t *testing.T) {
 		t.Fatal("expected nil for unknown client ID")
 	}
 
-	client := handlers.ExportResolveClientFromID(tenant, fixture.appID.UUID().String())
+	client := handlers.ExportResolveClientFromID(tenant, parseString(fixture.appID))
 	if client == nil {
 		t.Fatal("expected client")
 	}
 
-	if client.ClientID().UUID().String() != fixture.appID.UUID().String() {
-		t.Fatalf("expected client ID %s, got %s", fixture.appID.UUID().String(), client.ClientID().UUID().String())
+	if parseString(client.ClientID()) != parseString(fixture.appID) {
+		t.Fatalf("expected client ID %s, got %s", parseString(fixture.appID), parseString(client.ClientID()))
 	}
 }
 
@@ -61,13 +61,13 @@ func TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient(t *testing.T) {
 		t.Fatalf(fmtErr, err)
 	}
 
-	client := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), "test-secret")
+	client := handlers.ExportResolveClientFromForm(tenant, parseString(fixture.appID), "test-secret")
 	if client == nil {
 		t.Fatal("expected client")
 	}
 
-	if client.ClientID().UUID().String() != fixture.appID.UUID().String() {
-		t.Fatalf("expected client ID %s, got %s", fixture.appID.UUID().String(), client.ClientID().UUID().String())
+	if parseString(client.ClientID()) != parseString(fixture.appID) {
+		t.Fatalf("expected client ID %s, got %s", parseString(fixture.appID), parseString(client.ClientID()))
 	}
 }
 
@@ -83,13 +83,13 @@ func TestTokenHelpers_ResolveClientFromForm_WithSecretValidation(t *testing.T) {
 		t.Fatalf(fmtErr, err)
 	}
 
-	if got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), "wrong"); got != nil {
+	if got := handlers.ExportResolveClientFromForm(tenant, parseString(fixture.appID), "wrong"); got != nil {
 		t.Fatal("expected nil client for invalid secret")
 	}
 
 	const secret = "test-secret" // fixture has test-secret for appID
 
-	got := handlers.ExportResolveClientFromForm(tenant, fixture.appID.UUID().String(), secret)
+	got := handlers.ExportResolveClientFromForm(tenant, parseString(fixture.appID), secret)
 	if got == nil {
 		t.Fatal("expected client for valid secret")
 	}
@@ -164,7 +164,7 @@ func TestDomain_Parse(t *testing.T) {
 
 	// 4. PARSE IT!
 	// We explicitly tell Parse we expect it to extract a *TestCustomClaims pointer.
-	extractedClaims, err := domain.ParseTokenAdapter[*TestCustomClaims](accessToken, func(rawToken string) (*TestCustomClaims, error) {
+	extractedClaims, err := domain.Parse[*TestCustomClaims](accessToken, func(rawToken string) (*TestCustomClaims, error) {
 		// messy framework lifting is strictly safely contained in this closure callback
 		var mapClaims jwt.MapClaims
 		_, err := jwt.ParseWithClaims(rawToken, &mapClaims, func(t *jwt.Token) (any, error) {
@@ -198,7 +198,7 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("IDToken", func(t *testing.T) {
 		token := domain.MustIDToken("test-id-token")
-		got, err := domain.ParseIdTokenAdapter[string](token, func(s string) (string, error) {
+		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
@@ -211,7 +211,7 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("RefreshToken", func(t *testing.T) {
 		token := domain.MustRefreshToken("test-refresh-token")
-		got, err := domain.ParseIdTokenAdapter[string](token, func(s string) (string, error) {
+		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
@@ -224,7 +224,7 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("AuthCode", func(t *testing.T) {
 		token := domain.MustAuthCode("test-auth-code")
-		got, err := domain.Parse[string](token.RawString(), func(s string) (string, error) {
+		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {
@@ -237,7 +237,7 @@ func TestDomain_Parse_OtherTokens(t *testing.T) {
 
 	t.Run("ClientInfo", func(t *testing.T) {
 		token := domain.MustClientInfo("test-client-info")
-		got, err := domain.Parse[string](token.RawString(), func(s string) (string, error) {
+		got, err := domain.Parse[string](token, func(s string) (string, error) {
 			return "parsed-" + s, nil
 		})
 		if err != nil {

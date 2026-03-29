@@ -45,7 +45,9 @@ func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectU
 }
 
 // ExportAuthenticateUser is for testing AuthenticateUser from app_test.
-func ExportAuthenticateUser(tenant domain.Tenant, username, password string) (domain.User, error) {
+func ExportAuthenticateUser(tenant domain.Tenant, usernameStr, passwordStr string) (domain.User, error) {
+	username, _ := domain.NewUsername(usernameStr)
+	password, _ := domain.NewPassword(passwordStr)
 	return AuthenticateUser(tenant, username, password)
 }
 
@@ -93,7 +95,7 @@ func ExportParseSignedToken(key *rsa.PrivateKey, tokenString string) (jwt.MapCla
 }
 
 // ExportResolveAudienceForTest is for testing ResolveAudience from app_test.
-func ExportResolveAudienceForTest(tenant domain.Tenant, scope string) (string, map[string]bool) {
+func ExportResolveAudienceForTest(tenant domain.Tenant, scope string) (domain.IdentifierURI, map[domain.ClientID]bool) {
 	return ResolveAudienceForTest(tenant, scope)
 }
 
@@ -102,9 +104,9 @@ func ExportResolveRolesForTest(
 	tenant domain.Tenant,
 	client domain.Client,
 	user *domain.User,
-	targetAppIDs map[string]bool,
+	targetAppIDs map[domain.ClientID]bool,
 	requestedScopes []string,
-) []string {
+) []domain.RoleValue {
 	return ResolveRolesForTest(tenant, client, user, targetAppIDs, requestedScopes)
 }
 

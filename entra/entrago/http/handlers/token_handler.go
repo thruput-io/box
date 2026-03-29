@@ -91,7 +91,10 @@ func parseGrantType(raw string) (domain.GrantType, *domain.Error) {
 func buildPasswordInput(
 	base domain.TokenInput, request *http.Request, tenant domain.Tenant,
 ) (domain.TokenInput, *domain.Error) {
-	user, err := app.AuthenticateUser(tenant, request.Form.Get("username"), request.Form.Get("password"))
+	username, _ := domain.NewUsername(request.Form.Get("username"))
+	password, _ := domain.NewPassword(request.Form.Get("password"))
+
+	user, err := app.AuthenticateUser(tenant, username, password)
 	if err != nil {
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password")
 	}
@@ -159,7 +162,8 @@ func buildAuthCodeInput(
 	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
 	base.Client = resolveClientFromID(tenant, clientID)
 
-	if user, found := app.FindUserByID(tenant, parsed.subject); found {
+	userID, _ := domain.NewUserID(parsed.subject)
+	if user, found := app.FindUserByID(tenant, userID); found {
 		base.User = &user
 	}
 
@@ -181,7 +185,8 @@ func buildRefreshTokenInput(
 	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
 	base.Client = resolveClientFromID(tenant, clientID)
 
-	if user, found := app.FindUserByID(tenant, parsed.subject); found {
+	userID, _ := domain.NewUserID(parsed.subject)
+	if user, found := app.FindUserByID(tenant, userID); found {
 		base.User = &user
 	}
 

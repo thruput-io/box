@@ -1,6 +1,8 @@
 package app_test
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 
 	"identity/domain"
@@ -97,4 +99,20 @@ func mustRoleDescription(t *testing.T, raw string) domain.RoleDescription {
 	}
 
 	return v
+}
+
+func mustRSAKey(t *testing.T) *rsa.PrivateKey {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, testKeySize)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+
+	return key
+}
+
+func parseString(p domain.RawValueProvider) string {
+	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
+	return s
 }

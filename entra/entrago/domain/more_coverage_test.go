@@ -104,11 +104,11 @@ func assertScopeFields(t *testing.T, scope domain.Scope, expectedID domain.Scope
 		t.Fatal("Scope ID mismatch")
 	}
 
-	if scope.Description().RawString() != testDesc {
+	if parseString(scope.Description()) != testDesc {
 		t.Fatal("Scope Description mismatch")
 	}
 
-	if scope.Value().RawString() != testAccess {
+	if parseString(scope.Value()) != testAccess {
 		t.Fatal("Scope Value mismatch")
 	}
 }
@@ -120,11 +120,11 @@ func assertRoleFields(t *testing.T, role domain.Role, expectedID domain.RoleID, 
 		t.Fatal("Role ID mismatch")
 	}
 
-	if role.Description().RawString() != testDesc {
+	if parseString(role.Description()) != testDesc {
 		t.Fatal("Role Description mismatch")
 	}
 
-	if role.Value().RawString() != testAdmin {
+	if parseString(role.Value()) != testAdmin {
 		t.Fatal("Role Value mismatch")
 	}
 
@@ -140,7 +140,7 @@ func assertGroupFields(t *testing.T, group domain.Group, expectedID domain.Group
 		t.Fatal("Group ID mismatch")
 	}
 
-	if group.Name().RawString() != testGroup {
+	if parseString(group.Name()) != testGroup {
 		t.Fatal("Group Name mismatch")
 	}
 }
@@ -193,18 +193,23 @@ func assertResourceIDs(t *testing.T, value uuid.UUID, valStr string) {
 	}
 }
 
-func TestDescriptions_RawString(t *testing.T) {
+func TestDescriptions_Parse(t *testing.T) {
 	t.Parallel()
 
 	sd := mustScopeDescription(t, "scope description")
-	if sd.RawString() != "scope description" {
+	if parseString(sd) != "scope description" {
 		t.Fatal("unexpected scope description")
 	}
 
 	rd := mustRoleDescription(t, "role description")
-	if rd.RawString() != "role description" {
+	if parseString(rd) != "role description" {
 		t.Fatal("unexpected role description")
 	}
+}
+
+func parseString(p domain.RawValueProvider) string {
+	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
+	return s
 }
 
 func TestStringWrappers_EmptyErrors_IDsAndNames(t *testing.T) {

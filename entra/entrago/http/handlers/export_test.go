@@ -30,13 +30,13 @@ func ExportFromDomainError(domErr *domain.Error) Response {
 }
 
 // ExportCollectAssignmentRoles is for testing collectAssignmentRoles from handlers_test.
-func ExportCollectAssignmentRoles(user domain.User, client domain.Client) map[string][]string {
+func ExportCollectAssignmentRoles(user domain.User, client domain.Client) map[domain.ClientID][]string {
 	return collectAssignmentRoles(user, client)
 }
 
 // ExportResolveAppName is for testing resolveAppName from handlers_test.
-func ExportResolveAppName(tenant domain.Tenant, appIDStr string) string {
-	return resolveAppName(tenant, appIDStr)
+func ExportResolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
+	return resolveAppName(tenant, appID)
 }
 
 // ExportResolveDisplayRoles is for testing resolveDisplayRoles from handlers_test.
@@ -45,7 +45,7 @@ func ExportResolveDisplayRoles(user domain.User, client domain.Client, tenant do
 }
 
 // ExportResolveTestUser is for testing resolveTestUser from handlers_test.
-func ExportResolveTestUser(tenant domain.Tenant, username domain.Username) *domain.User {
+func ExportResolveTestUser(tenant domain.Tenant, username string) *domain.User {
 	return resolveTestUser(tenant, username)
 }
 
