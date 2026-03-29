@@ -91,26 +91,38 @@ func TestLoadConfig_ReadError(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
 
-	_, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
+	config, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
 	if err == nil {
 		t.Fatalf("expected read error")
+	}
+
+	if len(config.Tenants()) != 0 {
+		t.Fatal("expected empty config on error")
 	}
 }
 
 func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 	t.Parallel()
 
-	_, err := domain.BuildRedirectURLs([]string{""})
+	urls, err := domain.BuildRedirectURLs([]string{""})
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+
+	if len(urls) != 0 {
+		t.Fatal("expected no urls on error")
 	}
 }
 
 func TestBuildUserGroups_RejectsEmptyGroupName(t *testing.T) {
 	t.Parallel()
 
-	_, err := domain.BuildUserGroups("user", []string{""})
+	groups, err := domain.BuildUserGroups("user", []string{""})
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+
+	if len(groups) != 0 {
+		t.Fatal("expected no groups on error")
 	}
 }

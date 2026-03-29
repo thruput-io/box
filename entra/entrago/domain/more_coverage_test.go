@@ -78,91 +78,104 @@ func TestDomainError_ErrorString(t *testing.T) {
 func TestConfig_ScopeRoleGroupGetters(t *testing.T) {
 	t.Parallel()
 
-	scope := domain.NewScope(
-		domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
-		mustScopeValue(t, "access"),
-		mustScopeDescription(t, "desc"),
-	)
-	_ = scope.ID()
-	_ = scope.Description()
+	scopeID := domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
+	scopeValue := mustScopeValue(t, "access")
+	scopeDesc := mustScopeDescription(t, "desc")
+	scope := domain.NewScope(scopeID, scopeValue, scopeDesc)
 
-	role := domain.NewRole(
-		domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
-		mustRoleValue(t, "Admin"),
-		mustRoleDescription(t, "desc"),
-		[]domain.Scope{scope},
-	)
-	_ = role.ID()
-	_ = role.Description()
+	if scope.ID() != scopeID {
+		t.Fatal("Scope ID mismatch")
+	}
+	if scope.Description().String() != "desc" {
+		t.Fatal("Scope Description mismatch")
+	}
+	if scope.Value().String() != "access" {
+		t.Fatal("Scope Value mismatch")
+	}
 
-	group := domain.NewGroup(
-		domain.MustGroupID("cccccccc-cccc-4ccc-accc-cccccccccccc"),
-		mustGroupName(t, "Group"),
-	)
-	_ = group.ID()
-	_ = group.Name()
-}
+	roleID := domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb")
+	roleValue := mustRoleValue(t, "Admin")
+	roleDesc := mustRoleDescription(t, "desc")
+	role := domain.NewRole(roleID, roleValue, roleDesc, []domain.Scope{scope})
 
-func TestNonEmptyString_MustPanicsOnEmpty(t *testing.T) {
-	t.Parallel()
+	if role.ID() != roleID {
+		t.Fatal("Role ID mismatch")
+	}
+	if role.Description().String() != "desc" {
+		t.Fatal("Role Description mismatch")
+	}
+	if role.Value().String() != "Admin" {
+		t.Fatal("Role Value mismatch")
+	}
+	if len(role.Scopes()) != 1 || role.Scopes()[0].ID() != scopeID {
+		t.Fatal("Role Scopes mismatch")
+	}
 
-	_ = domain.MustNonEmptyString("x")
+	groupID := domain.MustGroupID("cccccccc-cccc-4ccc-accc-cccccccccccc")
+	groupName := mustGroupName(t, "Group")
+	group := domain.NewGroup(groupID, groupName)
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic")
-		}
-	}()
-
-	_ = domain.MustNonEmptyString(emptyInput)
+	if group.ID() != groupID {
+		t.Fatal("Group ID mismatch")
+	}
+	if group.Name().String() != "Group" {
+		t.Fatal("Group Name mismatch")
+	}
 }
 
 func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	t.Parallel()
 
 	value := uuid.New()
+	valStr := value.String()
 
 	tenantID := domain.TenantIDFromUUID(value)
 	if tenantID.UUID() != value {
 		t.Fatal("TenantID UUID mismatch")
 	}
-
-	_ = tenantID.String()
+	if tenantID.String() != valStr {
+		t.Fatal("TenantID String mismatch")
+	}
 
 	clientID := domain.ClientIDFromUUID(value)
 	if clientID.UUID() != value {
 		t.Fatal("ClientID UUID mismatch")
 	}
-
-	_ = clientID.String()
+	if clientID.String() != valStr {
+		t.Fatal("ClientID String mismatch")
+	}
 
 	userID := domain.UserIDFromUUID(value)
 	if userID.UUID() != value {
 		t.Fatal("UserID UUID mismatch")
 	}
-
-	_ = userID.String()
+	if userID.String() != valStr {
+		t.Fatal("UserID String mismatch")
+	}
 
 	groupID := domain.GroupIDFromUUID(value)
 	if groupID.UUID() != value {
 		t.Fatal("GroupID UUID mismatch")
 	}
-
-	_ = groupID.String()
+	if groupID.String() != valStr {
+		t.Fatal("GroupID String mismatch")
+	}
 
 	scopeID := domain.ScopeIDFromUUID(value)
 	if scopeID.UUID() != value {
 		t.Fatal("ScopeID UUID mismatch")
 	}
-
-	_ = scopeID.String()
+	if scopeID.String() != valStr {
+		t.Fatal("ScopeID String mismatch")
+	}
 
 	roleID := domain.RoleIDFromUUID(value)
 	if roleID.UUID() != value {
 		t.Fatal("RoleID UUID mismatch")
 	}
-
-	_ = roleID.String()
+	if roleID.String() != valStr {
+		t.Fatal("RoleID String mismatch")
+	}
 }
 
 func TestClientSecret_IsEmpty(t *testing.T) {

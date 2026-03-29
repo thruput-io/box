@@ -24,6 +24,10 @@ type (
 	RawRole                = rawRole
 	RawClient              = rawClient
 	RawGroupRoleAssignment = rawGroupRoleAssignment
+	RawUser                = rawUser
+	RawAppRegistration     = rawAppRegistration
+	RawTenant              = rawTenant
+	RawGroup               = rawGroup
 )
 
 // Exported builder wrapper functions for testing only.
@@ -58,4 +62,20 @@ func BuildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssign
 
 func BuildGroupRoleAssignment(raw rawGroupRoleAssignment) (GroupRoleAssignment, error) {
 	return buildGroupRoleAssignment(raw)
+}
+
+func BuildUser(raw rawUser) (User, error) {
+	return buildUser(raw)
+}
+
+func BuildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
+	return buildAppRegistration(raw)
+}
+
+func BuildTenant(raw rawTenant) (Tenant, error) {
+	return buildTenant(raw)
+}
+
+func BuildGroups(raws []rawGroup) ([]Group, error) {
+	return buildGroups(raws)
 }
