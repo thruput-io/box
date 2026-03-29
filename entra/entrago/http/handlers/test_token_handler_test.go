@@ -1,6 +1,7 @@
-package handlers
+package handlers_test
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"net/http"
@@ -10,12 +11,15 @@ import (
 
 	"identity/app"
 	"identity/domain"
+	"identity/http/handlers"
 )
 
 func mustRSAKey(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
 
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	const keySize = 1024
+
+	key, err := rsa.GenerateKey(rand.Reader, keySize)
 	if err != nil {
 		t.Fatalf("GenerateKey: %v", err)
 	}
@@ -23,48 +27,32 @@ func mustRSAKey(t *testing.T) *rsa.PrivateKey {
 	return key
 }
 
-func mustAppForTestTokenHandler(t *testing.T) (*app.App, domain.TenantID, domain.ClientID, domain.UserID) {
+type tokenHandlerFixture struct {
+	application *app.App
+	tenantID    domain.TenantID
+	appID       domain.ClientID
+	userID      domain.UserID
+}
+
+func mustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
 	t.Helper()
 
-	tenantID := domain.MustTenantID("11111111-1111-4111-8111-111111111111")
-	appID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
-	userID := domain.MustUserID("33333333-3333-4333-8333-333333333333")
-
-	redirectURL, err := domain.NewRedirectURL("https://example.com/callback")
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
-
-	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
-		appID,
-		mustIdentifierURI(t, "api://app"),
-		[]domain.RedirectURL{redirectURL},
-		nil,
-		nil,
+	const (
+		tenantUUID = "11111111-1111-4111-8111-111111111111"
+		appUUID    = "22222222-2222-4222-8222-222222222222"
+		userUUID   = "33333333-3333-4333-8333-333333333333"
 	)
 
-	client := domain.NewClient(
-		domain.MustAppName("Client"),
-		appID,
-		domain.NewClientSecret(""),
-		[]domain.RedirectURL{redirectURL},
-		nil,
-	)
+	tenantID := domain.MustTenantID(tenantUUID)
+	appID := domain.MustClientID(appUUID)
+	userID := domain.MustUserID(userUUID)
 
-	user := domain.NewUser(
-		userID,
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
-		nil,
-	)
+	user, reg, client := setupEntitiesForTokenHandler(t, appID, userID)
 
 	tenant, err := domain.NewTenant(
 		tenantID,
 		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+		[]domain.AppRegistration{reg},
 		nil,
 		[]domain.User{user},
 		[]domain.Client{client},
@@ -78,71 +66,123 @@ func mustAppForTestTokenHandler(t *testing.T) (*app.App, domain.TenantID, domain
 		t.Fatalf("NewConfig: %v", err)
 	}
 
-	return &app.App{Config: config, Key: mustRSAKey(t)}, tenantID, appID, userID
+	return tokenHandlerFixture{
+		application: &app.App{
+			Config:        config,
+			Key:           mustRSAKey(t),
+			LoginTemplate: nil,
+			IndexTemplate: nil,
+		},
+		tenantID: tenantID,
+		appID:    appID,
+		userID:   userID,
+	}
+}
+
+func setupEntitiesForTokenHandler(t *testing.T, appID domain.ClientID, userID domain.UserID) (domain.User, domain.AppRegistration, domain.Client) {
+	t.Helper()
+
+	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
+	if err != nil {
+		t.Fatalf("NewRedirectURL: %v", err)
+	}
+
+	appReg := domain.NewAppRegistration(
+		domain.MustAppName("App"),
+		appID,
+		mustIdentifierURI(t, testAppURI),
+		[]domain.RedirectURL{redirectURL},
+		nil,
+		nil,
+	)
+	client := domain.NewClient(
+		domain.MustAppName("Client"),
+		appID,
+		domain.NewClientSecret(""),
+		[]domain.RedirectURL{redirectURL},
+		nil,
+	)
+	user := domain.NewUser(
+		userID,
+		domain.MustUsername("user"),
+		domain.MustPassword("pass"),
+		domain.MustDisplayName("User"),
+		domain.MustEmail("user@example.com"),
+		nil,
+	)
+
+	return user, appReg, client
 }
 
 func TestTestTokenHandler_InvalidPath(t *testing.T) {
 	t.Parallel()
 
-	application, _, _, _ := mustAppForTestTokenHandler(t)
-	request := httptest.NewRequest(http.MethodGet, "http://entra.test/test-tokens", nil)
+	fixture := mustAppForTestTokenHandler(t)
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://entra.test/test-tokens", nil)
 
-	resp := testTokenHandler(request, application)
+	resp := handlers.ExportInvokeTestTokenHandler(request, fixture.application)
 	if resp.Status != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusBadRequest, resp.Status)
 	}
 }
 
 func TestTestTokenHandler_TenantNotFound(t *testing.T) {
 	t.Parallel()
 
-	application, _, appID, _ := mustAppForTestTokenHandler(t)
-	request := httptest.NewRequest(http.MethodGet, "http://entra.test/test-tokens/nope/"+appID.String(), nil)
+	fixture := mustAppForTestTokenHandler(t)
+	url := "http://entra.test/test-tokens/nope/" + fixture.appID.String()
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	resp := testTokenHandler(request, application)
+	resp := handlers.ExportInvokeTestTokenHandler(request, fixture.application)
 	if resp.Status != http.StatusNotFound {
-		t.Fatalf("expected %d, got %d", http.StatusNotFound, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusNotFound, resp.Status)
 	}
 }
 
 func TestTestTokenHandler_InvalidAppID(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, _, _ := mustAppForTestTokenHandler(t)
-	request := httptest.NewRequest(http.MethodGet, "http://entra.test/test-tokens/"+tenantID.String()+"/nope", nil)
+	fixture := mustAppForTestTokenHandler(t)
+	url := "http://entra.test/test-tokens/" + fixture.tenantID.String() + "/nope"
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	resp := testTokenHandler(request, application)
+	resp := handlers.ExportInvokeTestTokenHandler(request, fixture.application)
 	if resp.Status != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusBadRequest, resp.Status)
 	}
 }
 
 func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, appID, userID := mustAppForTestTokenHandler(t)
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"http://entra.test/test-tokens/"+tenantID.String()+"/"+appID.String()+"?username="+userID.String(),
-		nil,
-	)
+	fixture := mustAppForTestTokenHandler(t)
+	baseURL := "http://entra.test/test-tokens/"
+	url := baseURL + fixture.tenantID.String() + "/" + fixture.appID.String() + "?username=" + fixture.userID.String()
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	resp := testTokenHandler(request, application)
+	resp := handlers.ExportInvokeTestTokenHandler(request, fixture.application)
 	if resp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, resp.Status)
 	}
 
-	if resp.ContentType != contentTypePlain {
+	if resp.ContentType != handlers.ContentTypePlain {
 		t.Fatalf("unexpected content type: %q", resp.ContentType)
 	}
 
 	body := string(resp.Body)
 	if !strings.HasSuffix(body, "\n") {
-		t.Fatalf("expected trailing newline")
+		t.Fatal("expected trailing newline")
 	}
 
 	trimmed := strings.TrimSpace(body)
-	if strings.Count(trimmed, ".") < 2 {
+
+	const minDots = 2
+
+	if strings.Count(trimmed, ".") < minDots {
 		t.Fatalf("expected jwt-like token, got %q", trimmed)
 	}
 }
@@ -150,39 +190,39 @@ func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 func TestResolveTestUser(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, _, userID := mustAppForTestTokenHandler(t)
+	fixture := mustAppForTestTokenHandler(t)
 
-	tenant, err := app.FindTenantByID(application.Config, tenantID)
+	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {
 		t.Fatalf("FindTenantByID: %v", err)
 	}
 
-	user := resolveTestUser(tenant, userID.String())
+	user := handlers.ExportResolveTestUser(tenant, fixture.userID.String())
 	if user == nil {
-		t.Fatalf("expected user")
+		t.Fatal("expected user")
 	}
 
-	if user.ID().String() != userID.String() {
-		t.Fatalf("unexpected user")
+	if user.ID().String() != fixture.userID.String() {
+		t.Fatal("unexpected user")
 	}
 }
 
 func TestResolveTestUser_FallbackToFirstWhenRequestedUserMissing(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, _, userID := mustAppForTestTokenHandler(t)
+	fixture := mustAppForTestTokenHandler(t)
 
-	tenant, err := app.FindTenantByID(application.Config, tenantID)
+	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {
 		t.Fatalf("FindTenantByID: %v", err)
 	}
 
-	user := resolveTestUser(tenant, "11111111-1111-4111-8111-111111111111")
+	user := handlers.ExportResolveTestUser(tenant, "11111111-1111-4111-8111-111111111111")
 	if user == nil {
-		t.Fatalf("expected fallback user")
+		t.Fatal("expected fallback user")
 	}
 
-	if user.ID().String() != userID.String() {
-		t.Fatalf("expected fallback to first user %s, got %s", userID.String(), user.ID().String())
+	if user.ID().String() != fixture.userID.String() {
+		t.Fatalf("expected fallback to first user %s, got %s", fixture.userID.String(), user.ID().String())
 	}
 }

@@ -10,51 +10,53 @@ import (
 func TestNewNonEmptyString_EmptyStringReturnsError(t *testing.T) {
 	t.Parallel()
 
-	_, err := domain.NewNonEmptyString("")
+	_, err := domain.NewNonEmptyString(emptyInput)
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal(expectedError)
 	}
 
 	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
-		t.Fatalf("expected %v, got %v", domain.ErrNonEmptyStringEmpty, err)
+		t.Fatalf(expectedFormat, domain.ErrNonEmptyStringEmpty, err)
 	}
 }
 
 func TestNewNonEmptyString_NonEmptyStringSucceeds(t *testing.T) {
 	t.Parallel()
 
-	result, err := domain.NewNonEmptyString("x")
+	const testVal = "x"
+
+	result, err := domain.NewNonEmptyString(testVal)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.String() != "x" {
-		t.Fatalf("expected %q, got %q", "x", result.String())
+	if result.String() != testVal {
+		t.Fatalf("expected %q, got %q", testVal, result.String())
 	}
 }
 
 func TestNewTenantName_Empty(t *testing.T) {
 	t.Parallel()
 
-	_, err := domain.NewTenantName("")
+	_, err := domain.NewTenantName(emptyInput)
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal(expectedError)
 	}
 
 	if !errors.Is(err, domain.ErrTenantNameEmpty) {
-		t.Fatalf("expected %v, got %v", domain.ErrTenantNameEmpty, err)
+		t.Fatalf(expectedFormat, domain.ErrTenantNameEmpty, err)
 	}
 }
 
 func TestNewEmail_Empty(t *testing.T) {
 	t.Parallel()
 
-	_, err := domain.NewEmail("")
+	_, err := domain.NewEmail(emptyInput)
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal(expectedError)
 	}
 
 	if !errors.Is(err, domain.ErrEmailEmpty) {
-		t.Fatalf("expected %v, got %v", domain.ErrEmailEmpty, err)
+		t.Fatalf(expectedFormat, domain.ErrEmailEmpty, err)
 	}
 }

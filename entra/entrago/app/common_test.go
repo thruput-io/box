@@ -1,10 +1,37 @@
-package app
+package app_test
 
 import (
 	"testing"
 
 	"identity/domain"
 )
+
+const (
+	testTenantID = "11111111-1111-4111-8111-111111111111"
+	testClientID = "22222222-2222-4222-8222-222222222222"
+	testUserID   = "33333333-3333-4333-8333-333333333333"
+	testUser     = "user"
+	testPass     = "pass"
+	testWrong    = "wrong"
+	testCallback = "https://example.com/callback"
+	testSecret   = "secret"
+	testNonce    = "nonce"
+	testCorr     = "corr"
+	testScope    = "openid offline_access api://app/access"
+	testKeySize  = 1024
+	testApp      = "api://app"
+)
+
+func mustRedirectURL(t *testing.T, raw string) domain.RedirectURL {
+	t.Helper()
+
+	url, err := domain.NewRedirectURL(raw)
+	if err != nil {
+		t.Fatalf("NewRedirectURL(%q): %v", raw, err)
+	}
+
+	return url
+}
 
 func mustIdentifierURI(t *testing.T, raw string) domain.IdentifierURI {
 	t.Helper()

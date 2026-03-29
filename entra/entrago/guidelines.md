@@ -1,14 +1,20 @@
 ## GO
 ### Writing Unit Tests
 
-Unit tests MUST be fast, deterministic, and isolated.
+Unit tests MUST deterministic, and isolated.
+
+### Workflow
+1. Check guidelines
+2. Check git state 
+3. Run make all – everything should be green
+4. 
+
 
 ### 1. Principles
 
 - **Refactor over mocking**: Testability of code is a quality measure per see. Therefore mocking in unit tests is bad code smell and missing the point.
 - **One concept per test**: Each test function SHOULD focus on a single behavior or invariant.
 - **Independence**: Tests MUST NOT depend on each other or have a specific execution order.
-- **Fast execution**: Unit tests MUST NOT perform I/O (filesystem, network, database). Use interfaces and mocks if necessary.
 - **Clarity over cleverness**: Test code should be as readable as production code.
 
 ### 3. Mandatory Verification Rules

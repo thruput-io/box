@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"crypto/rand"
@@ -8,15 +8,16 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"identity/app"
 	"identity/domain"
 )
 
 func mustRSAKey(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
 
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	key, err := rsa.GenerateKey(rand.Reader, testKeySize)
 	if err != nil {
-		t.Fatalf("GenerateKey: %v", err)
+		t.Fatal(err)
 	}
 
 	return key
@@ -32,7 +33,7 @@ func parseJWT(t *testing.T, raw string, key *rsa.PrivateKey) jwt.MapClaims {
 
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok {
-		t.Fatalf("expected MapClaims")
+		t.Fatal("expected MapClaims")
 	}
 
 	return claims
@@ -41,42 +42,24 @@ func parseJWT(t *testing.T, raw string, key *rsa.PrivateKey) jwt.MapClaims {
 func TestIssueToken_OpenIDNonceRefreshAndClientInfo(t *testing.T) {
 	t.Parallel()
 
-	tenant, client, _, user := mustTenantWithClientAndRegistration(t)
+	fixture := mustTenantFixture(t)
 	key := mustRSAKey(t)
 
 	input := domain.TokenInput{
 		Grant:         domain.GrantPassword,
-		Tenant:        tenant,
-		User:          &user,
-		Client:        &client,
-		Scope:         "openid offline_access api://app/access",
-		Nonce:         "nonce",
+		Tenant:        fixture.tenant,
+		User:          &fixture.user,
+		Client:        &fixture.client,
+		Scope:         testScope,
+		Nonce:         testNonce,
 		IsV2:          true,
 		BaseURL:       "https://login.microsoftonline.com",
-		CorrelationID: "corr",
+		CorrelationID: testCorr,
 	}
 
-	resp := IssueToken(key, input)
+	resp := app.ExportIssueToken(key, input)
 
-	if resp.AccessToken == "" {
-		t.Fatalf("expected access token")
-	}
-
-	if resp.IDToken == nil {
-		t.Fatalf("expected id token")
-	}
-
-	if resp.RefreshToken == nil {
-		t.Fatalf("expected refresh token")
-	}
-
-	if resp.ClientInfo == nil {
-		t.Fatalf("expected client info")
-	}
-
-	if resp.CorrelationID != "corr" {
-		t.Fatalf("expected correlation id corr, got %q", resp.CorrelationID)
-	}
+	verifyResponse(t, resp, testCorr)
 
 	accessClaims := parseJWT(t, resp.AccessToken, key)
 	if got, ok := accessClaims["scp"].(string); !ok || got != input.Scope {
@@ -84,62 +67,136 @@ func TestIssueToken_OpenIDNonceRefreshAndClientInfo(t *testing.T) {
 	}
 
 	idClaims := parseJWT(t, *resp.IDToken, key)
-	if got, ok := idClaims["nonce"].(string); !ok || got != "nonce" {
-		t.Fatalf("expected id_token nonce %q, got %#v", "nonce", idClaims["nonce"])
+	if got, ok := idClaims["nonce"].(string); !ok || got != testNonce {
+		t.Fatalf("expected id_token nonce %q, got %#v", testNonce, idClaims["nonce"])
 	}
 
-	if gotAud, ok := idClaims["aud"].(string); !ok || gotAud != client.ClientID().String() {
-		t.Fatalf("expected id_token aud %q, got %#v", client.ClientID().String(), idClaims["aud"])
+	if gotAud, ok := idClaims["aud"].(string); !ok || gotAud != fixture.client.ClientID().String() {
+		t.Fatalf("expected id_token aud %q, got %#v", fixture.client.ClientID().String(), idClaims["aud"])
 	}
+}
+
+func verifyResponse(t *testing.T, resp domain.TokenResponse, corr string) {
+	t.Helper()
+
+	if resp.AccessToken == "" {
+		t.Fatal("expected access token")
+	}
+
+	if resp.IDToken == nil {
+		t.Fatal("expected id token")
+	}
+
+	if resp.RefreshToken == nil {
+		t.Fatal("expected refresh token")
+	}
+
+	if resp.ClientInfo == nil {
+		t.Fatal("expected client info")
+	}
+
+	if resp.CorrelationID != corr {
+		t.Fatalf("expected correlation id %s, got %q", corr, resp.CorrelationID)
+	}
+}
+
+type graphTestFixture struct {
+	client domain.Client
+	user   domain.User
+	tenant domain.Tenant
 }
 
 func TestIssueToken_GraphAudienceUsesRolesForScp(t *testing.T) {
 	t.Parallel()
 
-	graphClientID := domain.MustClientID("00000003-0000-0000-c000-000000000000")
-	redirectURL := mustRedirectURL(t, "https://example.com/callback")
+	fixture := setupGraphTest(t)
+	key := mustRSAKey(t)
+	input := domain.TokenInput{
+		Grant:         domain.GrantPassword,
+		Tenant:        fixture.tenant,
+		User:          &fixture.user,
+		Client:        &fixture.client,
+		Scope:         "https://graph.microsoft.com/User.Read",
+		Nonce:         testNonce,
+		IsV2:          true,
+		BaseURL:       "https://login.microsoftonline.com",
+		CorrelationID: testCorr,
+	}
 
+	resp := app.ExportIssueToken(key, input)
+	accessClaims := parseJWT(t, resp.AccessToken, key)
+
+	verifyGraphClaims(t, accessClaims, input.Scope, "https://graph.microsoft.com", "GraphRole")
+
+	const (
+		jwtErrFmt = "jwt.Parse: %v"
+		sigErr    = "signature invalid"
+	)
+
+	_, err := jwt.Parse(resp.AccessToken, func(_ *jwt.Token) (any, error) {
+		return &key.PublicKey, nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrSignatureInvalid) {
+			t.Fatal(sigErr)
+		}
+
+		t.Fatalf(jwtErrFmt, err)
+	}
+}
+
+func setupGraphTest(t *testing.T) graphTestFixture {
+	t.Helper()
+
+	const (
+		graphID   = "00000003-0000-0000-c000-000000000000"
+		scopeID   = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+		roleID    = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
+		graphURI  = "https://graph.microsoft.com"
+		graphRole = "GraphRole"
+	)
+
+	graphClientID := domain.MustClientID(graphID)
+	redirectURL := mustRedirectURL(t, testCallback)
 	scope := domain.NewScope(
-		domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
+		domain.MustScopeID(scopeID),
 		mustScopeValue(t, "User.Read"),
 		mustScopeDescription(t, "desc"),
 	)
 	role := domain.NewRole(
-		domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
-		mustRoleValue(t, "GraphRole"),
+		domain.MustRoleID(roleID),
+		mustRoleValue(t, graphRole),
 		mustRoleDescription(t, "desc"),
 		[]domain.Scope{scope},
 	)
-
-	graphRegistration := domain.NewAppRegistration(
+	reg := domain.NewAppRegistration(
 		domain.MustAppName("Graph"),
 		graphClientID,
-		mustIdentifierURI(t, "https://graph.microsoft.com"),
+		mustIdentifierURI(t, graphURI),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.Scope{scope},
 		[]domain.Role{role},
 	)
-
 	client := domain.NewClient(
 		domain.MustAppName("Client"),
 		graphClientID,
-		domain.NewClientSecret("secret"),
+		domain.NewClientSecret(testSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-4333-8333-333333333333"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
+		domain.MustUserID(testUserID),
+		domain.MustUsername(testUser),
+		domain.MustPassword(testPass),
 		domain.MustDisplayName("User"),
 		domain.MustEmail("user@example.com"),
 		nil,
 	)
 
 	tenant, err := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
+		domain.MustTenantID(testTenantID),
 		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{graphRegistration},
+		[]domain.AppRegistration{reg},
 		nil,
 		[]domain.User{user},
 		[]domain.Client{client},
@@ -148,40 +205,26 @@ func TestIssueToken_GraphAudienceUsesRolesForScp(t *testing.T) {
 		t.Fatalf("NewTenant: %v", err)
 	}
 
-	key := mustRSAKey(t)
-	input := domain.TokenInput{
-		Grant:   domain.GrantPassword,
-		Tenant:  tenant,
-		User:    &user,
-		Client:  &client,
-		Scope:   "https://graph.microsoft.com/User.Read",
-		IsV2:    true,
-		BaseURL: "https://login.microsoftonline.com",
-	}
+	return graphTestFixture{client: client, user: user, tenant: tenant}
+}
 
-	resp := IssueToken(key, input)
-	accessClaims := parseJWT(t, resp.AccessToken, key)
+func verifyGraphClaims(t *testing.T, claims jwt.MapClaims, scope, aud, role string) {
+	t.Helper()
 
-	gotScp, ok := accessClaims["scp"].(string)
+	gotScp, ok := claims["scp"].(string)
 	if !ok {
-		t.Fatalf("expected scp string, got %#v", accessClaims["scp"])
+		t.Fatalf("expected scp string, got %#v", claims["scp"])
 	}
 
-	if gotScp == input.Scope {
-		t.Fatalf("expected graph scp to be roles-based, not the requested scope")
+	if gotScp == scope {
+		t.Fatal("expected graph scp to be roles-based, not the requested scope")
 	}
 
-	if gotScp != "GraphRole" {
-		t.Fatalf("expected scp %q, got %q", "GraphRole", gotScp)
+	if gotScp != role {
+		t.Fatalf("expected scp %q, got %q", role, gotScp)
 	}
 
-	if gotAud, ok := accessClaims["aud"].(string); !ok || gotAud != "https://graph.microsoft.com" {
-		t.Fatalf("expected aud %q, got %#v", "https://graph.microsoft.com", accessClaims["aud"])
-	}
-
-	if _, err := jwt.Parse(resp.AccessToken, func(_ *jwt.Token) (any, error) { return &key.PublicKey, nil }); err != nil {
-		if errors.Is(err, jwt.ErrSignatureInvalid) {
-			t.Fatalf("signature invalid")
-		}
+	if gotAud, ok := claims["aud"].(string); !ok || gotAud != aud {
+		t.Fatalf("expected aud %q, got %#v", aud, claims["aud"])
 	}
 }

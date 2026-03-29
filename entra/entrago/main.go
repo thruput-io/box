@@ -9,93 +9,42 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"identity/app"
 	"identity/domain"
 	identityhttp "identity/http/transport"
 )
 
-//go:embed templates/login.html
-var loginHTML embed.FS
-
-//go:embed templates/index.html
-var indexHTML embed.FS
-
-const rsaKeyBits = 2048
-
-const (
-	configPath        = "Config.yaml"
-	defaultConfigPath = "DefaultConfig.yaml"
-	schemaPath        = "Config.schema.json"
-	defaultAddr       = ":8080"
-)
+//go:embed templates/*
+var templatesFS embed.FS
 
 type runDeps struct {
-	keyBits int
-	stat    func(string) (os.FileInfo, error)
-	getenv  func(string) string
-	logf    func(string, ...any)
-
+	keyBits    int
+	stat       func(string) (os.FileInfo, error)
+	getenv     func(string) string
+	logf       func(string, ...any)
 	loadConfig func(string) (domain.Config, error)
 	listen     func(*http.Server) error
 }
 
-func defaultLoadConfig(path string) (domain.Config, error) {
-	config, err := domain.LoadConfig(path, schemaPath)
-	if err != nil {
-		return domain.Config{}, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	return config, nil
-}
-
-func resolveConfigPath(stat func(string) (os.FileInfo, error)) string {
-	_, err := stat(configPath)
-	if os.IsNotExist(err) {
-		return defaultConfigPath
-	}
-
-	return configPath
-}
-
-func resolveAddr(getenv func(string) string) string {
-	if port := getenv("PORT"); port != "" {
-		return ":" + port
-	}
-
-	return defaultAddr
-}
-
-func loadTemplates() (loginTemplate, indexTemplate *template.Template, err error) {
-	loginTemplate, err = template.ParseFS(loginHTML, "templates/login.html")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse login template: %w", err)
-	}
-
-	indexTemplate, err = template.ParseFS(indexHTML, "templates/index.html")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse index template: %w", err)
-	}
-
-	return loginTemplate, indexTemplate, nil
-}
-
 func run(deps runDeps) error {
+	configPath := resolveConfigPath(deps.stat)
+
+	config, err := deps.loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+
 	key, err := rsa.GenerateKey(rand.Reader, deps.keyBits)
 	if err != nil {
-		return fmt.Errorf("failed to generate RSA key: %w", err)
-	}
-
-	path := resolveConfigPath(deps.stat)
-
-	config, err := deps.loadConfig(path)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("generate key: %w", err)
 	}
 
 	loginTemplate, indexTemplate, err := loadTemplates()
 	if err != nil {
-		return err
+		deps.logf("warning: could not load templates: %v", err)
 	}
 
 	application := &app.App{
@@ -113,8 +62,9 @@ func run(deps runDeps) error {
 	}
 
 	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: srv.Handler(),
+		Addr:              addr,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: serverReadHeaderTimeout,
 	}
 
 	err = deps.listen(httpServer)
@@ -125,7 +75,57 @@ func run(deps runDeps) error {
 	return nil
 }
 
+func resolveConfigPath(stat func(string) (os.FileInfo, error)) string {
+	configPath := "Config.yaml"
+
+	_, err := stat(configPath)
+	if err != nil {
+		configPath = "DefaultConfig.yaml"
+	}
+
+	return configPath
+}
+
+func resolveAddr(getenv func(string) string) string {
+	port := getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	return ":" + port
+}
+
+func loadTemplates() (login *template.Template, index *template.Template, err error) {
+	login, err = template.ParseFS(templatesFS, "templates/login.html")
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse login template: %w", err)
+	}
+
+	index, err = template.ParseFS(templatesFS, "templates/index.html")
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse index template: %w", err)
+	}
+
+	return login, index, nil
+}
+
+func defaultLoadConfig(path string) (domain.Config, error) {
+	cfg, err := domain.LoadConfig(path, "")
+	if err != nil {
+		return domain.Config{}, fmt.Errorf("LoadConfig: %w", err)
+	}
+
+	return cfg, nil
+}
+
+const (
+	testRSAKeyBits          = 1024
+	serverReadHeaderTimeout = 5 * time.Second
+)
+
 func main() {
+	const rsaKeyBits = 2048
+
 	err := run(runDeps{
 		keyBits:    rsaKeyBits,
 		stat:       os.Stat,
@@ -137,6 +137,10 @@ func main() {
 		},
 	})
 	if err != nil {
-		log.Fatalf("%v", err)
+		const empty = ""
+
+		msg := strings.ReplaceAll(err.Error(), "\n", empty)
+		msg = strings.ReplaceAll(msg, "\r", empty)
+		log.Fatalf("%s", msg)
 	}
 }

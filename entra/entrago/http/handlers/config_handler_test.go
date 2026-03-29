@@ -1,6 +1,7 @@
-package handlers
+package handlers_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -9,60 +10,39 @@ import (
 
 	"identity/app"
 	"identity/domain"
+	"identity/http/handlers"
 )
 
-func mustAppForConfigTests(t *testing.T) (*app.App, domain.TenantID, domain.ClientID, domain.ClientID, domain.ClientID) {
+type configFixture struct {
+	application    *app.App
+	tenantID       domain.TenantID
+	appRegID       domain.ClientID
+	secretClientID domain.ClientID
+	publicClientID domain.ClientID
+}
+
+func mustAppForConfigTests(t *testing.T) configFixture {
 	t.Helper()
 
-	tenantID := domain.MustTenantID("11111111-1111-4111-8111-111111111111")
-	tenantName := domain.MustTenantName("Tenant")
-
-	appRegID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
-	secretClientID := domain.MustClientID("33333333-3333-4333-8333-333333333333")
-	publicClientID := domain.MustClientID("44444444-4444-4444-8444-444444444444")
-
-	redirectURL, err := domain.NewRedirectURL("https://example.com/callback")
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
-
-	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
-		appRegID,
-		mustIdentifierURI(t, "api://app"),
-		[]domain.RedirectURL{redirectURL},
-		nil,
-		nil,
+	const (
+		tenantUUID = "11111111-1111-4111-8111-111111111111"
+		appRegUUID = "22222222-2222-4222-8222-222222222222"
+		secretUUID = "33333333-3333-4333-8333-333333333333"
+		publicUUID = "44444444-4444-4444-8444-444444444444"
+		userUUID   = "55555555-5555-4555-8555-555555555555"
 	)
 
-	user := domain.NewUser(
-		domain.MustUserID("55555555-5555-4555-8555-555555555555"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
-		nil,
-	)
+	tenantID := domain.MustTenantID(tenantUUID)
+	appRegID := domain.MustClientID(appRegUUID)
+	secretClientID := domain.MustClientID(secretUUID)
+	publicClientID := domain.MustClientID(publicUUID)
 
-	secretClient := domain.NewClient(
-		domain.MustAppName("SecretClient"),
-		secretClientID,
-		domain.NewClientSecret("secret"),
-		[]domain.RedirectURL{redirectURL},
-		nil,
-	)
-
-	publicClient := domain.NewClient(
-		domain.MustAppName("PublicClient"),
-		publicClientID,
-		domain.NewClientSecret(""),
-		[]domain.RedirectURL{redirectURL},
-		nil,
-	)
+	user, secretClient, publicClient := setupCoreEntities(t, userUUID, secretClientID, publicClientID)
+	registration := setupRegistration(t, appRegID)
 
 	tenant, err := domain.NewTenant(
 		tenantID,
-		tenantName,
+		domain.MustTenantName("Tenant"),
 		[]domain.AppRegistration{registration},
 		nil,
 		[]domain.User{user},
@@ -77,31 +57,86 @@ func mustAppForConfigTests(t *testing.T) (*app.App, domain.TenantID, domain.Clie
 		t.Fatalf("NewConfig: %v", err)
 	}
 
-	application := &app.App{Config: config}
-
-	return application, tenantID, appRegID, secretClientID, publicClientID
+	return configFixture{
+		application: &app.App{
+			Config:        config,
+			Key:           nil,
+			LoginTemplate: nil,
+			IndexTemplate: nil,
+		},
+		tenantID:       tenantID,
+		appRegID:       appRegID,
+		secretClientID: secretClientID,
+		publicClientID: publicClientID,
+	}
 }
 
-func mustIdentifierURI(t *testing.T, raw string) domain.IdentifierURI {
+func setupCoreEntities(
+	t *testing.T,
+	userUUID string,
+	secretCID, publicCID domain.ClientID,
+) (domain.User, domain.Client, domain.Client) {
 	t.Helper()
 
-	v, err := domain.NewIdentifierURI(raw)
+	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
 	if err != nil {
-		t.Fatalf("NewIdentifierURI(%q): %v", raw, err)
+		t.Fatalf("NewRedirectURL: %v", err)
 	}
 
-	return v
+	user := domain.NewUser(
+		domain.MustUserID(userUUID),
+		domain.MustUsername("user"),
+		domain.MustPassword("pass"),
+		domain.MustDisplayName("User"),
+		domain.MustEmail("user@example.com"),
+		nil,
+	)
+	secretClient := domain.NewClient(
+		domain.MustAppName("SecretClient"),
+		secretCID,
+		domain.NewClientSecret("secret"),
+		[]domain.RedirectURL{redirectURL},
+		nil,
+	)
+	publicClient := domain.NewClient(
+		domain.MustAppName("PublicClient"),
+		publicCID,
+		domain.NewClientSecret(""),
+		[]domain.RedirectURL{redirectURL},
+		nil,
+	)
+
+	return user, secretClient, publicClient
+}
+
+func setupRegistration(t *testing.T, appRegID domain.ClientID) domain.AppRegistration {
+	t.Helper()
+
+	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
+	if err != nil {
+		t.Fatalf("NewRedirectURL: %v", err)
+	}
+
+	return domain.NewAppRegistration(
+		domain.MustAppName("App"),
+		appRegID,
+		mustIdentifierURI(t, testAppURI),
+		[]domain.RedirectURL{redirectURL},
+		nil,
+		nil,
+	)
 }
 
 func TestConfigHandler_RawRedirect(t *testing.T) {
 	t.Parallel()
 
-	application, _, _, _, _ := mustAppForConfigTests(t)
-	request := httptest.NewRequest(http.MethodGet, "http://example.test/config/raw", nil)
+	fixture := mustAppForConfigTests(t)
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://example.test/config/raw", nil)
 
-	resp := configHandler(request, application)
+	resp := handlers.ExportConfigHandler(request, fixture.application)
 	if resp.Status != http.StatusMovedPermanently {
-		t.Fatalf("expected %d, got %d", http.StatusMovedPermanently, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusMovedPermanently, resp.Status)
 	}
 
 	if resp.Headers["Location"] != "/DefaultConfig.yaml" {
@@ -112,14 +147,18 @@ func TestConfigHandler_RawRedirect(t *testing.T) {
 func TestConfigHandler_CsharpAppSuccess(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, appRegID, _, _ := mustAppForConfigTests(t)
-	path := "/config/" + tenantID.String() + "/app/" + appRegID.String() + "/csharp"
-	request := httptest.NewRequest(http.MethodGet, "http://entra.test"+path, nil)
-	request.Host = "entra.test"
+	fixture := mustAppForConfigTests(t)
+	path := pathConfig + fixture.tenantID.String() + "/app/" + fixture.appRegID.String() + pathCsharp
 
-	resp := configHandler(request, application)
+	const testHost = "entra.test"
+
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+path, nil)
+	request.Host = testHost
+
+	resp := handlers.ExportConfigHandler(request, fixture.application)
 	if resp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, resp.Status)
 	}
 
 	body := string(resp.Body)
@@ -131,14 +170,18 @@ func TestConfigHandler_CsharpAppSuccess(t *testing.T) {
 func TestConfigHandler_JsAppSuccess(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, appRegID, _, _ := mustAppForConfigTests(t)
-	path := "/config/" + tenantID.String() + "/app/" + appRegID.String() + "/js"
-	request := httptest.NewRequest(http.MethodGet, "http://entra.test"+path, nil)
-	request.Host = "entra.test"
+	fixture := mustAppForConfigTests(t)
+	path := pathConfig + fixture.tenantID.String() + "/app/" + fixture.appRegID.String() + "/js"
 
-	resp := configHandler(request, application)
+	const testHost = "entra.test"
+
+	ctx := context.Background()
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+path, nil)
+	request.Host = testHost
+
+	resp := handlers.ExportConfigHandler(request, fixture.application)
 	if resp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, resp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, resp.Status)
 	}
 
 	body := string(resp.Body)
@@ -150,47 +193,53 @@ func TestConfigHandler_JsAppSuccess(t *testing.T) {
 func TestConfigHandler_CsharpClientIncludesSecretWhenPresent(t *testing.T) {
 	t.Parallel()
 
-	application, tenantID, _, secretClientID, publicClientID := mustAppForConfigTests(t)
+	fixture := mustAppForConfigTests(t)
 
-	secretPath := "/config/" + tenantID.String() + "/client/" + secretClientID.String() + "/csharp"
-	secretReq := httptest.NewRequest(http.MethodGet, "http://entra.test"+secretPath, nil)
-	secretReq.Host = "entra.test"
+	const testHost = "entra.test"
 
-	secretResp := configHandler(secretReq, application)
+	secretPath := pathConfig + fixture.tenantID.String() + "/client/" + fixture.secretClientID.String() + pathCsharp
+
+	ctx := context.Background()
+	secretReq := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+secretPath, nil)
+	secretReq.Host = testHost
+
+	secretResp := handlers.ExportConfigHandler(secretReq, fixture.application)
 	if secretResp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, secretResp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, secretResp.Status)
 	}
 
 	if !strings.Contains(string(secretResp.Body), "AzureAd__ClientSecret=secret") {
-		t.Fatalf("expected client secret in body")
+		t.Fatal("expected client secret in body")
 	}
 
-	publicPath := "/config/" + tenantID.String() + "/client/" + publicClientID.String() + "/csharp"
-	publicReq := httptest.NewRequest(http.MethodGet, "http://entra.test"+publicPath, nil)
-	publicReq.Host = "entra.test"
+	publicPath := pathConfig + fixture.tenantID.String() + "/client/" + fixture.publicClientID.String() + pathCsharp
+	publicReq := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://"+testHost+publicPath, nil)
+	publicReq.Host = testHost
 
-	publicResp := configHandler(publicReq, application)
+	publicResp := handlers.ExportConfigHandler(publicReq, fixture.application)
 	if publicResp.Status != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, publicResp.Status)
+		t.Fatalf(fmtStatus, http.StatusOK, publicResp.Status)
 	}
 
 	if strings.Contains(string(publicResp.Body), "AzureAd__ClientSecret=") {
-		t.Fatalf("did not expect client secret in body")
+		t.Fatal("did not expect client secret in body")
 	}
 }
 
 func TestParseTenantAndAppID_Errors(t *testing.T) {
 	t.Parallel()
 
-	_, _, err := parseTenantAndAppID("/config/nope/app/x/csharp", pathApp, pathCsharp)
+	_, _, err := handlers.ExportParseTenantAndAppID("/config/nope/app/x/csharp", handlers.PathApp, handlers.PathCsharp)
 	if !errors.Is(err, domain.ErrTenantNotFound) {
 		t.Fatalf("expected ErrTenantNotFound, got %v", err)
 	}
 
-	_, _, err = parseTenantAndAppID(
-		"/config/11111111-1111-4111-8111-111111111111/app/nope/csharp",
-		pathApp,
-		pathCsharp,
+	const validTID = "11111111-1111-4111-8111-111111111111"
+
+	_, _, err = handlers.ExportParseTenantAndAppID(
+		"/config/"+validTID+"/app/nope/csharp",
+		handlers.PathApp,
+		handlers.PathCsharp,
 	)
 	if !errors.Is(err, domain.ErrAppNotFound) {
 		t.Fatalf("expected ErrAppNotFound, got %v", err)

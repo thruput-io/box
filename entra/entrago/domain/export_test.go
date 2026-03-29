@@ -32,50 +32,50 @@ type (
 
 // Exported builder wrapper functions for testing only.
 
-func ValidateYAML(yamlData []byte, schemaPath string) error {
+func ExportValidateYAML(yamlData []byte, schemaPath string) error {
 	return validateYAML(yamlData, schemaPath)
 }
 
-func BuildRedirectURLs(raws []string) ([]RedirectURL, error) {
+func ExportBuildRedirectURLs(raws []string) ([]RedirectURL, error) {
 	return buildRedirectURLs(raws)
 }
 
-func BuildUserGroups(username string, rawGroups []string) ([]GroupName, error) {
+func ExportBuildUserGroups(username string, rawGroups []string) ([]GroupName, error) {
 	return buildUserGroups(username, rawGroups)
 }
 
-func BuildScope(raw rawScope) (Scope, error) {
+func ExportBuildScope(raw rawScope) (Scope, error) {
 	return buildScope(raw)
 }
 
-func BuildRole(raw rawRole) (Role, error) {
+func ExportBuildRole(raw rawRole) (Role, error) {
 	return buildRole(raw)
 }
 
-func BuildClient(raw rawClient) (Client, error) {
+func ExportBuildClient(raw rawClient) (Client, error) {
 	return buildClient(raw)
 }
 
-func BuildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssignment, error) {
+func ExportBuildGroupRoleAssignments(raws []rawGroupRoleAssignment) ([]GroupRoleAssignment, error) {
 	return buildGroupRoleAssignments(raws)
 }
 
-func BuildGroupRoleAssignment(raw rawGroupRoleAssignment) (GroupRoleAssignment, error) {
+func ExportBuildGroupRoleAssignment(raw rawGroupRoleAssignment) (GroupRoleAssignment, error) {
 	return buildGroupRoleAssignment(raw)
 }
 
-func BuildUser(raw rawUser) (User, error) {
+func ExportBuildUser(raw rawUser) (User, error) {
 	return buildUser(raw)
 }
 
-func BuildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
+func ExportBuildAppRegistration(raw rawAppRegistration) (AppRegistration, error) {
 	return buildAppRegistration(raw)
 }
 
-func BuildTenant(raw rawTenant) (Tenant, error) {
+func ExportBuildTenant(raw rawTenant) (Tenant, error) {
 	return buildTenant(raw)
 }
 
-func BuildGroups(raws []rawGroup) ([]Group, error) {
+func ExportBuildGroups(raws []rawGroup) ([]Group, error) {
 	return buildGroups(raws)
 }

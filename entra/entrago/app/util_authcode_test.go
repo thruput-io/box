@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"encoding/base64"
@@ -8,56 +8,97 @@ import (
 	"strings"
 	"testing"
 
+	"identity/app"
 	"identity/domain"
 )
 
 func TestIssueAuthCode_Claims(t *testing.T) {
 	t.Parallel()
 
-	tenant, client, _, user := mustTenantWithClientAndRegistration(t)
+	fixture := mustTenantFixture(t)
 	key := mustRSAKey(t)
 
-	code := IssueAuthCode(
+	const nonceStr = "nonce-123"
+
+	code := app.ExportIssueAuthCode(
 		key,
-		user,
-		client.ClientID(),
-		"https://example.com/callback",
+		fixture.user,
+		fixture.client.ClientID(),
+		testCallback,
 		"openid profile",
-		tenant.TenantID().String(),
-		"nonce-123",
+		fixture.tenant.TenantID().String(),
+		nonceStr,
 	)
 
-	claims, err := ParseSignedToken(key, code)
+	claims, err := app.ExportParseSignedToken(key, code)
 	if err != nil {
-		t.Fatalf("ParseSignedToken: %v", err)
+		t.Fatal(err)
 	}
 
-	if got, _ := claims[claimSub].(string); got != user.ID().String() {
-		t.Fatalf("expected sub %q, got %q", user.ID().String(), got)
+	verifyAuthCodeClaims(
+		t,
+		claims,
+		fixture.user.ID().String(),
+		fixture.client.ClientID().String(),
+		nonceStr,
+		fixture.tenant.TenantID().String(),
+	)
+}
+
+func verifyAuthCodeClaims(t *testing.T, claims map[string]any, sub, clientID, nonce, tenant string) {
+	t.Helper()
+
+	verifySubAndClient(t, claims, sub, clientID)
+	verifyOtherClaims(t, claims, nonce, tenant)
+
+	if _, hasExp := claims[app.ClaimExp].(float64); !hasExp {
+		t.Fatal("expected exp claim")
+	}
+}
+
+func verifySubAndClient(t *testing.T, claims map[string]any, sub, clientID string) {
+	t.Helper()
+
+	gotSub, subFound := claims[app.ClaimSub].(string)
+	if !subFound || gotSub != sub {
+		t.Fatalf("expected sub %q, got %q", sub, gotSub)
 	}
 
-	if got, _ := claims[claimClientID].(string); got != client.ClientID().String() {
-		t.Fatalf("expected client_id %q, got %q", client.ClientID().String(), got)
+	gotCID, cidFound := claims[app.ClaimClientID].(string)
+	if !cidFound || gotCID != clientID {
+		t.Fatalf("expected client_id %q, got %q", clientID, gotCID)
+	}
+}
+
+func verifyOtherClaims(t *testing.T, claims map[string]any, nonce, tenant string) {
+	t.Helper()
+
+	verifyAuthURIAndScope(t, claims)
+
+	gotTID, tidFound := claims[app.ClaimTenant].(string)
+	if !tidFound || gotTID != tenant {
+		t.Fatalf("expected tenant %q, got %q", tenant, gotTID)
 	}
 
-	if got, _ := claims[claimRedirectURI].(string); got != "https://example.com/callback" {
-		t.Fatalf("expected redirect_uri %q, got %q", "https://example.com/callback", got)
+	gotNonce, nonceFound := claims[app.ClaimNonce].(string)
+	if !nonceFound || gotNonce != nonce {
+		t.Fatalf("expected nonce %q, got %q", nonce, gotNonce)
+	}
+}
+
+func verifyAuthURIAndScope(t *testing.T, claims map[string]any) {
+	t.Helper()
+
+	gotURI, uriFound := claims[app.ClaimRedirectURI].(string)
+	if !uriFound || gotURI != testCallback {
+		t.Fatalf("expected redirect_uri %q, got %q", testCallback, gotURI)
 	}
 
-	if got, _ := claims[claimScope].(string); got != "openid profile" {
-		t.Fatalf("expected scope %q, got %q", "openid profile", got)
-	}
+	const oidcScope = "openid profile"
 
-	if got, _ := claims[claimTenant].(string); got != tenant.TenantID().String() {
-		t.Fatalf("expected tenant %q, got %q", tenant.TenantID().String(), got)
-	}
-
-	if got, _ := claims[claimNonce].(string); got != "nonce-123" {
-		t.Fatalf("expected nonce %q, got %q", "nonce-123", got)
-	}
-
-	if _, ok := claims[claimExp].(float64); !ok {
-		t.Fatalf("expected exp claim")
+	gotScp, scpFound := claims[app.ClaimScope].(string)
+	if !scpFound || gotScp != oidcScope {
+		t.Fatalf("expected scope %q, got %q", oidcScope, gotScp)
 	}
 }
 
@@ -66,9 +107,9 @@ func TestParseSignedToken_InvalidToken(t *testing.T) {
 
 	key := mustRSAKey(t)
 
-	_, err := ParseSignedToken(key, "not-a-token")
+	_, err := app.ExportParseSignedToken(key, "not-a-token")
 	if err == nil {
-		t.Fatalf("expected invalid token error")
+		t.Fatal("expected invalid token error")
 	}
 
 	if !strings.Contains(err.Error(), "invalid token") {
@@ -82,29 +123,31 @@ func TestParseSignedToken_InvalidSignature(t *testing.T) {
 	keyA := mustRSAKey(t)
 	keyB := mustRSAKey(t)
 
-	token := SignClaims(keyA, map[string]any{claimSub: "subject"})
+	const otherSub = "subject"
 
-	_, err := ParseSignedToken(keyB, token)
+	token := app.ExportSignClaims(keyA, map[string]any{app.ClaimSub: otherSub})
+
+	_, err := app.ExportParseSignedToken(keyB, token)
 	if err == nil {
-		t.Fatalf("expected invalid token error")
+		t.Fatal("expected invalid token error")
 	}
 }
 
 func TestBuildClientInfo(t *testing.T) {
 	t.Parallel()
 
-	encoded := BuildClientInfo("user-id", "tenant-id")
+	encoded := app.BuildClientInfo("user-id", "tenant-id")
 
 	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
-		t.Fatalf("DecodeString: %v", err)
+		t.Fatal(err)
 	}
 
 	var payload map[string]string
 
 	err = json.Unmarshal(decoded, &payload)
 	if err != nil {
-		t.Fatalf("Unmarshal: %v", err)
+		t.Fatal(err)
 	}
 
 	if payload["uid"] != "user-id" {
@@ -121,7 +164,7 @@ func TestPublicKey(t *testing.T) {
 
 	key := mustRSAKey(t)
 
-	jwks := PublicKey(key)
+	jwks := app.PublicKey(key)
 
 	expectedN := base64.RawURLEncoding.EncodeToString(key.N.Bytes())
 	expectedE := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes())
@@ -138,22 +181,24 @@ func TestPublicKey(t *testing.T) {
 func TestLookup_NotFoundErrors(t *testing.T) {
 	t.Parallel()
 
-	tenant, _, _, _ := mustTenantWithClientAndRegistration(t)
-	cfg := mustConfigWithTenant(t, tenant)
+	fixture := mustTenantFixture(t)
+	cfg := mustConfigWithTenant(t, fixture.tenant)
 
-	_, err := FindTenantByID(cfg, domain.MustTenantID("99999999-9999-4999-8999-999999999999"))
+	const missingID = "99999999-9999-4999-8999-999999999999"
+
+	_, err := app.ExportFindTenantByID(cfg, domain.MustTenantID(missingID))
 	if !errors.Is(err, domain.ErrTenantNotFound) {
 		t.Fatalf("expected ErrTenantNotFound, got %v", err)
 	}
 
 	missingClientID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-	_, err = FindClient(tenant, missingClientID)
+	_, err = app.ExportFindClient(fixture.tenant, missingClientID)
 	if !errors.Is(err, domain.ErrClientNotFound) {
 		t.Fatalf("expected ErrClientNotFound, got %v", err)
 	}
 
-	_, err = FindAppRegistration(tenant, missingClientID)
+	_, err = app.ExportFindAppRegistration(fixture.tenant, missingClientID)
 	if !errors.Is(err, domain.ErrAppNotFound) {
 		t.Fatalf("expected ErrAppNotFound, got %v", err)
 	}

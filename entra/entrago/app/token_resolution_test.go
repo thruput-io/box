@@ -1,37 +1,38 @@
-package app
+package app_test
 
 import (
 	"testing"
 
+	"identity/app"
 	"identity/domain"
 )
 
 func TestResolveAudienceForTest(t *testing.T) {
 	t.Parallel()
 
-	clientID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
-	redirectURL := mustRedirectURL(t, "https://example.com/callback")
+	clientID := domain.MustClientID(testClientID)
+	redirectURL := mustRedirectURL(t, testCallback)
 
 	registration := domain.NewAppRegistration(
 		domain.MustAppName("App"),
 		clientID,
-		mustIdentifierURI(t, "api://app"),
+		mustIdentifierURI(t, testApp),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 		nil,
 	)
 
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-4333-8333-333333333333"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
+		domain.MustUserID(testUserID),
+		domain.MustUsername(testUser),
+		domain.MustPassword(testPass),
 		domain.MustDisplayName("User"),
 		domain.MustEmail("user@example.com"),
 		nil,
 	)
 
 	tenant, err := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
+		domain.MustTenantID(testTenantID),
 		domain.MustTenantName("Tenant"),
 		[]domain.AppRegistration{registration},
 		nil,
@@ -42,38 +43,45 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("NewTenant: %v", err)
 	}
 
-	gotAud, gotApps := ResolveAudienceForTest(tenant, "openid api://app/access")
-	if gotAud != "api://app" {
-		t.Fatalf("expected audience %q, got %q", "api://app", gotAud)
+	gotAud, gotApps := app.ExportResolveAudienceForTest(tenant, "openid api://app/access")
+	if gotAud != testApp {
+		t.Fatalf("expected audience %q, got %q", testApp, gotAud)
 	}
 
 	if !gotApps[clientID.String()] {
 		t.Fatalf("expected target apps to include %s", clientID)
 	}
 
-	gotAud, gotApps = ResolveAudienceForTest(tenant, "openid")
+	gotAud, gotApps = app.ExportResolveAudienceForTest(tenant, "openid")
 	if gotAud != "api://default" {
 		t.Fatalf("expected default audience %q, got %q", "api://default", gotAud)
 	}
 
-	if len(gotApps) != 0 {
-		t.Fatalf("expected no target apps for oidc-only scope")
+	const expectedLen = 0
+
+	if len(gotApps) != expectedLen {
+		t.Fatal("expected no target apps for oidc-only scope")
 	}
 }
 
 func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	t.Parallel()
 
-	appClientID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
-	redirectURL := mustRedirectURL(t, "https://example.com/callback")
+	appClientID := domain.MustClientID(testClientID)
+	redirectURL := mustRedirectURL(t, testCallback)
+
+	const (
+		scopeID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+		roleID  = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
+	)
 
 	scope := domain.NewScope(
-		domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
+		domain.MustScopeID(scopeID),
 		mustScopeValue(t, "access"),
 		mustScopeDescription(t, "desc"),
 	)
 	roleFromScope := domain.NewRole(
-		domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"),
+		domain.MustRoleID(roleID),
 		mustRoleValue(t, "RoleFromScope"),
 		mustRoleDescription(t, "desc"),
 		[]domain.Scope{scope},
@@ -82,16 +90,40 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	registration := domain.NewAppRegistration(
 		domain.MustAppName("App"),
 		appClientID,
-		mustIdentifierURI(t, "api://app"),
+		mustIdentifierURI(t, testApp),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.Scope{scope},
 		[]domain.Role{roleFromScope},
 	)
 
+	user, client := setupUserAndClientForRoles(t, appClientID, redirectURL)
+
+	tenant, err := domain.NewTenant(
+		domain.MustTenantID(testTenantID),
+		domain.MustTenantName("Tenant"),
+		[]domain.AppRegistration{registration},
+		nil,
+		[]domain.User{user},
+		[]domain.Client{client},
+	)
+	if err != nil {
+		t.Fatalf("NewTenant: %v", err)
+	}
+
+	verifyResolvedRoles(t, tenant, client, user, appClientID)
+}
+
+func setupUserAndClientForRoles(
+	t *testing.T,
+	appClientID domain.ClientID,
+	redirectURL domain.RedirectURL,
+) (domain.User, domain.Client) {
+	t.Helper()
+
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-4333-8333-333333333333"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
+		domain.MustUserID(testUserID),
+		domain.MustUsername(testUser),
+		domain.MustPassword(testPass),
 		domain.MustDisplayName("User"),
 		domain.MustEmail("user@example.com"),
 		[]domain.GroupName{mustGroupName(t, "GroupA")},
@@ -116,28 +148,27 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	client := domain.NewClient(
 		domain.MustAppName("Client"),
 		appClientID,
-		domain.NewClientSecret("secret"),
+		domain.NewClientSecret(testSecret),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.GroupRoleAssignment{assignmentMatching, assignmentWrongGroup, assignmentNilApp},
 	)
 
-	tenant, err := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
-		nil,
-		[]domain.User{user},
-		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	return user, client
+}
+
+func verifyResolvedRoles(
+	t *testing.T,
+	tenant domain.Tenant,
+	client domain.Client,
+	user domain.User,
+	appClientID domain.ClientID,
+) {
+	t.Helper()
 
 	targetApps := map[string]bool{appClientID.String(): true}
-	requested := []string{"api://app/access"}
+	requested := []string{testApp + "/access"}
 
-	roles := ResolveRolesForTest(tenant, &client, &user, targetApps, requested)
-
+	roles := app.ExportResolveRolesForTest(tenant, &client, &user, targetApps, requested)
 	roleSet := make(map[string]bool)
 
 	for _, r := range roles {
@@ -145,18 +176,18 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	}
 
 	if !roleSet["RoleFromScope"] {
-		t.Fatalf("expected RoleFromScope")
+		t.Fatal("expected RoleFromScope")
 	}
 
 	if !roleSet["RoleFromAssignment"] {
-		t.Fatalf("expected RoleFromAssignment")
+		t.Fatal("expected RoleFromAssignment")
 	}
 
 	if !roleSet["RoleFromNilApp"] {
-		t.Fatalf("expected RoleFromNilApp")
+		t.Fatal("expected RoleFromNilApp")
 	}
 
 	if roleSet["ShouldNotAppear"] {
-		t.Fatalf("did not expect role from non-member group")
+		t.Fatal("did not expect role from non-member group")
 	}
 }

@@ -1,9 +1,10 @@
-package handlers
+package handlers_test
 
 import (
 	"testing"
 
 	"identity/domain"
+	"identity/http/handlers"
 )
 
 func TestAuthHelpers_CollectAssignmentRolesAndResolveAppName(t *testing.T) {
@@ -25,11 +26,36 @@ func TestAuthHelpers_CollectAssignmentRolesAndResolveAppName(t *testing.T) {
 		nil,
 	)
 
+	user, client := setupUserAndClientForHelpers(t, appID, redirectURL)
+
+	tenant, err := domain.NewTenant(
+		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
+		domain.MustTenantName("Tenant"),
+		[]domain.AppRegistration{registration},
+		nil,
+		[]domain.User{user},
+		[]domain.Client{client},
+	)
+	if err != nil {
+		t.Fatalf("NewTenant: %v", err)
+	}
+
+	verifyAuthHelpers(t, user, client, tenant, appID)
+}
+
+func setupUserAndClientForHelpers(
+	t *testing.T,
+	appID domain.ClientID,
+	redirectURL domain.RedirectURL,
+) (domain.User, domain.Client) {
+	t.Helper()
+
 	assignmentMatching := domain.NewGroupRoleAssignment(
 		mustGroupName(t, "GroupA"),
 		[]domain.RoleValue{mustRoleValue(t, "Role1")},
 		appID,
 	)
+
 	assignmentWrongGroup := domain.NewGroupRoleAssignment(
 		mustGroupName(t, "Other"),
 		[]domain.RoleValue{mustRoleValue(t, "Nope")},
@@ -53,33 +79,36 @@ func TestAuthHelpers_CollectAssignmentRolesAndResolveAppName(t *testing.T) {
 		[]domain.GroupName{mustGroupName(t, "GroupA")},
 	)
 
-	tenant, err := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
-		nil,
-		[]domain.User{user},
-		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	return user, client
+}
 
-	appRoles := collectAssignmentRoles(user, client)
-	if got := appRoles[appID.String()]; len(got) != 1 || got[0] != "Role1" {
+func verifyAuthHelpers(
+	t *testing.T,
+	user domain.User,
+	client domain.Client,
+	tenant domain.Tenant,
+	appID domain.ClientID,
+) {
+	t.Helper()
+
+	appRoles := handlers.ExportCollectAssignmentRoles(user, client)
+
+	const expectedRolesLen = 1
+
+	if got := appRoles[appID.String()]; len(got) != expectedRolesLen || got[0] != "Role1" {
 		t.Fatalf("unexpected appRoles: %#v", appRoles)
 	}
 
-	if got := resolveAppName(tenant, appID.String()); got != "App" {
+	if got := handlers.ExportResolveAppName(tenant, appID.String()); got != "App" {
 		t.Fatalf("expected App, got %q", got)
 	}
 
-	if got := resolveAppName(tenant, "nope"); got != "nope" {
+	if got := handlers.ExportResolveAppName(tenant, "nope"); got != "nope" {
 		t.Fatalf("expected fallback app id, got %q", got)
 	}
 
-	roles := resolveDisplayRoles(user, &client, tenant)
-	if len(roles) != 1 {
+	roles := handlers.ExportResolveDisplayRoles(user, &client, tenant)
+	if len(roles) != expectedRolesLen {
 		t.Fatalf("expected 1 role display, got %d", len(roles))
 	}
 }

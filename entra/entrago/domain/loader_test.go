@@ -11,6 +11,7 @@ import (
 
 const (
 	filePermission = 0o600
+	schemaFileName = "schema.json"
 	schemaJSON     = `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`
 )
 
@@ -31,11 +32,11 @@ func TestValidateYAML_InvalidForSchema(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
+	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 
-	err := domain.ValidateYAML([]byte("foo\n"), schemaPath)
+	err := domain.ExportValidateYAML([]byte("foo\n"), schemaPath)
 	if err == nil {
-		t.Fatalf("expected validation error")
+		t.Fatal("expected validation error")
 	}
 
 	if !errors.Is(err, domain.ErrInvalidConfig) {
@@ -47,7 +48,7 @@ func TestLoadConfig_Success(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
+	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 	yamlPath := writeTempFile(t, dir, "config.yaml", `tenants:
   - tenantId: "11111111-1111-4111-8111-111111111111"
     name: "Tenant"
@@ -76,7 +77,8 @@ func TestLoadConfig_Success(t *testing.T) {
 	}
 
 	tenants := config.Tenants()
-	if len(tenants) != 1 {
+
+	if len(tenants) != expectedTenants {
 		t.Fatalf("expected 1 tenant, got %d", len(tenants))
 	}
 
@@ -89,14 +91,14 @@ func TestLoadConfig_ReadError(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	schemaPath := writeTempFile(t, dir, "schema.json", schemaJSON)
+	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 
 	config, err := domain.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
 	if err == nil {
-		t.Fatalf("expected read error")
+		t.Fatal("expected read error")
 	}
 
-	if len(config.Tenants()) != 0 {
+	if len(config.Tenants()) != zeroLength {
 		t.Fatal("expected empty config on error")
 	}
 }
@@ -104,12 +106,12 @@ func TestLoadConfig_ReadError(t *testing.T) {
 func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 	t.Parallel()
 
-	urls, err := domain.BuildRedirectURLs([]string{""})
+	urls, err := domain.ExportBuildRedirectURLs([]string{""})
 	if err == nil {
-		t.Fatalf("expected error")
+		t.Fatal("expected error")
 	}
 
-	if len(urls) != 0 {
+	if len(urls) != zeroLength {
 		t.Fatal("expected no urls on error")
 	}
 }
@@ -117,12 +119,12 @@ func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 func TestBuildUserGroups_RejectsEmptyGroupName(t *testing.T) {
 	t.Parallel()
 
-	groups, err := domain.BuildUserGroups("user", []string{""})
+	groups, err := domain.ExportBuildUserGroups("user", []string{""})
 	if err == nil {
-		t.Fatalf("expected error")
+		t.Fatal("expected error")
 	}
 
-	if len(groups) != 0 {
+	if len(groups) != zeroLength {
 		t.Fatal("expected no groups on error")
 	}
 }

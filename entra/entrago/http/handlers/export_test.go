@@ -14,44 +14,72 @@ const (
 	PathCsharp       = pathCsharp
 )
 
-// Exported wrapper functions for testing only.
-
-func OkText(body []byte) Response {
+// ExportOkText is for testing okText from handlers_test.
+func ExportOkText(body []byte) Response {
 	return okText(body)
 }
 
-func InternalError(msg string) Response {
+// ExportInternalError is for testing internalError from handlers_test.
+func ExportInternalError(msg string) Response {
 	return internalError(msg)
 }
 
-func FromDomainError(domErr *domain.Error) Response {
+// ExportFromDomainError is for testing fromDomainError from handlers_test.
+func ExportFromDomainError(domErr *domain.Error) Response {
 	return fromDomainError(domErr)
 }
 
-func CollectAssignmentRoles(user domain.User, client domain.Client) map[string][]string {
+// ExportCollectAssignmentRoles is for testing collectAssignmentRoles from handlers_test.
+func ExportCollectAssignmentRoles(user domain.User, client domain.Client) map[string][]string {
 	return collectAssignmentRoles(user, client)
 }
 
-func ResolveAppName(tenant domain.Tenant, appIDStr string) string {
+// ExportResolveAppName is for testing resolveAppName from handlers_test.
+func ExportResolveAppName(tenant domain.Tenant, appIDStr string) string {
 	return resolveAppName(tenant, appIDStr)
 }
 
-func ResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
+// ExportResolveDisplayRoles is for testing resolveDisplayRoles from handlers_test.
+func ExportResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
 	return resolveDisplayRoles(user, client, tenant)
 }
 
-func ResolveTestUser(tenant domain.Tenant, username string) *domain.User {
+// ExportResolveTestUser is for testing resolveTestUser from handlers_test.
+func ExportResolveTestUser(tenant domain.Tenant, username string) *domain.User {
 	return resolveTestUser(tenant, username)
 }
 
-func ConfigHandler(request *http.Request, application *app.App) Response {
+// ExportConfigHandler is for testing configHandler from handlers_test.
+func ExportConfigHandler(request *http.Request, application *app.App) Response {
 	return configHandler(request, application)
 }
 
-func InvokeTestTokenHandler(request *http.Request, application *app.App) Response {
+// ExportInvokeTestTokenHandler is for testing testTokenHandler from handlers_test.
+func ExportInvokeTestTokenHandler(request *http.Request, application *app.App) Response {
 	return testTokenHandler(request, application)
 }
 
-func ParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID, domain.ClientID, error) {
+// ExportParseTenantAndAppID is for testing parseTenantAndAppID from handlers_test.
+func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID, domain.ClientID, error) {
 	return parseTenantAndAppID(path, midSegment, suffix)
+}
+
+// ExportResolveClientFromID is for testing resolveClientFromID from handlers_test.
+func ExportResolveClientFromID(tenant domain.Tenant, clientID string) *domain.Client {
+	return resolveClientFromID(tenant, clientID)
+}
+
+// ExportResolveClientFromForm is for testing resolveClientFromForm from handlers_test.
+func ExportResolveClientFromForm(tenant domain.Tenant, clientID, clientSecret string) *domain.Client {
+	return resolveClientFromForm(tenant, clientID, clientSecret)
+}
+
+// ExportFirstOf is for testing firstOf from handlers_test.
+func ExportFirstOf(primary, fallback string) string {
+	return firstOf(primary, fallback)
+}
+
+// ExportCorrelationID is for testing correlationID from handlers_test.
+func ExportCorrelationID(request *http.Request) string {
+	return correlationID(request)
 }

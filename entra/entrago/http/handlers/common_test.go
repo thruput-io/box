@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"context"
@@ -7,6 +7,14 @@ import (
 	"testing"
 
 	"identity/domain"
+)
+
+const (
+	testAppURI      = "api://app"
+	testCallbackURI = "https://example.com/callback"
+	fmtStatus       = "expected %d, got %d"
+	pathConfig      = "/config/"
+	pathCsharp      = "/csharp"
 )
 
 func mustGroupName(t *testing.T, raw string) domain.GroupName {
@@ -31,10 +39,23 @@ func mustRoleValue(t *testing.T, raw string) domain.RoleValue {
 	return v
 }
 
+func mustIdentifierURI(t *testing.T, raw string) domain.IdentifierURI {
+	t.Helper()
+
+	v, err := domain.NewIdentifierURI(raw)
+	if err != nil {
+		t.Fatalf("NewIdentifierURI(%q): %v", raw, err)
+	}
+
+	return v
+}
+
 func newTestRequest(t *testing.T, method, url, body string) *http.Request {
 	t.Helper()
 
-	req, err := http.NewRequestWithContext(context.Background(), method, url, strings.NewReader(body))
+	ctx := context.Background()
+
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("newTestRequest: %v", err)
 	}
