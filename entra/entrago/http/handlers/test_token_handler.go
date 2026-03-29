@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"identity/app"
 	"identity/domain"
@@ -10,7 +14,40 @@ import (
 
 const (
 	firstIndex = 0
+	emptySize  = 0
 )
+
+func signTokenHandler(request *http.Request, application *app.App) Response {
+	var tokenData []byte
+
+	var err error
+
+	if request.Method == http.MethodPost {
+		tokenData, err = io.ReadAll(request.Body)
+		if err != nil {
+			return internalError("failed to read body")
+		}
+	}
+
+	if len(tokenData) == emptySize {
+		tokenData = []byte(request.URL.Query().Get("token"))
+	}
+
+	if len(tokenData) == emptySize {
+		return badRequest(domain.NewError(domain.ErrCodeInvalidRequest, "missing token"))
+	}
+
+	var claims jwt.MapClaims
+
+	err = json.Unmarshal(tokenData, &claims)
+	if err != nil {
+		return badRequest(domain.NewError(domain.ErrCodeInvalidRequest, "invalid json claims"))
+	}
+
+	signed := app.SignClaims(application.Key, claims)
+
+	return okText([]byte(signed))
+}
 
 func testTokenHandler(request *http.Request, application *app.App) Response {
 	parts := strings.Split(strings.Trim(request.URL.Path, pathSeparator), pathSeparator)

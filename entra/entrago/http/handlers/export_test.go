@@ -64,6 +64,11 @@ func ExportInvokeTestTokenHandler(request *http.Request, application *app.App) R
 	return testTokenHandler(request, application)
 }
 
+// ExportInvokeSignTokenHandler is for testing signTokenHandler from handlers_test.
+func ExportInvokeSignTokenHandler(request *http.Request, application *app.App) Response {
+	return signTokenHandler(request, application)
+}
+
 // ExportParseTenantAndAppID is for testing parseTenantAndAppID from handlers_test.
 func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID, domain.ClientID, error) {
 	return parseTenantAndAppID(path, midSegment, suffix)

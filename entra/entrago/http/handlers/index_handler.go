@@ -13,6 +13,10 @@ func indexHandler(request *http.Request, application *app.App) Response {
 		return testTokenHandler(request, application)
 	}
 
+	if strings.HasPrefix(request.URL.Path, "/test-token/sign") {
+		return signTokenHandler(request, application)
+	}
+
 	if strings.HasPrefix(request.URL.Path, "/config/") {
 		return configHandler(request, application)
 	}
