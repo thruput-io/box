@@ -1,0 +1,600 @@
+=== RUN   TestAuthorize_Success
+=== PAUSE TestAuthorize_Success
+=== RUN   TestAuthorize_RendersQuickLoginUsers
+=== PAUSE TestAuthorize_RendersQuickLoginUsers
+=== RUN   TestAuthorize_TenantV2AuthorityPath
+=== PAUSE TestAuthorize_TenantV2AuthorityPath
+=== RUN   TestAuthorize_InvalidRedirect
+=== PAUSE TestAuthorize_InvalidRedirect
+=== RUN   TestAuthorize_ClientNotFound
+=== PAUSE TestAuthorize_ClientNotFound
+=== RUN   TestAuthorize_ParamTooLong
+=== PAUSE TestAuthorize_ParamTooLong
+=== RUN   TestLogin_Success
+=== PAUSE TestLogin_Success
+=== RUN   TestLogin_FragmentMode
+=== PAUSE TestLogin_FragmentMode
+=== RUN   TestLogin_InvalidPassword
+=== PAUSE TestLogin_InvalidPassword
+=== RUN   TestLogin_MethodNotAllowed
+=== PAUSE TestLogin_MethodNotAllowed
+=== RUN   TestDiscovery_Root
+=== PAUSE TestDiscovery_Root
+=== RUN   TestDiscovery_TenantScoped
+=== PAUSE TestDiscovery_TenantScoped
+=== RUN   TestDiscovery_V2
+=== PAUSE TestDiscovery_V2
+=== RUN   TestJWKS
+=== PAUSE TestJWKS
+=== RUN   TestCallHome
+=== PAUSE TestCallHome
+=== RUN   TestIndex_Root
+=== PAUSE TestIndex_Root
+=== RUN   TestIndex_NotFound
+=== PAUSE TestIndex_NotFound
+=== RUN   TestHealth
+=== PAUSE TestHealth
+=== RUN   TestCORS_Options
+=== PAUSE TestCORS_Options
+=== RUN   TestResolveConfigPath
+=== PAUSE TestResolveConfigPath
+=== RUN   TestLoadTemplates
+=== PAUSE TestLoadTemplates
+=== RUN   TestRun_LoadConfigError
+=== PAUSE TestRun_LoadConfigError
+=== RUN   TestRun_ListenError
+=== PAUSE TestRun_ListenError
+=== RUN   TestDefaultLoadConfig_Error
+=== PAUSE TestDefaultLoadConfig_Error
+=== RUN   TestResolveAddr
+=== PAUSE TestResolveAddr
+=== RUN   TestMain_Dummy
+=== PAUSE TestMain_Dummy
+=== RUN   TestToken_PasswordGrant
+=== PAUSE TestToken_PasswordGrant
+=== RUN   TestToken_PasswordGrant_WrongPassword
+=== PAUSE TestToken_PasswordGrant_WrongPassword
+=== RUN   TestToken_PasswordGrant_MissingUsername
+=== PAUSE TestToken_PasswordGrant_MissingUsername
+=== RUN   TestToken_ClientCredentials
+=== PAUSE TestToken_ClientCredentials
+=== RUN   TestToken_ClientCredentials_WrongSecret
+=== PAUSE TestToken_ClientCredentials_WrongSecret
+=== RUN   TestToken_AuthorizationCode
+=== PAUSE TestToken_AuthorizationCode
+=== RUN   TestToken_RefreshToken
+=== PAUSE TestToken_RefreshToken
+=== RUN   TestToken_UnsupportedGrant
+=== PAUSE TestToken_UnsupportedGrant
+=== RUN   TestToken_ParamTooLong
+=== PAUSE TestToken_ParamTooLong
+=== CONT  TestAuthorize_Success
+=== CONT  TestCORS_Options
+=== CONT  TestToken_PasswordGrant_WrongPassword
+=== CONT  TestToken_AuthorizationCode
+=== CONT  TestToken_ClientCredentials
+=== CONT  TestToken_UnsupportedGrant
+=== CONT  TestDefaultLoadConfig_Error
+--- PASS: TestDefaultLoadConfig_Error (0.00s)
+=== CONT  TestToken_PasswordGrant
+=== CONT  TestRun_LoadConfigError
+--- PASS: TestRun_LoadConfigError (0.00s)
+=== CONT  TestRun_ListenError
+--- PASS: TestRun_ListenError (0.02s)
+=== CONT  TestHealth
+2026/03/30 09:11:48 OPTIONS / 204 3.042µs
+--- PASS: TestCORS_Options (0.03s)
+=== CONT  TestIndex_NotFound
+2026/03/30 09:11:48 GET /authorize 200 368.583µs
+--- PASS: TestAuthorize_Success (0.03s)
+=== CONT  TestIndex_Root
+2026/03/30 09:11:48 GET /_health 200 7.375µs
+--- PASS: TestHealth (0.04s)
+=== CONT  TestCallHome
+2026/03/30 09:11:48 POST /oauth2/token 401 35.458µs
+--- PASS: TestToken_PasswordGrant_WrongPassword (0.11s)
+=== CONT  TestJWKS
+2026/03/30 09:11:48 POST /oauth2/token 200 26.984166ms
+--- PASS: TestToken_ClientCredentials (0.18s)
+=== CONT  TestDiscovery_V2
+2026/03/30 09:11:49 POST /oauth2/token 200 12.571042ms
+--- PASS: TestToken_AuthorizationCode (0.22s)
+=== CONT  TestDiscovery_TenantScoped
+2026/03/30 09:11:49 GET /common/discovery/instance 200 37.084µs
+--- PASS: TestCallHome (0.17s)
+=== CONT  TestDiscovery_Root
+2026/03/30 09:11:49 POST /oauth2/token 400 12.042µs
+--- PASS: TestToken_UnsupportedGrant (0.27s)
+=== CONT  TestLogin_MethodNotAllowed
+2026/03/30 09:11:49 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/.well-known/openid-configuration 200 30.583µs
+--- PASS: TestDiscovery_TenantScoped (0.14s)
+=== CONT  TestLogin_InvalidPassword
+2026/03/30 09:11:49 POST /login 401 14.25µs
+--- PASS: TestLogin_InvalidPassword (0.03s)
+=== CONT  TestLogin_FragmentMode
+2026/03/30 09:11:49 GET /discovery/keys 200 12.084µs
+--- PASS: TestJWKS (0.28s)
+=== CONT  TestLogin_Success
+2026/03/30 09:11:49 GET /unknown-path 404 3.292µs
+--- PASS: TestIndex_NotFound (0.37s)
+=== CONT  TestAuthorize_ParamTooLong
+2026/03/30 09:11:49 POST /login 302 2.037625ms
+--- PASS: TestLogin_FragmentMode (0.02s)
+=== CONT  TestAuthorize_ClientNotFound
+2026/03/30 09:11:49 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/v2.0/.well-known/openid-configuration 200 30.25µs
+--- PASS: TestDiscovery_V2 (0.23s)
+=== CONT  TestAuthorize_InvalidRedirect
+2026/03/30 09:11:49 POST /oauth2/token 200 2.849583ms
+--- PASS: TestToken_PasswordGrant (0.41s)
+=== CONT  TestAuthorize_TenantV2AuthorityPath
+2026/03/30 09:11:49 GET /.well-known/openid-configuration 200 43.459µs
+--- PASS: TestDiscovery_Root (0.20s)
+=== CONT  TestAuthorize_RendersQuickLoginUsers
+2026/03/30 09:11:49 GET / 200 536.667µs
+--- PASS: TestIndex_Root (0.46s)
+=== CONT  TestToken_ClientCredentials_WrongSecret
+2026/03/30 09:11:49 GET /authorize 400 11.584µs
+--- PASS: TestAuthorize_ParamTooLong (0.11s)
+=== CONT  TestMain_Dummy
+--- PASS: TestMain_Dummy (0.00s)
+=== CONT  TestResolveAddr
+--- PASS: TestResolveAddr (0.00s)
+=== CONT  TestToken_ParamTooLong
+2026/03/30 09:11:49 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/v2.0/oauth2/v2.0/authorize 200 109.875µs
+--- PASS: TestAuthorize_TenantV2AuthorityPath (0.11s)
+=== CONT  TestToken_PasswordGrant_MissingUsername
+2026/03/30 09:11:49 GET /login 405 7.875µs
+--- PASS: TestLogin_MethodNotAllowed (0.30s)
+=== CONT  TestToken_RefreshToken
+2026/03/30 09:11:49 GET /authorize 400 80.708µs
+--- PASS: TestAuthorize_InvalidRedirect (0.16s)
+=== CONT  TestLoadTemplates
+--- PASS: TestLoadTemplates (0.00s)
+=== CONT  TestResolveConfigPath
+--- PASS: TestResolveConfigPath (0.00s)
+2026/03/30 09:11:49 POST /login 302 881µs
+--- PASS: TestLogin_Success (0.18s)
+2026/03/30 09:11:49 GET /authorize 200 179.833µs
+--- PASS: TestAuthorize_RendersQuickLoginUsers (0.15s)
+2026/03/30 09:11:49 POST /oauth2/token 401 9.333µs
+--- PASS: TestToken_ClientCredentials_WrongSecret (0.10s)
+2026/03/30 09:11:49 POST /oauth2/token 401 44.333µs
+--- PASS: TestToken_PasswordGrant_MissingUsername (0.07s)
+2026/03/30 09:11:49 POST /oauth2/token 200 2.109958ms
+--- PASS: TestToken_RefreshToken (0.03s)
+2026/03/30 09:11:49 GET /authorize 400 7.292µs
+--- PASS: TestAuthorize_ClientNotFound (0.21s)
+2026/03/30 09:11:49 POST /oauth2/token 400 10.416µs
+--- PASS: TestToken_ParamTooLong (0.13s)
+PASS
+coverage: 49.8% of statements in ./...
+ok  	identity	(cached)	coverage: 49.8% of statements in ./...
+=== RUN   TestLookup_TenantSelection
+=== PAUSE TestLookup_TenantSelection
+=== RUN   TestLookup_TenantByID
+=== PAUSE TestLookup_TenantByID
+=== RUN   TestLookup_ClientRegistrationAndRedirects
+=== PAUSE TestLookup_ClientRegistrationAndRedirects
+=== RUN   TestLookup_AuthenticateAndSecrets
+=== PAUSE TestLookup_AuthenticateAndSecrets
+=== RUN   TestLookup_UserByID
+=== PAUSE TestLookup_UserByID
+=== RUN   TestIssueToken_Coverage
+=== PAUSE TestIssueToken_Coverage
+=== RUN   TestIssueAuthCode_Coverage
+=== PAUSE TestIssueAuthCode_Coverage
+=== RUN   TestToken_InternalHelpers_Coverage
+=== PAUSE TestToken_InternalHelpers_Coverage
+=== RUN   TestResolveAudienceForTest
+=== PAUSE TestResolveAudienceForTest
+=== RUN   TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles
+=== PAUSE TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles
+=== RUN   TestIssueAuthCode_Claims
+=== PAUSE TestIssueAuthCode_Claims
+=== RUN   TestParseSignedToken_InvalidToken
+=== PAUSE TestParseSignedToken_InvalidToken
+=== RUN   TestParseSignedToken_InvalidSignature
+=== PAUSE TestParseSignedToken_InvalidSignature
+=== RUN   TestBuildClientInfo
+=== PAUSE TestBuildClientInfo
+=== RUN   TestPublicKey
+=== PAUSE TestPublicKey
+=== RUN   TestLookup_NotFoundErrors
+=== PAUSE TestLookup_NotFoundErrors
+=== CONT  TestLookup_TenantSelection
+=== CONT  TestResolveAudienceForTest
+=== CONT  TestLookup_UserByID
+=== CONT  TestBuildClientInfo
+=== CONT  TestToken_InternalHelpers_Coverage
+=== CONT  TestParseSignedToken_InvalidToken
+=== CONT  TestIssueAuthCode_Coverage
+=== CONT  TestIssueToken_Coverage
+=== CONT  TestParseSignedToken_InvalidSignature
+=== CONT  TestLookup_NotFoundErrors
+=== CONT  TestLookup_ClientRegistrationAndRedirects
+=== CONT  TestLookup_AuthenticateAndSecrets
+=== CONT  TestLookup_TenantByID
+=== CONT  TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles
+--- PASS: TestLookup_TenantSelection (0.00s)
+=== CONT  TestPublicKey
+--- PASS: TestResolveAudienceForTest (0.00s)
+--- PASS: TestLookup_UserByID (0.00s)
+--- PASS: TestToken_InternalHelpers_Coverage (0.00s)
+--- PASS: TestLookup_NotFoundErrors (0.00s)
+--- PASS: TestLookup_ClientRegistrationAndRedirects (0.00s)
+--- PASS: TestLookup_AuthenticateAndSecrets (0.00s)
+--- PASS: TestLookup_TenantByID (0.00s)
+=== CONT  TestIssueAuthCode_Claims
+--- PASS: TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles (0.00s)
+--- PASS: TestBuildClientInfo (0.00s)
+--- PASS: TestParseSignedToken_InvalidToken (0.01s)
+--- PASS: TestPublicKey (0.01s)
+--- PASS: TestIssueAuthCode_Claims (0.02s)
+--- PASS: TestIssueAuthCode_Coverage (0.02s)
+--- PASS: TestParseSignedToken_InvalidSignature (0.04s)
+--- PASS: TestIssueToken_Coverage (0.11s)
+PASS
+coverage: 27.0% of statements in ./...
+ok  	identity/app	(cached)	coverage: 27.0% of statements in ./...
+=== RUN   TestAppRegistration_IsAudienceForScope
+=== PAUSE TestAppRegistration_IsAudienceForScope
+=== RUN   TestRole_MatchesScope
+=== PAUSE TestRole_MatchesScope
+=== RUN   TestClient_Validate_Confidential
+=== PAUSE TestClient_Validate_Confidential
+=== RUN   TestClient_Validate_Public
+=== PAUSE TestClient_Validate_Public
+=== RUN   TestTenant_AsClient
+=== PAUSE TestTenant_AsClient
+=== RUN   TestTenantID_AsURL
+=== PAUSE TestTenantID_AsURL
+=== RUN   TestBuildScope_Success
+=== PAUSE TestBuildScope_Success
+=== RUN   TestBuildRole_Success
+=== PAUSE TestBuildRole_Success
+=== RUN   TestBuildClient_WithGroupRoleAssignment
+=== PAUSE TestBuildClient_WithGroupRoleAssignment
+=== RUN   TestBuildGroupRoleAssignments_Success
+=== PAUSE TestBuildGroupRoleAssignments_Success
+=== RUN   TestBuildGroupRoleAssignment_Success
+=== PAUSE TestBuildGroupRoleAssignment_Success
+=== RUN   TestBuildUser_Success
+=== PAUSE TestBuildUser_Success
+=== RUN   TestBuildAppRegistration_Success
+=== PAUSE TestBuildAppRegistration_Success
+=== RUN   TestBuildTenant_Success
+=== PAUSE TestBuildTenant_Success
+=== RUN   TestLoadConfig_ValidationFailed
+=== PAUSE TestLoadConfig_ValidationFailed
+=== RUN   TestNewTenant_Errors
+=== PAUSE TestNewTenant_Errors
+=== RUN   TestValidateYAML_InvalidForSchema
+=== PAUSE TestValidateYAML_InvalidForSchema
+=== RUN   TestLoadConfig_Success
+=== PAUSE TestLoadConfig_Success
+=== RUN   TestLoadConfig_ReadError
+=== PAUSE TestLoadConfig_ReadError
+=== RUN   TestBuildRedirectURLs_InvalidURL
+=== PAUSE TestBuildRedirectURLs_InvalidURL
+=== RUN   TestBuildUserGroups_RejectsEmptyGroupName
+=== PAUSE TestBuildUserGroups_RejectsEmptyGroupName
+=== RUN   TestDomain_Parse_Error
+=== PAUSE TestDomain_Parse_Error
+=== RUN   TestDomain_ParseTokenAdapter_Error
+=== PAUSE TestDomain_ParseTokenAdapter_Error
+=== RUN   TestDomainError_ErrorString
+=== PAUSE TestDomainError_ErrorString
+=== RUN   TestConfig_ScopeRoleGroupGetters
+=== PAUSE TestConfig_ScopeRoleGroupGetters
+=== RUN   TestIDs_FromUUIDAndAccessors
+=== PAUSE TestIDs_FromUUIDAndAccessors
+=== RUN   TestDescriptions_Parse
+=== PAUSE TestDescriptions_Parse
+=== RUN   TestStringWrappers_EmptyErrors_IDsAndNames
+=== PAUSE TestStringWrappers_EmptyErrors_IDsAndNames
+=== RUN   TestStringWrappers_EmptyErrors_CredentialsAndURIs
+=== PAUSE TestStringWrappers_EmptyErrors_CredentialsAndURIs
+=== RUN   TestMust_Panics
+=== PAUSE TestMust_Panics
+=== RUN   TestNewNonEmptyString_EmptyStringReturnsError
+=== PAUSE TestNewNonEmptyString_EmptyStringReturnsError
+=== RUN   TestNewNonEmptyString_NonEmptyStringSucceeds
+=== PAUSE TestNewNonEmptyString_NonEmptyStringSucceeds
+=== RUN   TestNewTenantName_Empty
+=== PAUSE TestNewTenantName_Empty
+=== RUN   TestNewEmail_Empty
+=== PAUSE TestNewEmail_Empty
+=== CONT  TestNewTenantName_Empty
+--- PASS: TestNewTenantName_Empty (0.00s)
+=== CONT  TestIDs_FromUUIDAndAccessors
+--- PASS: TestIDs_FromUUIDAndAccessors (0.00s)
+=== CONT  TestConfig_ScopeRoleGroupGetters
+=== CONT  TestAppRegistration_IsAudienceForScope
+--- PASS: TestConfig_ScopeRoleGroupGetters (0.00s)
+--- PASS: TestAppRegistration_IsAudienceForScope (0.00s)
+=== CONT  TestNewNonEmptyString_NonEmptyStringSucceeds
+=== CONT  TestDomain_ParseTokenAdapter_Error
+--- PASS: TestNewNonEmptyString_NonEmptyStringSucceeds (0.00s)
+--- PASS: TestDomain_ParseTokenAdapter_Error (0.00s)
+=== CONT  TestDomainError_ErrorString
+=== CONT  TestBuildUserGroups_RejectsEmptyGroupName
+=== CONT  TestMust_Panics
+=== CONT  TestStringWrappers_EmptyErrors_CredentialsAndURIs
+=== CONT  TestLoadConfig_Success
+=== CONT  TestStringWrappers_EmptyErrors_IDsAndNames
+=== RUN   TestMust_Panics/MustTenantID
+=== PAUSE TestMust_Panics/MustTenantID
+=== CONT  TestValidateYAML_InvalidForSchema
+=== RUN   TestMust_Panics/MustClientID
+=== PAUSE TestMust_Panics/MustClientID
+=== RUN   TestMust_Panics/MustUserID
+=== PAUSE TestMust_Panics/MustUserID
+=== RUN   TestMust_Panics/MustGroupID
+=== PAUSE TestMust_Panics/MustGroupID
+=== CONT  TestDescriptions_Parse
+=== RUN   TestMust_Panics/MustScopeID
+=== PAUSE TestMust_Panics/MustScopeID
+=== RUN   TestMust_Panics/MustRoleID
+=== PAUSE TestMust_Panics/MustRoleID
+=== CONT  TestNewTenant_Errors
+=== RUN   TestMust_Panics/MustTenantName
+=== CONT  TestDomain_Parse_Error
+=== PAUSE TestMust_Panics/MustTenantName
+--- PASS: TestDomainError_ErrorString (0.00s)
+=== RUN   TestMust_Panics/MustAppName
+=== CONT  TestLoadConfig_ValidationFailed
+=== PAUSE TestMust_Panics/MustAppName
+=== RUN   TestMust_Panics/MustUsername
+=== PAUSE TestMust_Panics/MustUsername
+=== RUN   TestMust_Panics/MustPassword
+=== PAUSE TestMust_Panics/MustPassword
+=== RUN   TestMust_Panics/MustDisplayName
+=== PAUSE TestMust_Panics/MustDisplayName
+=== RUN   TestMust_Panics/MustEmail
+=== PAUSE TestMust_Panics/MustEmail
+=== RUN   TestMust_Panics/MustNonEmptyString
+=== CONT  TestBuildScope_Success
+=== CONT  TestTenantID_AsURL
+--- PASS: TestBuildUserGroups_RejectsEmptyGroupName (0.00s)
+--- PASS: TestStringWrappers_EmptyErrors_CredentialsAndURIs (0.00s)
+--- PASS: TestStringWrappers_EmptyErrors_IDsAndNames (0.00s)
+--- PASS: TestDescriptions_Parse (0.00s)
+--- PASS: TestDomain_Parse_Error (0.00s)
+--- PASS: TestNewTenant_Errors (0.00s)
+--- PASS: TestBuildScope_Success (0.00s)
+--- PASS: TestTenantID_AsURL (0.00s)
+=== PAUSE TestMust_Panics/MustNonEmptyString
+=== CONT  TestBuildRedirectURLs_InvalidURL
+--- PASS: TestBuildRedirectURLs_InvalidURL (0.00s)
+=== CONT  TestClient_Validate_Confidential
+--- PASS: TestClient_Validate_Confidential (0.00s)
+=== CONT  TestRole_MatchesScope
+--- PASS: TestRole_MatchesScope (0.00s)
+=== CONT  TestNewNonEmptyString_EmptyStringReturnsError
+--- PASS: TestNewNonEmptyString_EmptyStringReturnsError (0.00s)
+=== CONT  TestBuildUser_Success
+--- PASS: TestBuildUser_Success (0.00s)
+=== CONT  TestBuildTenant_Success
+=== CONT  TestNewEmail_Empty
+--- PASS: TestNewEmail_Empty (0.00s)
+=== CONT  TestBuildAppRegistration_Success
+--- PASS: TestBuildAppRegistration_Success (0.00s)
+--- PASS: TestBuildTenant_Success (0.00s)
+=== CONT  TestBuildGroupRoleAssignment_Success
+--- PASS: TestBuildGroupRoleAssignment_Success (0.00s)
+=== CONT  TestBuildClient_WithGroupRoleAssignment
+--- PASS: TestBuildClient_WithGroupRoleAssignment (0.00s)
+=== CONT  TestBuildRole_Success
+--- PASS: TestBuildRole_Success (0.00s)
+=== CONT  TestMust_Panics/MustTenantID
+=== CONT  TestClient_Validate_Public
+--- PASS: TestClient_Validate_Public (0.00s)
+=== CONT  TestTenant_AsClient
+--- PASS: TestTenant_AsClient (0.00s)
+=== CONT  TestBuildGroupRoleAssignments_Success
+--- PASS: TestBuildGroupRoleAssignments_Success (0.00s)
+=== CONT  TestMust_Panics/MustTenantName
+=== CONT  TestMust_Panics/MustRoleID
+=== CONT  TestMust_Panics/MustUserID
+=== CONT  TestMust_Panics/MustScopeID
+=== CONT  TestMust_Panics/MustGroupID
+=== CONT  TestMust_Panics/MustAppName
+=== CONT  TestMust_Panics/MustDisplayName
+=== CONT  TestMust_Panics/MustNonEmptyString
+=== CONT  TestMust_Panics/MustEmail
+=== CONT  TestMust_Panics/MustPassword
+=== CONT  TestMust_Panics/MustClientID
+=== CONT  TestMust_Panics/MustUsername
+--- PASS: TestMust_Panics (0.00s)
+    --- PASS: TestMust_Panics/MustTenantID (0.00s)
+    --- PASS: TestMust_Panics/MustRoleID (0.00s)
+    --- PASS: TestMust_Panics/MustTenantName (0.00s)
+    --- PASS: TestMust_Panics/MustUserID (0.00s)
+    --- PASS: TestMust_Panics/MustScopeID (0.00s)
+    --- PASS: TestMust_Panics/MustAppName (0.00s)
+    --- PASS: TestMust_Panics/MustGroupID (0.00s)
+    --- PASS: TestMust_Panics/MustDisplayName (0.00s)
+    --- PASS: TestMust_Panics/MustNonEmptyString (0.00s)
+    --- PASS: TestMust_Panics/MustEmail (0.00s)
+    --- PASS: TestMust_Panics/MustPassword (0.00s)
+    --- PASS: TestMust_Panics/MustClientID (0.00s)
+    --- PASS: TestMust_Panics/MustUsername (0.00s)
+=== CONT  TestLoadConfig_ReadError
+--- PASS: TestValidateYAML_InvalidForSchema (0.00s)
+--- PASS: TestLoadConfig_ReadError (0.00s)
+--- PASS: TestLoadConfig_ValidationFailed (0.00s)
+--- PASS: TestLoadConfig_Success (0.00s)
+PASS
+coverage: 31.5% of statements in ./...
+ok  	identity/domain	(cached)	coverage: 31.5% of statements in ./...
+=== RUN   TestAdapter_OkTextAndInternalError
+=== PAUSE TestAdapter_OkTextAndInternalError
+=== RUN   TestAdapter_FromDomainError_WritesOAuthError
+=== PAUSE TestAdapter_FromDomainError_WritesOAuthError
+=== RUN   TestAdapter_WriteSetsHeadersAndBody
+=== PAUSE TestAdapter_WriteSetsHeadersAndBody
+=== RUN   TestAuthHelpers_CollectAssignmentRolesAndResolveAppName
+=== PAUSE TestAuthHelpers_CollectAssignmentRolesAndResolveAppName
+=== RUN   TestConfigHandler_RawRedirect
+=== PAUSE TestConfigHandler_RawRedirect
+=== RUN   TestConfigHandler_CsharpAppSuccess
+=== PAUSE TestConfigHandler_CsharpAppSuccess
+=== RUN   TestConfigHandler_JsAppSuccess
+=== PAUSE TestConfigHandler_JsAppSuccess
+=== RUN   TestConfigHandler_CsharpClientIncludesSecretWhenPresent
+=== PAUSE TestConfigHandler_CsharpClientIncludesSecretWhenPresent
+=== RUN   TestParseTenantAndAppID_Errors
+=== PAUSE TestParseTenantAndAppID_Errors
+=== RUN   TestTestTokenHandler_InvalidPath
+=== PAUSE TestTestTokenHandler_InvalidPath
+=== RUN   TestTestTokenHandler_TenantNotFound
+=== PAUSE TestTestTokenHandler_TenantNotFound
+=== RUN   TestTestTokenHandler_InvalidAppID
+=== PAUSE TestTestTokenHandler_InvalidAppID
+=== RUN   TestTestTokenHandler_Success_DefaultScopeAndUser
+=== PAUSE TestTestTokenHandler_Success_DefaultScopeAndUser
+=== RUN   TestResolveTestUser
+=== PAUSE TestResolveTestUser
+=== RUN   TestResolveClientFromPart_AppRegistration
+=== PAUSE TestResolveClientFromPart_AppRegistration
+=== RUN   TestResolveClientFromPart_NotFound
+=== PAUSE TestResolveClientFromPart_NotFound
+=== RUN   TestResolveTestUser_Fallback
+=== PAUSE TestResolveTestUser_Fallback
+=== RUN   TestSignTokenHandler_InvalidJSON
+=== PAUSE TestSignTokenHandler_InvalidJSON
+=== RUN   TestTestTokenHandler_ProdIntegration_1a
+=== PAUSE TestTestTokenHandler_ProdIntegration_1a
+=== RUN   TestTestTokenHandler_ProdIntegration_1b
+=== PAUSE TestTestTokenHandler_ProdIntegration_1b
+=== RUN   TestTestTokenHandler_ProdIntegration_1c
+=== PAUSE TestTestTokenHandler_ProdIntegration_1c
+=== RUN   TestSignTokenHandler_WithProdToken
+=== PAUSE TestSignTokenHandler_WithProdToken
+=== RUN   TestSignTokenHandler_WithQueryParam
+=== PAUSE TestSignTokenHandler_WithQueryParam
+=== RUN   TestTokenHandler_Coverage
+=== PAUSE TestTokenHandler_Coverage
+=== RUN   TestTokenHelpers_ResolveClientFromID
+=== PAUSE TestTokenHelpers_ResolveClientFromID
+=== RUN   TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient
+=== PAUSE TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient
+=== RUN   TestTokenHelpers_ResolveClientFromForm_WithSecretValidation
+=== PAUSE TestTokenHelpers_ResolveClientFromForm_WithSecretValidation
+=== RUN   TestTokenHelpers_FirstOf
+=== PAUSE TestTokenHelpers_FirstOf
+=== RUN   TestTokenHelpers_CorrelationID
+=== PAUSE TestTokenHelpers_CorrelationID
+=== RUN   TestDomain_Parse
+=== PAUSE TestDomain_Parse
+=== RUN   TestDomain_Parse_IDToken
+=== PAUSE TestDomain_Parse_IDToken
+=== RUN   TestDomain_Parse_RefreshToken
+=== PAUSE TestDomain_Parse_RefreshToken
+=== RUN   TestDomain_Parse_AuthCode
+=== PAUSE TestDomain_Parse_AuthCode
+=== RUN   TestDomain_Parse_ClientInfo
+=== PAUSE TestDomain_Parse_ClientInfo
+=== CONT  TestAdapter_OkTextAndInternalError
+--- PASS: TestAdapter_OkTextAndInternalError (0.00s)
+=== CONT  TestDomain_Parse_ClientInfo
+--- PASS: TestDomain_Parse_ClientInfo (0.00s)
+=== CONT  TestDomain_Parse_AuthCode
+--- PASS: TestDomain_Parse_AuthCode (0.00s)
+=== CONT  TestDomain_Parse_RefreshToken
+--- PASS: TestDomain_Parse_RefreshToken (0.00s)
+=== CONT  TestDomain_Parse_IDToken
+--- PASS: TestDomain_Parse_IDToken (0.00s)
+=== CONT  TestDomain_Parse
+=== CONT  TestResolveClientFromPart_NotFound
+=== CONT  TestParseTenantAndAppID_Errors
+--- PASS: TestParseTenantAndAppID_Errors (0.00s)
+=== CONT  TestResolveClientFromPart_AppRegistration
+=== CONT  TestSignTokenHandler_WithQueryParam
+=== CONT  TestTestTokenHandler_ProdIntegration_1b
+=== CONT  TestSignTokenHandler_WithProdToken
+=== CONT  TestSignTokenHandler_InvalidJSON
+=== CONT  TestTestTokenHandler_ProdIntegration_1c
+--- PASS: TestTestTokenHandler_ProdIntegration_1c (0.05s)
+=== CONT  TestResolveTestUser_Fallback
+--- PASS: TestDomain_Parse (0.15s)
+=== CONT  TestResolveTestUser
+--- PASS: TestSignTokenHandler_WithQueryParam (0.17s)
+=== CONT  TestTestTokenHandler_Success_DefaultScopeAndUser
+--- PASS: TestSignTokenHandler_WithProdToken (0.17s)
+=== CONT  TestTestTokenHandler_InvalidAppID
+--- PASS: TestSignTokenHandler_InvalidJSON (0.17s)
+=== CONT  TestTestTokenHandler_TenantNotFound
+--- PASS: TestTestTokenHandler_ProdIntegration_1b (0.18s)
+=== CONT  TestTestTokenHandler_InvalidPath
+--- PASS: TestTestTokenHandler_TenantNotFound (0.03s)
+=== CONT  TestTokenHelpers_CorrelationID
+--- PASS: TestTokenHelpers_CorrelationID (0.00s)
+=== CONT  TestTokenHelpers_FirstOf
+--- PASS: TestTokenHelpers_FirstOf (0.00s)
+=== CONT  TestTokenHelpers_ResolveClientFromForm_WithSecretValidation
+--- PASS: TestTestTokenHandler_Success_DefaultScopeAndUser (0.07s)
+=== CONT  TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient
+--- PASS: TestTestTokenHandler_InvalidAppID (0.06s)
+=== CONT  TestTokenHelpers_ResolveClientFromID
+--- PASS: TestResolveClientFromPart_AppRegistration (0.24s)
+=== CONT  TestTokenHandler_Coverage
+--- PASS: TestResolveTestUser (0.10s)
+=== CONT  TestTestTokenHandler_ProdIntegration_1a
+--- PASS: TestTokenHelpers_ResolveClientFromForm_WithSecretValidation (0.04s)
+=== CONT  TestConfigHandler_RawRedirect
+--- PASS: TestConfigHandler_RawRedirect (0.00s)
+=== CONT  TestConfigHandler_CsharpClientIncludesSecretWhenPresent
+--- PASS: TestConfigHandler_CsharpClientIncludesSecretWhenPresent (0.00s)
+=== CONT  TestConfigHandler_JsAppSuccess
+--- PASS: TestConfigHandler_JsAppSuccess (0.00s)
+=== CONT  TestConfigHandler_CsharpAppSuccess
+--- PASS: TestConfigHandler_CsharpAppSuccess (0.00s)
+=== CONT  TestAdapter_WriteSetsHeadersAndBody
+--- PASS: TestAdapter_WriteSetsHeadersAndBody (0.00s)
+=== CONT  TestAuthHelpers_CollectAssignmentRolesAndResolveAppName
+--- PASS: TestAuthHelpers_CollectAssignmentRolesAndResolveAppName (0.00s)
+=== CONT  TestAdapter_FromDomainError_WritesOAuthError
+--- PASS: TestAdapter_FromDomainError_WritesOAuthError (0.00s)
+--- PASS: TestTokenHelpers_ResolveClientFromID (0.04s)
+--- PASS: TestResolveTestUser_Fallback (0.23s)
+=== RUN   TestTokenHandler_Coverage/InvalidGrantType
+=== PAUSE TestTokenHandler_Coverage/InvalidGrantType
+=== RUN   TestTokenHandler_Coverage/ClientCredentials_MissingSecret
+=== PAUSE TestTokenHandler_Coverage/ClientCredentials_MissingSecret
+=== CONT  TestTokenHandler_Coverage/InvalidGrantType
+=== CONT  TestTokenHandler_Coverage/ClientCredentials_MissingSecret
+--- PASS: TestTokenHandler_Coverage (0.07s)
+    --- PASS: TestTokenHandler_Coverage/InvalidGrantType (0.00s)
+    --- PASS: TestTokenHandler_Coverage/ClientCredentials_MissingSecret (0.00s)
+--- PASS: TestResolveClientFromPart_NotFound (0.32s)
+--- PASS: TestTestTokenHandler_ProdIntegration_1a (0.09s)
+--- PASS: TestTokenHelpers_ResolveClientFromForm_WithoutSecretClient (0.11s)
+--- PASS: TestTestTokenHandler_InvalidPath (0.20s)
+PASS
+coverage: 52.9% of statements in ./...
+ok  	identity/http/handlers	(cached)	coverage: 52.9% of statements in ./...
+=== RUN   TestBuildRoutes_ReturnsHandler
+=== PAUSE TestBuildRoutes_ReturnsHandler
+=== RUN   TestCorsMiddleware_AddsHeaders
+=== PAUSE TestCorsMiddleware_AddsHeaders
+=== RUN   TestLogMiddleware_RecordsStatus
+=== PAUSE TestLogMiddleware_RecordsStatus
+=== RUN   TestStatusRecorder_WriteHeader
+=== PAUSE TestStatusRecorder_WriteHeader
+=== RUN   TestServer_Handler
+=== PAUSE TestServer_Handler
+=== CONT  TestBuildRoutes_ReturnsHandler
+=== CONT  TestStatusRecorder_WriteHeader
+--- PASS: TestStatusRecorder_WriteHeader (0.00s)
+=== CONT  TestServer_Handler
+=== CONT  TestLogMiddleware_RecordsStatus
+=== CONT  TestCorsMiddleware_AddsHeaders
+--- PASS: TestCorsMiddleware_AddsHeaders (0.00s)
+2026/03/30 09:11:49 GET  418 875ns
+--- PASS: TestLogMiddleware_RecordsStatus (0.00s)
+--- PASS: TestServer_Handler (0.01s)
+--- PASS: TestBuildRoutes_ReturnsHandler (0.01s)
+PASS
+coverage: 8.3% of statements in ./...
+ok  	identity/http/transport	(cached)	coverage: 8.3% of statements in ./...

@@ -1,0 +1,170 @@
+=== RUN   TestAuthorize_Success
+=== PAUSE TestAuthorize_Success
+=== RUN   TestAuthorize_RendersQuickLoginUsers
+=== PAUSE TestAuthorize_RendersQuickLoginUsers
+=== RUN   TestAuthorize_TenantV2AuthorityPath
+=== PAUSE TestAuthorize_TenantV2AuthorityPath
+=== RUN   TestAuthorize_InvalidRedirect
+=== PAUSE TestAuthorize_InvalidRedirect
+=== RUN   TestAuthorize_ClientNotFound
+=== PAUSE TestAuthorize_ClientNotFound
+=== RUN   TestAuthorize_ParamTooLong
+=== PAUSE TestAuthorize_ParamTooLong
+=== RUN   TestLogin_Success
+=== PAUSE TestLogin_Success
+=== RUN   TestLogin_FragmentMode
+=== PAUSE TestLogin_FragmentMode
+=== RUN   TestLogin_InvalidPassword
+=== PAUSE TestLogin_InvalidPassword
+=== RUN   TestLogin_MethodNotAllowed
+=== PAUSE TestLogin_MethodNotAllowed
+=== RUN   TestDiscovery_Root
+=== PAUSE TestDiscovery_Root
+=== RUN   TestDiscovery_TenantScoped
+=== PAUSE TestDiscovery_TenantScoped
+=== RUN   TestDiscovery_V2
+=== PAUSE TestDiscovery_V2
+=== RUN   TestJWKS
+=== PAUSE TestJWKS
+=== RUN   TestCallHome
+=== PAUSE TestCallHome
+=== RUN   TestIndex_Root
+=== PAUSE TestIndex_Root
+=== RUN   TestIndex_NotFound
+=== PAUSE TestIndex_NotFound
+=== RUN   TestHealth
+=== PAUSE TestHealth
+=== RUN   TestCORS_Options
+=== PAUSE TestCORS_Options
+=== RUN   TestResolveConfigPath
+=== PAUSE TestResolveConfigPath
+=== RUN   TestLoadTemplates
+=== PAUSE TestLoadTemplates
+=== RUN   TestRun_LoadConfigError
+=== PAUSE TestRun_LoadConfigError
+=== RUN   TestRun_ListenError
+=== PAUSE TestRun_ListenError
+=== RUN   TestDefaultLoadConfig_Error
+=== PAUSE TestDefaultLoadConfig_Error
+=== RUN   TestResolveAddr
+=== PAUSE TestResolveAddr
+=== RUN   TestMain_Dummy
+=== PAUSE TestMain_Dummy
+=== RUN   TestToken_PasswordGrant
+=== PAUSE TestToken_PasswordGrant
+=== RUN   TestToken_PasswordGrant_WrongPassword
+=== PAUSE TestToken_PasswordGrant_WrongPassword
+=== RUN   TestToken_PasswordGrant_MissingUsername
+=== PAUSE TestToken_PasswordGrant_MissingUsername
+=== RUN   TestToken_ClientCredentials
+=== PAUSE TestToken_ClientCredentials
+=== RUN   TestToken_ClientCredentials_WrongSecret
+=== PAUSE TestToken_ClientCredentials_WrongSecret
+=== RUN   TestToken_AuthorizationCode
+=== PAUSE TestToken_AuthorizationCode
+=== RUN   TestToken_RefreshToken
+=== PAUSE TestToken_RefreshToken
+=== RUN   TestToken_UnsupportedGrant
+=== PAUSE TestToken_UnsupportedGrant
+=== RUN   TestToken_ParamTooLong
+=== PAUSE TestToken_ParamTooLong
+=== CONT  TestAuthorize_Success
+=== CONT  TestMain_Dummy
+--- PASS: TestMain_Dummy (0.00s)
+=== CONT  TestToken_ClientCredentials
+=== CONT  TestToken_ClientCredentials_WrongSecret
+=== CONT  TestToken_PasswordGrant_WrongPassword
+=== CONT  TestToken_PasswordGrant
+=== CONT  TestToken_UnsupportedGrant
+=== CONT  TestJWKS
+=== CONT  TestResolveConfigPath
+--- PASS: TestResolveConfigPath (0.00s)
+=== CONT  TestResolveAddr
+--- PASS: TestResolveAddr (0.00s)
+=== CONT  TestDefaultLoadConfig_Error
+--- PASS: TestDefaultLoadConfig_Error (0.00s)
+=== CONT  TestRun_ListenError
+--- PASS: TestRun_ListenError (0.01s)
+=== CONT  TestRun_LoadConfigError
+--- PASS: TestRun_LoadConfigError (0.00s)
+=== CONT  TestLoadTemplates
+--- PASS: TestLoadTemplates (0.00s)
+=== CONT  TestIndex_NotFound
+2026/03/30 09:18:52 GET /discovery/keys 200 165.167µs
+--- PASS: TestJWKS (0.03s)
+=== CONT  TestIndex_Root
+2026/03/30 09:18:52 POST /oauth2/token 401 24.417µs
+--- PASS: TestToken_ClientCredentials_WrongSecret (0.04s)
+=== CONT  TestCallHome
+2026/03/30 09:18:52 POST /oauth2/token 200 985.167µs
+--- PASS: TestToken_PasswordGrant (0.05s)
+=== CONT  TestToken_ParamTooLong
+2026/03/30 09:18:52 GET / 200 1.414083ms
+--- PASS: TestIndex_Root (0.04s)
+=== CONT  TestToken_PasswordGrant_MissingUsername
+2026/03/30 09:18:52 GET /unknown-path 404 10.292µs
+--- PASS: TestIndex_NotFound (0.06s)
+=== CONT  TestDiscovery_V2
+2026/03/30 09:18:52 POST /oauth2/token 400 14.292µs
+--- PASS: TestToken_UnsupportedGrant (0.08s)
+=== CONT  TestDiscovery_TenantScoped
+2026/03/30 09:18:52 POST /oauth2/token 401 10.208µs
+--- PASS: TestToken_PasswordGrant_WrongPassword (0.08s)
+=== CONT  TestDiscovery_Root
+2026/03/30 09:18:52 GET /authorize 200 203.625µs
+--- PASS: TestAuthorize_Success (0.09s)
+=== CONT  TestLogin_MethodNotAllowed
+2026/03/30 09:18:52 POST /oauth2/token 200 901.542µs
+--- PASS: TestToken_ClientCredentials (0.11s)
+=== CONT  TestLogin_InvalidPassword
+2026/03/30 09:18:52 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/v2.0/.well-known/openid-configuration 200 27.041µs
+--- PASS: TestDiscovery_V2 (0.07s)
+=== CONT  TestLogin_FragmentMode
+2026/03/30 09:18:52 GET /common/discovery/instance 200 5.334µs
+--- PASS: TestCallHome (0.11s)
+=== CONT  TestLogin_Success
+2026/03/30 09:18:52 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/.well-known/openid-configuration 200 15µs
+--- PASS: TestDiscovery_TenantScoped (0.07s)
+=== CONT  TestAuthorize_ParamTooLong
+2026/03/30 09:18:52 POST /login 302 2.751667ms
+--- PASS: TestLogin_FragmentMode (0.03s)
+=== CONT  TestAuthorize_ClientNotFound
+2026/03/30 09:18:52 GET /login 405 7.125µs
+--- PASS: TestLogin_MethodNotAllowed (0.08s)
+=== CONT  TestAuthorize_InvalidRedirect
+2026/03/30 09:18:52 POST /login 401 8.709µs
+--- PASS: TestLogin_InvalidPassword (0.06s)
+=== CONT  TestAuthorize_TenantV2AuthorityPath
+2026/03/30 09:18:52 POST /oauth2/token 401 12.417µs
+--- PASS: TestToken_PasswordGrant_MissingUsername (0.11s)
+=== CONT  TestAuthorize_RendersQuickLoginUsers
+2026/03/30 09:18:52 GET /authorize 400 4.167µs
+--- PASS: TestAuthorize_ClientNotFound (0.02s)
+=== CONT  TestToken_RefreshToken
+2026/03/30 09:18:52 GET /authorize 400 9.917µs
+--- PASS: TestAuthorize_ParamTooLong (0.05s)
+=== CONT  TestToken_AuthorizationCode
+2026/03/30 09:18:52 GET /b5a920d6-7d3c-44fe-baad-4ffed6b8774d/v2.0/oauth2/v2.0/authorize 200 364.083µs
+--- PASS: TestAuthorize_TenantV2AuthorityPath (0.06s)
+=== CONT  TestHealth
+2026/03/30 09:18:52 POST /login 302 1.400166ms
+--- PASS: TestLogin_Success (0.10s)
+=== CONT  TestCORS_Options
+2026/03/30 09:18:52 POST /oauth2/token 400 19.5µs
+--- PASS: TestToken_ParamTooLong (0.20s)
+2026/03/30 09:18:52 POST /oauth2/token 200 1.773166ms
+--- PASS: TestToken_RefreshToken (0.06s)
+2026/03/30 09:18:52 GET /.well-known/openid-configuration 200 41.291µs
+--- PASS: TestDiscovery_Root (0.18s)
+2026/03/30 09:18:52 GET /authorize 200 86.042µs
+--- PASS: TestAuthorize_RendersQuickLoginUsers (0.09s)
+2026/03/30 09:18:52 OPTIONS / 204 1µs
+--- PASS: TestCORS_Options (0.03s)
+2026/03/30 09:18:52 POST /oauth2/token 200 955.75µs
+--- PASS: TestToken_AuthorizationCode (0.08s)
+2026/03/30 09:18:52 GET /authorize 400 6.875µs
+--- PASS: TestAuthorize_InvalidRedirect (0.12s)
+2026/03/30 09:18:52 GET /_health 200 3.292µs
+--- PASS: TestHealth (0.10s)
+PASS
+ok  	identity	0.563s
