@@ -36,9 +36,8 @@ type tokenClaimsBase struct {
 	now      time.Time
 }
 
-// IssueToken issues a signed access token from pre-validated domain inputs.
-// This function is pure: inputs are fully validated before calling it, so it cannot fail.
-func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
+// BuildAccessTokenClaims builds the claims for an access token based on domain inputs.
+func BuildAccessTokenClaims(input domain.TokenInput) jwt.MapClaims {
 	issuer, version := buildIssuerForInput(input)
 	tenantID := input.Tenant.TenantID()
 	subject := resolveSubject(input)
@@ -61,7 +60,32 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 		now:      now,
 	}
 
-	accessToken := domain.MustAccessToken(SignClaims(key, buildAccessClaims(base, input, email, displayName, roles)))
+	return buildAccessClaims(base, input, email, displayName, roles)
+}
+
+// IssueToken issues a signed access token from pre-validated domain inputs.
+// This function is pure: inputs are fully validated before calling it, so it cannot fail.
+func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
+	claims := BuildAccessTokenClaims(input)
+	accessToken := domain.MustAccessToken(SignClaims(key, claims))
+
+	requestedScopes := strings.Split(input.Scope, scopeSeparator)
+	now := time.Now() // Use fresh time for ID/Refresh tokens if needed, or use claims time
+
+	// Re-construct some parts for ID/Refresh token logic
+	issuer, version := buildIssuerForInput(input)
+	tenantID := input.Tenant.TenantID()
+	subject := resolveSubject(input)
+	displayName, email := resolveUserInfo(input.User)
+
+	base := tokenClaimsBase{
+		issuer:   issuer,
+		subject:  subject,
+		audience: domain.IdentifierURI{}, // not used by buildIDClaims/buildRefreshClaims
+		tenantID: tenantID,
+		version:  version,
+		now:      now,
+	}
 
 	response := domain.TokenResponse{
 		AccessToken:   accessToken,

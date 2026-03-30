@@ -98,6 +98,10 @@ func LoadConfig(configPath, schemaPath string) (*Config, error) {
 }
 
 func validateYAML(yamlData []byte, schemaPath string) error {
+	if schemaPath == "" {
+		return nil
+	}
+
 	var raw any
 
 	err := yaml.Unmarshal(yamlData, &raw)

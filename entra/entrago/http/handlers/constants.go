@@ -3,6 +3,9 @@ package handlers
 const (
 	emptyValue          = ""
 	pathSeparator       = "/"
+	firstIndex          = 0
+	emptySize           = 0
+	emptySliceSize      = 0
 	pathCsharp          = "/csharp"
 	pathJS              = "/js"
 	fmtDisposition      = "inline; filename=%q"
@@ -13,4 +16,5 @@ const (
 	testTokenClientPart = 3
 	formKeyClientID     = "client_id"
 	jsonKeyRefreshToken = "refresh_token"
+	singleValueSize     = 1
 )

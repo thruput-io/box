@@ -7,7 +7,7 @@ mkdir -p .tmp
 COVERAGE_OUT=.tmp/coverage.out
 
 # Run go test with coverage profile across all packages
-go test -v -coverpkg=./... -coverprofile="${COVERAGE_OUT}" ./...
+go test -count=1 -v -coverpkg=./... -coverprofile="${COVERAGE_OUT}" ./...
 
 # Check total coverage
 TOTAL_COVERAGE=$(go tool cover -func="${COVERAGE_OUT}" | grep total | grep -Eo '[0-9]+\.[0-9]+')

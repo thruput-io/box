@@ -13,7 +13,7 @@ func Health(request *nethttp.Request, application *app.App) Response {
 	return healthHandler(request, application)
 }
 
-// Index handles the root endpoint (and delegates to config/test-token subroutes).
+// Index handles the root endpoint (and delegates to config/test-tokens subroutes).
 func Index(request *nethttp.Request, application *app.App) Response {
 	return indexHandler(request, application)
 }

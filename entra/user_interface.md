@@ -4,7 +4,7 @@ Describe the endpoints that are available and how they will respond
 
 ## Test endpoints
 -   Endpoint to retrieve a test token with defaulted if not configured claims plus any query parameters as claim GET /test-tokens/{tenantId}/{appId}/{clientId}?scope=read,scope=write
--   Endpoint for just signing provided token POST /test-token/sign?token=token
+-   Endpoint for just signing provided token POST /test-tokens/sign?token=token
 
 ## Current configuration
 

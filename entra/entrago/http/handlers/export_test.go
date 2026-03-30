@@ -49,6 +49,10 @@ func ExportResolveTestUser(tenant *domain.Tenant, username string) *domain.User 
 	return resolveTestUser(tenant, username)
 }
 
+func ExportResolveClientFromPart(tenant *domain.Tenant, part string) *domain.Client {
+	return resolveClientFromPart(tenant, part)
+}
+
 // ExportTokenHandler is for testing tokenHandler from handlers_test.
 func ExportTokenHandler(request *http.Request, application *app.App) Response {
 	return tokenHandler(request, application)

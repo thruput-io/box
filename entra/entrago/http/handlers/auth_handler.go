@@ -12,7 +12,6 @@ import (
 
 const (
 	formKeyState             = "state"
-	emptySliceSize           = 0
 	emptyType                = ""
 	errInvalidCredentialsMsg = "invalid username or password"
 )

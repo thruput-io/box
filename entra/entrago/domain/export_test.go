@@ -79,3 +79,17 @@ func ExportBuildTenant(raw rawTenant) (*Tenant, error) {
 func ExportBuildGroups(raws []rawGroup) ([]Group, error) {
 	return buildGroups(raws)
 }
+
+// MockProvider is for testing domain.Parse.
+type MockProvider struct {
+	Val string
+	Err error
+}
+
+func (m MockProvider) rawCallback(cb func(string) error) error {
+	if m.Err != nil {
+		return m.Err
+	}
+
+	return cb(m.Val)
+}

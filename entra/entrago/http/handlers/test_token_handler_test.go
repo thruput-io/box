@@ -2,8 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,18 +12,10 @@ import (
 	"identity/http/handlers"
 )
 
-func mustRSAKey(t *testing.T) *rsa.PrivateKey {
-	t.Helper()
-
-	const keySize = 1024
-
-	key, err := rsa.GenerateKey(rand.Reader, keySize)
-	if err != nil {
-		t.Fatalf("GenerateKey: %v", err)
-	}
-
-	return key
-}
+const (
+	findTenantByIDFmt = "FindTenantByID: %v"
+	testUserName      = "user"
+)
 
 type tokenHandlerFixture struct {
 	application *app.App
@@ -106,7 +96,7 @@ func setupEntitiesForTokenHandler(
 	)
 	user := domain.NewUser(
 		userID,
-		domain.MustUsername("user"),
+		domain.MustUsername(testUserName),
 		domain.MustPassword("pass"),
 		domain.MustDisplayName("User"),
 		domain.MustEmail("user@example.com"),
@@ -197,10 +187,10 @@ func TestResolveTestUser(t *testing.T) {
 
 	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {
-		t.Fatalf("FindTenantByID: %v", err)
+		t.Fatalf(findTenantByIDFmt, err)
 	}
 
-	user := handlers.ExportResolveTestUser(tenant, "user")
+	user := handlers.ExportResolveTestUser(tenant, testUserName)
 	if user == nil {
 		t.Fatal("expected user")
 	}
@@ -210,22 +200,86 @@ func TestResolveTestUser(t *testing.T) {
 	}
 }
 
-func TestResolveTestUser_FallbackToFirstWhenRequestedUserMissing(t *testing.T) {
+func TestResolveClientFromPart_AppRegistration(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
 
 	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
 	if err != nil {
-		t.Fatalf("FindTenantByID: %v", err)
+		t.Fatalf(findTenantByIDFmt, err)
 	}
 
-	user := handlers.ExportResolveTestUser(tenant, "11111111-1111-4111-8111-111111111111")
-	if user == nil {
-		t.Fatal("expected fallback user")
+	// appUUID is an AppRegistration in the mock config
+	clientID := parseString(fixture.appID)
+	client := handlers.ExportResolveClientFromPart(tenant, clientID)
+
+	if client.ClientID().UUID().String() != clientID {
+		t.Errorf("expected %s, got %s", clientID, client.ClientID().UUID().String())
+	}
+}
+
+func TestResolveClientFromPart_NotFound(t *testing.T) {
+	t.Parallel()
+
+	fixture := MustAppForTestTokenHandler(t)
+
+	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
+	if err != nil {
+		t.Fatalf(findTenantByIDFmt, err)
 	}
 
-	if user.ID() != fixture.userID {
-		t.Fatalf("expected fallback to first user %s, got %s", parseString(fixture.userID), parseString(user.ID()))
+	clientID := "00000000-0000-0000-0000-000000000000"
+	client := handlers.ExportResolveClientFromPart(tenant, clientID)
+
+	// Fallback to tenant as client
+	expected := tenant.TenantID().UUID().String()
+	if client.ClientID().UUID().String() != expected {
+		t.Errorf("expected %s, got %s", expected, client.ClientID().UUID().String())
+	}
+}
+
+func TestResolveTestUser_Fallback(t *testing.T) {
+	t.Parallel()
+
+	fixture := MustAppForTestTokenHandler(t)
+
+	tenant, err := app.FindTenantByID(fixture.application.Config, fixture.tenantID)
+	if err != nil {
+		t.Fatalf(findTenantByIDFmt, err)
+	}
+
+	// 1. Unknown UUID
+	user1 := handlers.ExportResolveTestUser(tenant, "00000000-0000-4000-a000-000000000000")
+	if user1 == nil || user1.ID() != fixture.userID {
+		t.Error("expected fallback for unknown UUID")
+	}
+
+	// 2. Unknown name
+	user2 := handlers.ExportResolveTestUser(tenant, "unknown-user")
+	if user2 == nil || user2.ID() != fixture.userID {
+		t.Error("expected fallback for unknown name")
+	}
+
+	// 3. Known name
+	user3 := handlers.ExportResolveTestUser(tenant, testUserName)
+	if user3 == nil || user3.ID() != fixture.userID {
+		t.Error("expected match by name")
+	}
+}
+
+func TestSignTokenHandler_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	fixture := MustAppForTestTokenHandler(t)
+	ctx := context.Background()
+
+	// Invalid JSON body
+	reqURL := "http://entra.test/test-tokens/sign"
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader("not-json"))
+
+	resp := handlers.ExportInvokeSignTokenHandler(request, fixture.application)
+	if resp.Status != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.Status)
 	}
 }

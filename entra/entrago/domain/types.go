@@ -20,7 +20,7 @@ type RawValueProvider interface {
 // Parse is a generic function that safely extracts a value of type T from a RawValueProvider using a parser callback.
 // The callback prevents the raw string from leaking into the domain layer's public API.
 //
-//nolint:ireturn
+//nolint:ireturn // false positive on generic T
 func Parse[T any](provider RawValueProvider, parserFunc func(string) (T, error)) (T, error) {
 	var (
 		result T
@@ -749,7 +749,7 @@ func (at AccessToken) rawCallback(callback func(string) error) error {
 
 // ParseTokenAdapter is a standalone function that handles the generics.
 //
-//nolint:ireturn
+//nolint:ireturn // false positive on generic T
 func ParseTokenAdapter[T any](token AccessToken, parserFunc func(string) (T, error)) (T, error) {
 	var (
 		zero   T

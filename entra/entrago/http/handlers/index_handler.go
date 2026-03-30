@@ -9,12 +9,12 @@ import (
 )
 
 func indexHandler(request *http.Request, application *app.App) Response {
-	if strings.HasPrefix(request.URL.Path, "/test-tokens/") {
-		return testTokenHandler(request, application)
+	if strings.HasPrefix(request.URL.Path, "/test-tokens/sign") {
+		return signTokenHandler(request, application)
 	}
 
-	if strings.HasPrefix(request.URL.Path, "/test-token/sign") {
-		return signTokenHandler(request, application)
+	if strings.HasPrefix(request.URL.Path, "/test-tokens/") {
+		return testTokenHandler(request, application)
 	}
 
 	if strings.HasPrefix(request.URL.Path, "/config/") {

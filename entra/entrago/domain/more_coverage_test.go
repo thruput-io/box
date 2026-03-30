@@ -64,6 +64,39 @@ func mustGroupName(t *testing.T, raw string) domain.GroupName {
 	return v
 }
 
+var (
+	errCallback = errors.New("callback error")
+	errParser   = errors.New("parser error")
+)
+
+func TestDomain_Parse_Error(t *testing.T) {
+	t.Parallel()
+
+	provider := domain.MockProvider{Val: "", Err: errCallback}
+
+	_, err := domain.Parse[string](provider, func(s string) (string, error) {
+		return s, nil
+	})
+
+	if !errors.Is(err, errCallback) {
+		t.Fatalf("expected error %v, got %v", errCallback, err)
+	}
+}
+
+func TestDomain_ParseTokenAdapter_Error(t *testing.T) {
+	t.Parallel()
+
+	token, _ := domain.NewAccessToken("token")
+
+	_, err := domain.ParseTokenAdapter[string](token, func(_ string) (string, error) {
+		return "", errParser
+	})
+
+	if !errors.Is(err, errParser) {
+		t.Fatalf("expected error %v, got %v", errParser, err)
+	}
+}
+
 func TestDomainError_ErrorString(t *testing.T) {
 	t.Parallel()
 

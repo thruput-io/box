@@ -2,6 +2,8 @@ package handlers_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"net/http"
 	"strings"
 	"testing"
@@ -68,4 +70,17 @@ func parseString(p domain.RawValueProvider) string {
 	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
 
 	return s
+}
+
+func mustRSAKey(t *testing.T) *rsa.PrivateKey {
+	t.Helper()
+
+	const rsaBits = 2048
+
+	key, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+
+	return key
 }

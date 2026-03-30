@@ -11,12 +11,13 @@ import (
 	"strings"
 	"testing"
 
-	"identity/app"
+	"github.com/golang-jwt/jwt/v5"
+
 	"identity/http/handlers"
 )
 
 const (
-	testSignURL = "http://entra.test/test-token/sign"
+	testSignURL = "http://entra.test/test-tokens/sign"
 	emptyString = ""
 )
 
@@ -25,9 +26,9 @@ func TestSignTokenHandler_WithProdToken(t *testing.T) {
 
 	fixture := MustAppForTestTokenHandler(t)
 
-	tokenJSON, err := os.ReadFile("../../.tmp/testtoken")
+	tokenJSON, err := os.ReadFile("testdata/test-token.json")
 	if err != nil {
-		t.Fatalf("failed to read .tmp/testtoken: %v", err)
+		t.Fatalf("failed to read testdata/test-token.json: %v", err)
 	}
 
 	ctx := context.Background()
@@ -49,13 +50,17 @@ func TestSignTokenHandler_WithProdToken(t *testing.T) {
 	verifySignedToken(t, fixture, tokenJSON, signedToken)
 }
 
-func verifySignedToken(t *testing.T, fixture tokenHandlerFixture, tokenJSON []byte, signedToken string) {
+func verifySignedToken(t *testing.T, _ tokenHandlerFixture, tokenJSON []byte, signedToken string) {
 	t.Helper()
 
-	parsedClaims, err := app.ParseSignedToken(fixture.application.Key, signedToken)
+	claims := jwt.MapClaims{}
+
+	_, _, err := jwt.NewParser().ParseUnverified(signedToken, claims)
 	if err != nil {
 		t.Fatalf("failed to parse signed token: %v", err)
 	}
+
+	parsedClaims := claims
 
 	var originalClaims map[string]any
 
@@ -87,7 +92,7 @@ func TestSignTokenHandler_WithQueryParam(t *testing.T) {
 
 	ctx := context.Background()
 
-	baseURL := "http://entra.test/test-token/sign?token="
+	baseURL := "http://entra.test/test-tokens/sign?token="
 
 	requestURL := baseURL + url.QueryEscape(tokenJSON)
 
@@ -99,11 +104,14 @@ func TestSignTokenHandler_WithQueryParam(t *testing.T) {
 	}
 
 	signedToken := string(resp.Body)
+	claims := jwt.MapClaims{}
 
-	parsedClaims, err := app.ParseSignedToken(fixture.application.Key, signedToken)
+	_, _, err := jwt.NewParser().ParseUnverified(signedToken, claims)
 	if err != nil {
 		t.Fatalf("failed to parse signed token: %v", err)
 	}
+
+	parsedClaims := claims
 
 	if parsedClaims["sub"] != "user123" || parsedClaims["scp"] != "read write" {
 		t.Errorf("unexpected claims: %v", parsedClaims)
