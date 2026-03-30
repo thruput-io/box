@@ -18,6 +18,13 @@ const (
 	pathConfig      = "/config/"
 	pathCsharp      = "/csharp"
 	firstIndex      = 0
+
+	// Mock utility paths for unit tests.
+	pathMockUtils     = "/mock-utils/"
+	pathMockUtilsSign = "/mock-utils/sign"
+
+	// Common test server URL.
+	testServerURL = "http://entra.test"
 )
 
 func mustGroupName(t *testing.T, raw string) domain.GroupName {

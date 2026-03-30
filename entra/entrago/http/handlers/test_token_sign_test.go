@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	testSignURL = "http://entra.test/test-tokens/sign"
+	testSignURL = testServerURL + pathMockUtilsSign
 	emptyString = ""
 )
 
@@ -92,7 +92,7 @@ func TestSignTokenHandler_WithQueryParam(t *testing.T) {
 
 	ctx := context.Background()
 
-	baseURL := "http://entra.test/test-tokens/sign?token="
+	baseURL := testServerURL + pathMockUtilsSign + "?token="
 
 	requestURL := baseURL + url.QueryEscape(tokenJSON)
 

@@ -9,11 +9,11 @@ import (
 )
 
 func indexHandler(request *http.Request, application *app.App) Response {
-	if strings.HasPrefix(request.URL.Path, "/test-tokens/sign") {
+	if strings.HasPrefix(request.URL.Path, pathMockUtilsSign) {
 		return signTokenHandler(request, application)
 	}
 
-	if strings.HasPrefix(request.URL.Path, "/test-tokens/") {
+	if strings.HasPrefix(request.URL.Path, pathMockUtils) {
 		return testTokenHandler(request, application)
 	}
 

@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	testAppID       = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
-	testTenantID    = "10000000-0000-4000-a000-000000000000"
-	pathSeparator   = "/"
-	testTokenPrefix = "/test-tokens/"
-	fmtUnexpected   = "unexpected status: %d, body: %s"
+	testAppID     = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+	testTenantID  = "10000000-0000-4000-a000-000000000000"
+	pathSeparator = "/"
+	fmtUnexpected = "unexpected status: %d, body: %s"
+	permOwnerRW   = 0o600
 )
 
 func TestTestTokenHandler_ProdIntegration_1a(t *testing.T) {
@@ -42,7 +42,7 @@ func TestTestTokenHandler_ProdIntegration_1a(t *testing.T) {
 		IndexTemplate: nil,
 	}
 
-	testURL := testTokenPrefix + tenantID + pathSeparator + appID + pathSeparator + clientID
+	testURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
 
@@ -51,7 +51,9 @@ func TestTestTokenHandler_ProdIntegration_1a(t *testing.T) {
 		t.Fatalf(fmtUnexpected, resp.Status, string(resp.Body))
 	}
 
-	compareTokenWithExpected(t, string(resp.Body), "testdata/expected-token-1a.json")
+	tokenStr := strings.TrimSpace(string(resp.Body))
+	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1a.json")
+	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1a.json")
 }
 
 func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
@@ -78,7 +80,7 @@ func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
 		IndexTemplate: nil,
 	}
 
-	baseURL := testTokenPrefix + tenantID + pathSeparator + appID + pathSeparator + clientID
+	baseURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
 	queryParams := url.Values{}
 
 	for k, v := range inputClaims {
@@ -94,7 +96,9 @@ func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
 		t.Fatalf(fmtUnexpected, resp.Status, string(resp.Body))
 	}
 
-	compareTokenWithExpected(t, string(resp.Body), "testdata/expected-token-1b.json")
+	tokenStr := strings.TrimSpace(string(resp.Body))
+	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1b.json")
+	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1b.json")
 }
 
 func TestTestTokenHandler_ProdIntegration_1c(t *testing.T) {
@@ -114,7 +118,7 @@ func TestTestTokenHandler_ProdIntegration_1c(t *testing.T) {
 		IndexTemplate: nil,
 	}
 
-	testURL := testTokenPrefix + tenantID + pathSeparator + appID + pathSeparator + clientID
+	testURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodPost, testURL, bytes.NewReader(tokenContent))
 	request.Header.Set("Content-Type", "application/json")
@@ -125,7 +129,9 @@ func TestTestTokenHandler_ProdIntegration_1c(t *testing.T) {
 	}
 
 	// 1c should yield same results as 1b if input is same (but without mock-added claims)
-	compareTokenWithExpected(t, string(resp.Body), "testdata/expected-token-1c.json")
+	tokenStr := strings.TrimSpace(string(resp.Body))
+	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1c.json")
+	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1c.json")
 }
 
 func addClaimAsQueryParam(queryParams url.Values, key string, val any) {
@@ -276,4 +282,38 @@ func loadProdToken(t *testing.T, tokenPath string) []byte {
 	}
 
 	return tokenContent
+}
+
+func saveActualTokenPayload(t *testing.T, tokenStr, outputPath string) {
+	t.Helper()
+
+	const expectedParts = 3
+
+	parts := strings.Split(tokenStr, ".")
+	if len(parts) != expectedParts {
+		t.Fatalf("invalid token format: expected 3 parts, got %d", len(parts))
+	}
+
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("failed to decode payload: %v", err)
+	}
+
+	var payload map[string]any
+
+	err = json.Unmarshal(payloadJSON, &payload)
+	if err != nil {
+		t.Fatalf("failed to unmarshal payload: %v", err)
+	}
+
+	indented, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal payload with indent: %v", err)
+	}
+
+	// Add newline to match project formatting
+	err = os.WriteFile(outputPath, append(indented, '\n'), permOwnerRW)
+	if err != nil {
+		t.Fatalf("failed to write payload to %s: %v", outputPath, err)
+	}
 }

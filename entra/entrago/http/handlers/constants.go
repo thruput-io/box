@@ -17,4 +17,9 @@ const (
 	formKeyClientID     = "client_id"
 	jsonKeyRefreshToken = "refresh_token"
 	singleValueSize     = 1
+
+	// Mock utility paths.
+	pathMockUtils     = "/mock-utils/"
+	pathMockUtilsSign = "/mock-utils/sign"
+	segmentMockUtils  = "mock-utils"
 )

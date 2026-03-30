@@ -33,7 +33,7 @@ func extractTenantID(request *http.Request) string {
 
 		switch first {
 		case "authorize", "common", "oauth2", "v2.0", "token",
-			"login", "config", "test-tokens", "discovery", ".well-known", "health":
+			"login", "config", segmentMockUtils, "discovery", ".well-known", "health":
 			return emptyValue
 		default:
 			return first

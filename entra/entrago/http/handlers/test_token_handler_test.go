@@ -111,7 +111,7 @@ func TestTestTokenHandler_InvalidPath(t *testing.T) {
 
 	fixture := MustAppForTestTokenHandler(t)
 	ctx := context.Background()
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://entra.test/test-tokens", nil)
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, testServerURL+pathMockUtils, nil)
 
 	resp := handlers.ExportInvokeTestTokenHandler(request, fixture.application)
 	if resp.Status != http.StatusOK {
@@ -123,7 +123,7 @@ func TestTestTokenHandler_TenantNotFound(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
-	url := "http://entra.test/test-tokens/nope/" + parseString(fixture.appID)
+	url := testServerURL + pathMockUtils + "nope/" + parseString(fixture.appID)
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
@@ -137,7 +137,7 @@ func TestTestTokenHandler_InvalidAppID(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
-	url := "http://entra.test/test-tokens/" + parseString(fixture.tenantID) + "/nope"
+	url := testServerURL + pathMockUtils + parseString(fixture.tenantID) + "/nope"
 	ctx := context.Background()
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
@@ -151,7 +151,7 @@ func TestTestTokenHandler_Success_DefaultScopeAndUser(t *testing.T) {
 	t.Parallel()
 
 	fixture := MustAppForTestTokenHandler(t)
-	baseURL := "http://entra.test/test-tokens/"
+	baseURL := testServerURL + pathMockUtils
 	url := baseURL + parseString(fixture.tenantID) + "/" +
 		parseString(fixture.appID) + "?username=" + parseString(fixture.userID)
 	ctx := context.Background()
@@ -275,7 +275,7 @@ func TestSignTokenHandler_InvalidJSON(t *testing.T) {
 	ctx := context.Background()
 
 	// Invalid JSON body
-	reqURL := "http://entra.test/test-tokens/sign"
+	reqURL := testServerURL + pathMockUtilsSign
 	request := httptest.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader("not-json"))
 
 	resp := handlers.ExportInvokeSignTokenHandler(request, fixture.application)

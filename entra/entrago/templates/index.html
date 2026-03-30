@@ -84,15 +84,15 @@
     </div>
 
     <div class="panel">
-        <h2>Test endpoints</h2>
+        <h2>Mock utility endpoints</h2>
         <ul>
             <li>
                 Endpoint to retrieve a test token with defaulted (if not configured) claims plus any query parameters as claims
-                <div class="mono"><span class="pill">GET</span> <code>/test-tokens/{tenantId}/{appId}/{clientId}?scope=read,scope=write</code></div>
+                <div class="mono"><span class="pill">GET</span> <code>/mock-utils/{tenantId}/{appId}/{clientId}?scope=read,scope=write</code></div>
             </li>
             <li>
                 Endpoint for just signing provided token
-                <div class="mono"><span class="pill">POST</span> <code>/test-tokens/sign?token=token</code></div>
+                <div class="mono"><span class="pill">POST</span> <code>/mock-utils/sign?token=token</code></div>
             </li>
         </ul>
     </div>
