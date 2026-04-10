@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/mo"
 
 	"identity/app"
 	"identity/domain"
@@ -50,11 +51,11 @@ func parseTokenRequest(request *http.Request, application *app.App) (domain.Toke
 		Tenant:        tenant,
 		User:          nil,
 		Client:        nil,
-		Scope:         request.Form.Get("scope"),
-		Nonce:         request.Form.Get("nonce"),
+		Scope:         parseScopeValues(request.Form.Get("scope")),
+		Nonce:         parseOptionalNonce(request.Form.Get("nonce")),
 		IsV2:          isV2,
 		BaseURL:       extractBaseURL(request),
-		CorrelationID: correlationID(request),
+		CorrelationID: parseOptionalCorrelationID(request),
 	}
 
 	switch grant {
@@ -123,7 +124,7 @@ func buildClientCredentialsInput(
 	var secret *domain.ClientSecret
 
 	secretRaw := request.Form.Get("client_secret")
-	if secretRaw != "" {
+	if secretRaw != emptyValue {
 		s, err := domain.NewClientSecret(secretRaw)
 		if err != nil {
 			return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid client secret format")
@@ -155,7 +156,7 @@ func buildAuthCodeInput(
 		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidGrant, "redirect_uri mismatch")
 	}
 
-	if base.Scope == emptyValue {
+	if len(base.Scope) == emptySize {
 		base.Scope = parsed.scope
 	}
 
@@ -179,7 +180,7 @@ func buildRefreshTokenInput(
 		return domain.TokenInput{}, parseErr
 	}
 
-	if base.Scope == emptyValue {
+	if len(base.Scope) == emptySize {
 		base.Scope = parsed.scope
 	}
 
@@ -246,19 +247,19 @@ func encodeTokenResponse(response domain.TokenResponse) Response {
 		"access_token": response.AccessToken,
 		"token_type":   response.TokenType,
 		"expires_in":   response.ExpiresIn,
-		"scope":        response.Scope,
+		"scope":        domain.JoinScopeValues(response.Scope),
 	}
 
-	if response.IDToken != nil {
-		body["id_token"] = *response.IDToken
+	if idToken, ok := response.IDToken.Get(); ok {
+		body["id_token"] = idToken
 	}
 
-	if response.RefreshToken != nil {
-		body[jsonKeyRefreshToken] = *response.RefreshToken
+	if refreshToken, ok := response.RefreshToken.Get(); ok {
+		body[jsonKeyRefreshToken] = refreshToken
 	}
 
-	if response.ClientInfo != nil {
-		body["client_info"] = *response.ClientInfo
+	if clientInfo, ok := response.ClientInfo.Get(); ok {
+		body["client_info"] = clientInfo
 	}
 
 	encoded, err := json.Marshal(body)
@@ -266,22 +267,28 @@ func encodeTokenResponse(response domain.TokenResponse) Response {
 		return internalError("failed to encode token response")
 	}
 
+	headers := map[string]string{}
+	if corrID, ok := response.CorrelationID.Get(); ok {
+		headers["Client-Request-Id"] = corrID.Value()
+		headers["X-Ms-Request-Id"] = corrID.Value()
+	}
+
 	return Response{
 		Status:      http.StatusOK,
 		Body:        encoded,
 		ContentType: "application/json",
-		Headers: map[string]string{
-			"Client-Request-Id": response.CorrelationID,
-			"X-Ms-Request-Id":   response.CorrelationID,
-		},
+		Headers:     headers,
 	}
 }
 
-func correlationID(request *http.Request) string {
+func parseOptionalCorrelationID(request *http.Request) mo.Option[domain.CorrelationID] {
 	headerID := request.Header.Get("Client-Request-Id")
 	if headerID != emptyValue {
-		return headerID
+		c, err := domain.NewCorrelationID(headerID)
+		if err == nil {
+			return mo.Some(c)
+		}
 	}
 
-	return uuid.New().String()
+	return mo.Some(domain.MustCorrelationID(uuid.New().String()))
 }

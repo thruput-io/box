@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/mo"
 
 	"identity/app"
 	"identity/domain"
@@ -66,28 +67,28 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 		return signWithOverrides(application.Key, tokenData, tenant, clientResult)
 	}
 
-	scope := request.URL.Query().Get("scope")
-	if scope == emptyValue {
-		scope = "openid"
+	scopeStr := request.URL.Query().Get("scope")
+	if scopeStr == emptyValue {
+		scopeStr = "openid"
 	}
 
 	input := domain.TokenInput{
 		Grant:         domain.GrantTest,
 		Tenant:        tenant,
 		Client:        clientResult,
-		Scope:         scope,
+		Scope:         parseScopeValues(scopeStr),
 		IsV2:          true,
 		BaseURL:       extractBaseURL(request),
 		User:          resolveTestUser(tenant, request.URL.Query().Get("username")),
-		Nonce:         emptyValue,
-		CorrelationID: emptyValue,
+		Nonce:         mo.None[domain.Nonce](),
+		CorrelationID: mo.None[domain.CorrelationID](),
 	}
 
 	query := request.URL.Query()
 	if len(query) == emptySize {
 		response := app.IssueToken(application.Key, input)
 
-		return okText([]byte(mustParseString(response.AccessToken) + "\n"))
+		return okText([]byte(response.AccessToken.Value() + "\n"))
 	}
 
 	return issueTokenWithQueryOverrides(application, input, query)

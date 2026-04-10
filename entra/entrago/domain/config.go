@@ -3,6 +3,15 @@ package domain
 import (
 	"fmt"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
+const (
+	claimName              = "name"
+	claimPreferredUsername = "preferred_username"
+	claimEmail             = "email"
+	claimUniqueName        = "unique_name"
 )
 
 // Config is the immutable root domain object loaded once at startup.
@@ -88,9 +97,9 @@ func (tenant Tenant) AsClient() Client {
 	)
 }
 
-// AsURL returns the URL for the tenant under the given base URL.
-func (tenantID TenantID) AsURL(baseURL string) string {
-	return baseURL + "/" + tenantID.value.String()
+// AsURL returns the issuer URL for the tenant under the given base URL.
+func (tenantID TenantID) AsURL(baseURL BaseURL) Issuer {
+	return MustIssuer(baseURL.value.String() + "/" + tenantID.value.String())
 }
 
 // AppRegistration is an immutable Azure AD application registration.
@@ -145,13 +154,14 @@ func (appRegistration AppRegistration) Scopes() []Scope { return appRegistration
 func (appRegistration AppRegistration) AppRoles() []Role { return appRegistration.appRoles }
 
 // IsAudienceForScope reports whether this app registration matches the given scope audience.
-func (appRegistration AppRegistration) IsAudienceForScope(scopePart string) bool {
+func (appRegistration AppRegistration) IsAudienceForScope(scopePart ScopeValue) bool {
+	part := scopePart.value.value
 	idURI := appRegistration.identifierURI.value.value
 	cID := appRegistration.clientID.value.String()
 
-	return cID == scopePart || idURI == scopePart ||
-		strings.HasPrefix(scopePart, idURI+"/") ||
-		scopePart == idURI+"/.default"
+	return cID == part || idURI == part ||
+		strings.HasPrefix(part, idURI+"/") ||
+		part == idURI+"/.default"
 }
 
 // Scope is an immutable OAuth2 scope definition.
@@ -200,11 +210,13 @@ func (role Role) Description() RoleDescription { return role.description }
 // Scopes returns the scopes associated with this role.
 func (role Role) Scopes() []Scope { return role.scopes }
 
-// MatchesScope reports whether this role value matches the given scope string.
-func (role Role) MatchesScope(scopePart string) bool {
+// MatchesScope reports whether this role value matches the given scope value.
+func (role Role) MatchesScope(scopePart ScopeValue) bool {
+	part := scopePart.value.value
+
 	for _, scope := range role.scopes {
 		v := scope.value.value.value
-		if v == scopePart || strings.HasSuffix(scopePart, "/"+v) {
+		if v == part || strings.HasSuffix(part, "/"+v) {
 			return true
 		}
 	}
@@ -274,7 +286,34 @@ func (user User) DisplayName() DisplayName { return user.displayName }
 // Email returns the user's email address.
 func (user User) Email() Email { return user.email }
 
-// Groups returns the names of groups the user belongs to.
+// MapClaims writes the user's identity claims into the provided JWT claims map.
+func (user User) MapClaims(claims jwt.MapClaims) {
+	claims[claimName] = user.displayName.value.value
+	claims[claimPreferredUsername] = user.email.value.value
+	claims[claimEmail] = user.email.value.value
+	claims[claimUniqueName] = user.email.value.value
+}
+
+// UserDisplay is the display representation of a User, safe to pass to presentation layers.
+type UserDisplay struct {
+	Username    Username
+	Password    Password
+	DisplayName DisplayName
+	Email       Email
+}
+
+// Display returns the display representation of the User.
+// Roles are a handler concern because they depend on client context.
+func (user User) Display() UserDisplay {
+	return UserDisplay{
+		Username:    user.username,
+		Password:    user.password,
+		DisplayName: user.displayName,
+		Email:       user.email,
+	}
+}
+
+// Groups returns the group names the user belongs to.
 func (user User) Groups() []GroupName { return user.groups }
 
 // Client is an immutable OAuth2 client registration.

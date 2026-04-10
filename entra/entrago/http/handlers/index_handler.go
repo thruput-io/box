@@ -21,13 +21,13 @@ func indexHandler(request *http.Request, application *app.App) Response {
 		return configHandler(request, application)
 	}
 
-	if request.URL.Path != "/" {
+	if request.URL.Path != "/" && request.URL.Path != "/index.html" {
 		return notFound("not found")
 	}
 
 	var buf bytes.Buffer
 
-	err := application.IndexTemplate.Execute(&buf, application.Config)
+	err := application.IndexTemplate.Execute(&buf, buildIndexViewModel(*application.Config))
 	if err != nil {
 		return internalError("failed to render index")
 	}

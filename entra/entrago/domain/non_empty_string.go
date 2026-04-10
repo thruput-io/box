@@ -27,8 +27,7 @@ func MustNonEmptyString(raw string) NonEmptyString {
 	return v
 }
 
-// MarshalJSON implements json.Marshaler.
-
-func (nes NonEmptyString) rawCallback(callback func(string) error) error {
-	return callback(nes.value)
+// Value returns the underlying string value.
+func (nes NonEmptyString) Value() string {
+	return nes.value
 }

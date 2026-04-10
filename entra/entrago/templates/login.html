@@ -102,7 +102,7 @@
 <div class="container">
     <h1>Mock login</h1>
     <p>
-        Client: <code>{{ .ClientID }}</code>
+        Client: <code>{{ .ClientID.Value }}</code>
     </p>
 
     <div class="panel">
@@ -111,22 +111,22 @@
             {{- range .Users }}
             <div class="user-item">
                 <div class="user-meta">
-                    <span class="user-name">{{ .Username }}{{ if .DisplayName }} — {{ .DisplayName }}{{ end }}</span>
+                    <span class="user-name">{{ .Username.Value }}{{ if .DisplayName.Value }} — {{ .DisplayName.Value }}{{ end }}</span>
                     {{- if .Roles }}
-                    <span class="user-roles">{{ range $i, $role := .Roles }}{{ if $i }}, {{ end }}{{ $role }}{{ end }}</span>
+                    <span class="user-roles">{{ range $i, $role := .Roles }}{{ if $i }}, {{ end }}{{ $role.Value }}{{ end }}</span>
                     {{- end }}
                 </div>
                 <form method="post" action="/login">
-                    <input type="hidden" name="client_id" value="{{ $.ClientID }}"/>
-                    <input type="hidden" name="redirect_uri" value="{{ $.RedirectURI }}"/>
-                    <input type="hidden" name="state" value="{{ $.State }}"/>
-                    <input type="hidden" name="scope" value="{{ $.Scope }}"/>
-                    <input type="hidden" name="tenant" value="{{ $.Tenant }}"/>
-                    <input type="hidden" name="nonce" value="{{ $.Nonce }}"/>
-                    <input type="hidden" name="response_mode" value="{{ $.ResponseMode }}"/>
-                    <input type="hidden" name="username" value="{{ .Username }}"/>
-                    <input type="hidden" name="password" value="{{ .Password }}"/>
-                    <button type="submit">Sign in as {{ .Username }}</button>
+                    <input type="hidden" name="client_id" value="{{ $.ClientID.Value }}"/>
+                    <input type="hidden" name="redirect_uri" value="{{ $.RedirectURI.Value }}"/>
+                    <input type="hidden" name="state" value="{{ $.StateValue }}"/>
+                    <input type="hidden" name="scope" value="{{ $.JoinedScope }}"/>
+                    <input type="hidden" name="tenant" value="{{ $.TenantValue }}"/>
+                    <input type="hidden" name="nonce" value="{{ $.NonceValue }}"/>
+                    <input type="hidden" name="response_mode" value="{{ $.ResponseModeValue }}"/>
+                    <input type="hidden" name="username" value="{{ .Username.Value }}"/>
+                    <input type="hidden" name="password" value="{{ .Password.Value }}"/>
+                    <button type="submit">Sign in as {{ .Username.Value }}</button>
                 </form>
             </div>
             {{- end }}
@@ -135,18 +135,18 @@
 
     <div class="panel">
         <form method="post" action="/login">
-            <input type="hidden" name="client_id" value="{{ .ClientID }}"/>
-            <input type="hidden" name="redirect_uri" value="{{ .RedirectURI }}"/>
-            <input type="hidden" name="state" value="{{ .State }}"/>
-            <input type="hidden" name="scope" value="{{ .Scope }}"/>
-            <input type="hidden" name="tenant" value="{{ .Tenant }}"/>
-            <input type="hidden" name="nonce" value="{{ .Nonce }}"/>
-            <input type="hidden" name="response_mode" value="{{ .ResponseMode }}"/>
+            <input type="hidden" name="client_id" value="{{ .ClientID.Value }}"/>
+            <input type="hidden" name="redirect_uri" value="{{ .RedirectURI.Value }}"/>
+            <input type="hidden" name="state" value="{{ .StateValue }}"/>
+            <input type="hidden" name="scope" value="{{ .JoinedScope }}"/>
+            <input type="hidden" name="tenant" value="{{ .TenantValue }}"/>
+            <input type="hidden" name="nonce" value="{{ .NonceValue }}"/>
+            <input type="hidden" name="response_mode" value="{{ .ResponseModeValue }}"/>
 
             <label for="username">Username</label>
             <select id="username" name="username" required>
                 {{- range .Users }}
-                <option value="{{ .Username }}">{{ .Username }}{{ if .DisplayName }} — {{ .DisplayName }}{{ end }}</option>
+                <option value="{{ .Username.Value }}">{{ .Username.Value }}{{ if .DisplayName.Value }} — {{ .DisplayName.Value }}{{ end }}</option>
                 {{- end }}
             </select>
 

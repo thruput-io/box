@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"identity/app"
+	"identity/domain"
 )
 
 var errParamTooLong = errors.New("parameter value exceeds maximum length")
@@ -32,7 +33,7 @@ func extractTenantID(request *http.Request) string {
 		first := parts[minValidIndex]
 
 		switch first {
-		case "authorize", "common", "oauth2", "v2.0", "token",
+		case "authorize", segmentCommon, "oauth2", "v2.0", "token",
 			"login", "config", segmentMockUtils, "discovery", ".well-known", "health":
 			return emptyValue
 		default:
@@ -43,11 +44,11 @@ func extractTenantID(request *http.Request) string {
 	return emptyValue
 }
 
-func extractBaseURL(request *http.Request) string {
+func extractBaseURL(request *http.Request) domain.BaseURL {
 	scheme := "https"
 	if request.TLS == nil && request.Header.Get("X-Forwarded-Proto") == "" {
 		scheme = "http"
 	}
 
-	return scheme + "://" + request.Host
+	return domain.MustBaseURL(scheme + "://" + request.Host)
 }

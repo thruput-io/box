@@ -5,6 +5,8 @@ import (
 	"crypto/rsa"
 	"testing"
 
+	"github.com/samber/mo"
+
 	"identity/app"
 	"identity/domain"
 )
@@ -28,15 +30,20 @@ func TestIssueToken_Coverage(t *testing.T) {
 	)
 
 	input := domain.TokenInput{
-		Grant:         domain.GrantPassword,
-		Tenant:        &tenant,
-		User:          &user,
-		Client:        nil,
-		Scope:         "openid profile offline_access api://app/access",
+		Grant:  domain.GrantPassword,
+		Tenant: &tenant,
+		User:   &user,
+		Client: nil,
+		Scope: []domain.ScopeValue{
+			domain.MustScopeValue("openid"),
+			domain.MustScopeValue("profile"),
+			domain.MustScopeValue("offline_access"),
+			domain.MustScopeValue("api://app/access"),
+		},
 		IsV2:          true,
-		BaseURL:       "https://entra.test",
-		Nonce:         "nonce",
-		CorrelationID: "corr",
+		BaseURL:       domain.MustBaseURL("https://entra.test"),
+		Nonce:         mo.Some(domain.MustNonce("nonce")),
+		CorrelationID: mo.Some(domain.MustCorrelationID("corr")),
 	}
 
 	resp := app.IssueToken(key, input)
@@ -70,11 +77,11 @@ func assertTokenResponse(t *testing.T, resp domain.TokenResponse) {
 		t.Fatal("expected access token")
 	}
 
-	if resp.IDToken == nil {
+	if resp.IDToken.IsAbsent() {
 		t.Fatal("expected id token")
 	}
 
-	if resp.RefreshToken == nil {
+	if resp.RefreshToken.IsAbsent() {
 		t.Fatal("expected refresh token")
 	}
 }
@@ -99,9 +106,9 @@ func TestIssueAuthCode_Coverage(t *testing.T) {
 		user,
 		domain.MustClientID("22222222-2222-2222-2222-222222222222"),
 		domain.MustRedirectURL("https://app.test/callback"),
-		"openid",
+		[]domain.ScopeValue{domain.MustScopeValue("openid")},
 		domain.MustTenantID("11111111-1111-1111-1111-111111111111"),
-		"nonce",
+		mo.Some(domain.MustNonce("nonce")),
 	)
 
 	if code == (domain.AuthCode{}) {
@@ -112,12 +119,11 @@ func TestIssueAuthCode_Coverage(t *testing.T) {
 func TestToken_InternalHelpers_Coverage(t *testing.T) {
 	t.Parallel()
 
-	// isOIDCScope
-	if !app.IsOIDCScopeForTest("openid") {
+	if !app.IsOIDCScopeForTest(domain.MustScopeValue("openid")) {
 		t.Error("expected true for openid")
 	}
 
-	if app.IsOIDCScopeForTest("other") {
+	if app.IsOIDCScopeForTest(domain.MustScopeValue("other")) {
 		t.Error("expected false for other")
 	}
 }

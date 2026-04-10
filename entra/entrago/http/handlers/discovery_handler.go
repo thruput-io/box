@@ -22,17 +22,17 @@ func discoveryHandler(request *http.Request, application *app.App) Response {
 		return badRequest(err)
 	}
 
-	baseURL := extractBaseURL(request)
-	tenantIDResolved := mustParseString(tenant.TenantID())
+	baseURLStr := extractBaseURL(request).Value()
+	tenantIDResolved := tenant.TenantID().Value()
 
-	tenantURL := baseURL + pathSeparator + tenantIDStr
+	tenantURL := baseURLStr + pathSeparator + tenantIDStr
 	if isV2 {
-		tenantURL = baseURL + pathSeparator + tenantIDStr + "/v2.0"
+		tenantURL = baseURLStr + pathSeparator + tenantIDStr + "/v2.0"
 	}
 
 	issuer := tenantURL
 	if !isV2 {
-		issuer = baseURL + pathSeparator + tenantIDResolved
+		issuer = baseURLStr + pathSeparator + tenantIDResolved
 	}
 
 	body, err := json.Marshal(buildDiscoveryDocument(tenantURL, issuer, tenantIDStr))
@@ -66,7 +66,7 @@ func jwksHandler(_ *http.Request, application *app.App) Response {
 }
 
 func callHomeHandler(request *http.Request, _ *app.App) Response {
-	baseURL := extractBaseURL(request)
+	baseURL := extractBaseURL(request).Value()
 
 	body, err := json.Marshal(map[string]any{
 		"tenant_discovery_endpoint": baseURL,

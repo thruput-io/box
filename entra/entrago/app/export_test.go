@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/mo"
 
 	"identity/domain"
 )
@@ -84,9 +85,9 @@ func ExportIssueAuthCode(
 	user *domain.User,
 	clientID domain.ClientID,
 	redirectURI domain.RedirectURL,
-	scope string,
+	scope []domain.ScopeValue,
 	tenantID domain.TenantID,
-	nonce string,
+	nonce mo.Option[domain.Nonce],
 ) domain.AuthCode {
 	return IssueAuthCode(key, *user, clientID, redirectURI, scope, tenantID, nonce)
 }
@@ -99,7 +100,7 @@ func ExportParseSignedToken(key *rsa.PrivateKey, tokenString string) (jwt.MapCla
 // ExportResolveAudienceForTest is for testing ResolveAudience from app_test.
 func ExportResolveAudienceForTest(
 	tenant *domain.Tenant,
-	scope string,
+	scope []domain.ScopeValue,
 ) (domain.IdentifierURI, map[domain.ClientID]bool) {
 	return ResolveAudienceForTest(tenant, scope)
 }
@@ -110,7 +111,7 @@ func ExportResolveRolesForTest(
 	client *domain.Client,
 	user *domain.User,
 	targetAppIDs map[domain.ClientID]bool,
-	requestedScopes []string,
+	requestedScopes []domain.ScopeValue,
 ) []domain.RoleValue {
 	return ResolveRolesForTest(tenant, client, user, targetAppIDs, requestedScopes)
 }
@@ -121,13 +122,17 @@ func ExportSignClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
 }
 
 // IsOIDCScopeForTest is for testing isOIDCScope from app_test.
-func IsOIDCScopeForTest(scope string) bool {
+func IsOIDCScopeForTest(scope domain.ScopeValue) bool {
 	return isOIDCScope(scope)
 }
 
 // ExportBuildRefreshClaims is for testing buildRefreshClaims from app_test.
 func ExportBuildRefreshClaims(
-	issuer string, subject any, clientID domain.ClientID, tenantID domain.TenantID, scope string,
+	issuer domain.Issuer,
+	subject mo.Option[domain.Subject],
+	clientID domain.ClientID,
+	tenantID domain.TenantID,
+	scope []domain.ScopeValue,
 	now time.Time,
 ) jwt.MapClaims {
 	return buildRefreshClaims(issuer, subject, clientID, tenantID, scope, now)

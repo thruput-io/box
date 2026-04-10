@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/samber/mo"
+
 // GrantType is a validated OAuth2 grant type.
 type GrantType string
 
@@ -28,16 +30,16 @@ type TokenInput struct {
 	Tenant        *Tenant
 	User          *User
 	Client        *Client
-	Scope         string
-	Nonce         string
+	Scope         []ScopeValue
+	Nonce         mo.Option[Nonce]
 	IsV2          bool
-	BaseURL       string
-	CorrelationID string
+	BaseURL       BaseURL
+	CorrelationID mo.Option[CorrelationID]
 }
 
 type (
 	// RequestedClaim is a list of claim values.
-	RequestedClaim []string
+	RequestedClaim []NonEmptyString
 	// RequestedClaims is a list of requested claims.
 	RequestedClaims []RequestedClaim
 	// TestTokenInput is a container for testing token issuance with specific claims.
@@ -52,9 +54,9 @@ type TokenResponse struct {
 	AccessToken   AccessToken
 	TokenType     TokenType
 	ExpiresIn     int
-	Scope         string
-	IDToken       *IDToken
-	RefreshToken  *RefreshToken
-	ClientInfo    *ClientInfo
-	CorrelationID string
+	Scope         []ScopeValue
+	IDToken       mo.Option[IDToken]
+	RefreshToken  mo.Option[RefreshToken]
+	ClientInfo    mo.Option[ClientInfo]
+	CorrelationID mo.Option[CorrelationID]
 }

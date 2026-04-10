@@ -22,4 +22,5 @@ const (
 	pathMockUtils     = "/mock-utils/"
 	pathMockUtilsSign = "/mock-utils/sign"
 	segmentMockUtils  = "mock-utils"
+	segmentCommon     = "common"
 )

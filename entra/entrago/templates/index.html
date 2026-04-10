@@ -63,6 +63,26 @@
         .kv { color: var(--muted); }
         .kv b { color: var(--text); }
         .mono { color: var(--muted); }
+        .config-copy { display: flex; align-items: flex-start; gap: 8px; }
+        .config-snippet {
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(11, 16, 32, 0.6);
+            color: var(--text);
+            white-space: pre;
+            overflow: auto;
+        }
+        .copy-btn {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text);
+            padding: 8px 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -107,8 +127,8 @@
         {{- range $t := .Tenants }}
         <div class="panel">
             <div class="row">
-                <h3 style="margin:0">Tenant: {{ $t.Name }}</h3>
-                <span class="pill">{{ $t.TenantID }}</span>
+                <h3 style="margin:0">Tenant: {{ $t.Name.Value }}</h3>
+                <span class="pill">{{ $t.TenantID.Value }}</span>
             </div>
 
             {{- if not $t.AppRegistrations }}
@@ -118,17 +138,17 @@
             <div class="grid">
                 {{- range $app := $t.AppRegistrations }}
                 <div class="panel">
-                    <h3 style="margin:0 0 8px">{{ $app.Name }}</h3>
-                    <div class="kv"><b>Client ID:</b> <code>{{ $app.ClientID }}</code></div>
-                    {{- if $app.IdentifierURI }}
-                    <div class="kv"><b>Identifier URI:</b> <code>{{ $app.IdentifierURI }}</code></div>
+                    <h3 style="margin:0 0 8px">{{ $app.Name.Value }}</h3>
+                    <div class="kv"><b>Client ID:</b> <code>{{ $app.ClientID.Value }}</code></div>
+                    {{- if $app.IdentifierURI.IsPresent }}
+                    <div class="kv"><b>Identifier URI:</b> <code>{{ $app.IdentifierURI.MustGet.Value }}</code></div>
                     {{- end }}
 
                     <h3>Link to login page for it</h3>
                     {{- if gt (len $app.RedirectURLs) 0 }}
                     <ul>
                         <li>
-                            <a href="/authorize?client_id={{ $app.ClientID }}&redirect_uri={{ index $app.RedirectURLs 0 }}&response_type=code&scope=openid">Start login (first redirect URL)</a>
+                            <a href="/authorize?client_id={{ $app.ClientID.Value }}&redirect_uri={{ (index $app.RedirectURLs 0).Value }}&response_type=code&scope=openid">Start login (first redirect URL)</a>
                         </li>
                     </ul>
                     {{- else }}
@@ -137,7 +157,16 @@
 
                     <h3>Links to get configuration for it in different formats</h3>
                     <ul>
-                        <li>C# container apps environment variables (msal host configuration) <span class="pill">TODO</span></li>
+                        <li>
+                            C# container apps environment variables (msal host configuration)
+                            {{- $fragment := $app.CsharpConfig.Fragment }}
+                            <div class="config-copy" style="margin-top:8px">
+                                <pre id="csharp-host-config-{{ $t.TenantID.Value }}-{{ $app.ClientID.Value }}" class="config-snippet" data-copy="{{ $fragment }}">{{ $fragment }}</pre>
+                                <button type="button" class="copy-btn" data-copy-target="csharp-host-config-{{ $t.TenantID.Value }}-{{ $app.ClientID.Value }}" title="Copy C# host env vars" aria-label="Copy C# host env vars">
+                                    <span aria-hidden="true">⧉</span>
+                                </button>
+                            </div>
+                        </li>
                         <li>JavaScript msal configuration <span class="pill">TODO</span></li>
                     </ul>
 
@@ -147,7 +176,7 @@
                     <div class="kv"><b>Scopes</b></div>
                     <ul>
                         {{- range $s := $app.Scopes }}
-                        <li><code>{{ $s.Value }}</code>{{ if $s.Description }} — {{ $s.Description }}{{ end }}</li>
+                        <li><code>{{ $s.Value.Value }}</code>{{ if $s.Description.IsPresent }} — {{ $s.Description.MustGet.Value }}{{ end }}</li>
                         {{- end }}
                     </ul>
                     {{- end }}
@@ -155,7 +184,7 @@
                     <div class="kv"><b>App roles</b></div>
                     <ul>
                         {{- range $r := $app.AppRoles }}
-                        <li><code>{{ $r.Value }}</code>{{ if $r.Description }} — {{ $r.Description }}{{ end }}</li>
+                        <li><code>{{ $r.Value.Value }}</code>{{ if $r.Description.IsPresent }} — {{ $r.Description.MustGet.Value }}{{ end }}</li>
                         {{- end }}
                     </ul>
                     {{- end }}
@@ -177,7 +206,7 @@
             {{- if $t.Groups }}
             <ul>
                 {{- range $g := $t.Groups }}
-                <li><code>{{ $g.Name }}</code> <span class="pill">{{ $g.ID }}</span></li>
+                <li><code>{{ $g.Name.Value }}</code> <span class="pill">{{ $g.ID.Value }}</span></li>
                 {{- end }}
             </ul>
             {{- else }}
@@ -189,9 +218,9 @@
             <ul>
                 {{- range $u := $t.Users }}
                 <li>
-                    <code>{{ $u.Username }}</code>
-                    {{- if $u.DisplayName }} — {{ $u.DisplayName }}{{- end }}
-                    {{- if $u.Email }} (<code>{{ $u.Email }}</code>){{- end }}
+                    <code>{{ $u.Username.Value }}</code>
+                    {{- if $u.DisplayName.Value }} — {{ $u.DisplayName.Value }}{{- end }}
+                    {{- if $u.Email.Value }} (<code>{{ $u.Email.Value }}</code>){{- end }}
                 </li>
                 {{- end }}
             </ul>
@@ -203,7 +232,7 @@
             {{- if $t.Clients }}
             <ul>
                 {{- range $c := $t.Clients }}
-                <li><code>{{ $c.Name }}</code> — <code>{{ $c.ClientID }}</code></li>
+                <li><code>{{ $c.Name.Value }}</code> — <code>{{ $c.ClientID.Value }}</code></li>
                 {{- end }}
             </ul>
             {{- else }}
@@ -213,6 +242,47 @@
         {{- end }}
     </div>
 </div>
+<script>
+    async function copyConfigText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+
+            return;
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-1000px";
+        textArea.style.top = "-1000px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) {
+            throw new Error("failed to copy config");
+        }
+    }
+
+    for (const button of document.querySelectorAll("[data-copy-target]")) {
+        button.addEventListener("click", async () => {
+            const targetId = button.getAttribute("data-copy-target");
+            if (!targetId) {
+                throw new Error("missing copy target id");
+            }
+
+            const target = document.getElementById(targetId);
+            if (!target) {
+                throw new Error("copy target not found");
+            }
+
+            const copyValue = target.getAttribute("data-copy") || target.textContent || "";
+            await copyConfigText(copyValue);
+        });
+    }
+</script>
 </body>
 
 </html>

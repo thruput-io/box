@@ -64,39 +64,6 @@ func mustGroupName(t *testing.T, raw string) domain.GroupName {
 	return v
 }
 
-var (
-	errCallback = errors.New("callback error")
-	errParser   = errors.New("parser error")
-)
-
-func TestDomain_Parse_Error(t *testing.T) {
-	t.Parallel()
-
-	provider := domain.MockProvider{Val: "", Err: errCallback}
-
-	_, err := domain.Parse[string](provider, func(s string) (string, error) {
-		return s, nil
-	})
-
-	if !errors.Is(err, errCallback) {
-		t.Fatalf("expected error %v, got %v", errCallback, err)
-	}
-}
-
-func TestDomain_ParseTokenAdapter_Error(t *testing.T) {
-	t.Parallel()
-
-	token, _ := domain.NewAccessToken("token")
-
-	_, err := domain.ParseTokenAdapter[string](token, func(_ string) (string, error) {
-		return "", errParser
-	})
-
-	if !errors.Is(err, errParser) {
-		t.Fatalf("expected error %v, got %v", errParser, err)
-	}
-}
-
 func TestDomainError_ErrorString(t *testing.T) {
 	t.Parallel()
 
@@ -240,10 +207,8 @@ func TestDescriptions_Parse(t *testing.T) {
 	}
 }
 
-func parseString(p domain.RawValueProvider) string {
-	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
-
-	return s
+func parseString(v interface{ Value() string }) string {
+	return v.Value()
 }
 
 func TestStringWrappers_EmptyErrors_IDsAndNames(t *testing.T) {
@@ -284,6 +249,107 @@ func TestStringWrappers_EmptyErrors_IDsAndNames(t *testing.T) {
 	_, err = domain.NewGroupName(emptyInput)
 	if !errors.Is(err, domain.ErrGroupNameEmpty) {
 		t.Fatalf("expected ErrGroupNameEmpty, got %v", err)
+	}
+}
+
+func TestGroupID_Value(t *testing.T) {
+	t.Parallel()
+
+	id := domain.MustGroupID(testGroupIDUUID)
+	got := id.Value()
+
+	if got != testGroupIDUUID {
+		t.Errorf("GroupID.Value() = %q, want %q", got, testGroupIDUUID)
+	}
+}
+
+func TestScopeID_Value(t *testing.T) {
+	t.Parallel()
+
+	id := domain.MustScopeID(testScopeIDUUID)
+	got := id.Value()
+
+	if got != testScopeIDUUID {
+		t.Errorf("ScopeID.Value() = %q, want %q", got, testScopeIDUUID)
+	}
+}
+
+func TestRoleID_Value(t *testing.T) {
+	t.Parallel()
+
+	id := domain.MustRoleID(testRoleIDUUID)
+	got := id.Value()
+
+	if got != testRoleIDUUID {
+		t.Errorf("RoleID.Value() = %q, want %q", got, testRoleIDUUID)
+	}
+}
+
+func TestIdentifierURI_MatchesPrefix(t *testing.T) {
+	t.Parallel()
+
+	uri := domain.MustIdentifierURI("api://myapp")
+
+	if !uri.MatchesPrefix("api://myapp/.default") {
+		t.Error("expected MatchesPrefix to return true for prefix match")
+	}
+
+	if uri.MatchesPrefix("api://other") {
+		t.Error("expected MatchesPrefix to return false for non-prefix")
+	}
+}
+
+func TestRoleValue_Matches(t *testing.T) {
+	t.Parallel()
+
+	roleValue := domain.MustRoleValue(testAdmin)
+
+	if !roleValue.Matches(testAdmin) {
+		t.Error("expected Matches to return true for exact match")
+	}
+
+	if roleValue.Matches("User") {
+		t.Error("expected Matches to return false for non-match")
+	}
+}
+
+func TestGroupName_Matches(t *testing.T) {
+	t.Parallel()
+
+	groupName := domain.MustGroupName("engineers")
+
+	if !groupName.Matches("engineers") {
+		t.Error("expected Matches to return true for exact match")
+	}
+
+	if groupName.Matches("managers") {
+		t.Error("expected Matches to return false for non-match")
+	}
+}
+
+func TestJoinRoleValues(t *testing.T) {
+	t.Parallel()
+
+	roles := []domain.RoleValue{domain.MustRoleValue(testAdmin), domain.MustRoleValue("User")}
+	got := domain.JoinRoleValues(roles, " ")
+
+	if got != "Admin User" {
+		t.Errorf("JoinRoleValues() = %q, want %q", got, "Admin User")
+	}
+}
+
+func TestIDToken_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	token := domain.MustIDToken("some.jwt.token")
+
+	data, err := token.MarshalJSON()
+	if err != nil {
+		t.Fatalf("MarshalJSON() error = %v", err)
+	}
+
+	if string(data) != `"some.jwt.token"` {
+		t.Errorf("MarshalJSON() = %s, want %q", data, "some.jwt.token")
 	}
 }
 

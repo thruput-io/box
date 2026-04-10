@@ -94,16 +94,17 @@ func verifyAuthHelpers(
 
 	const expectedRolesLen = 1
 
-	if got := appRoles[appID]; len(got) != expectedRolesLen || got[firstIndex] != "Role1" {
+	if got := appRoles[appID]; len(got) != expectedRolesLen || got[firstIndex].Value() != "Role1" {
 		t.Fatalf("unexpected appRoles: %#v", appRoles)
 	}
 
-	if got := handlers.ExportResolveAppName(tenant, appID); got != "App" {
-		t.Fatalf("expected App, got %q", got)
+	if got := handlers.ExportResolveAppName(tenant, appID); got.Value() != "App" {
+		t.Fatalf("expected App, got %q", got.Value())
 	}
 
-	if got := handlers.ExportResolveAppName(tenant, domain.ClientID{}); got != "00000000-0000-0000-0000-000000000000" {
-		t.Fatalf("expected fallback app id, got %q", got)
+	got2 := handlers.ExportResolveAppName(tenant, domain.ClientID{})
+	if got2.Value() != "00000000-0000-0000-0000-000000000000" {
+		t.Fatalf("expected fallback app id, got %q", got2.Value())
 	}
 
 	roles := handlers.ExportResolveDisplayRoles(user, &client, tenant)

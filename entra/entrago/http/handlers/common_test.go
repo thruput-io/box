@@ -73,10 +73,8 @@ func newTestRequest(t *testing.T, method, url, body string) *http.Request {
 	return req
 }
 
-func parseString(p domain.RawValueProvider) string {
-	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
-
-	return s
+func parseString(v interface{ Value() string }) string {
+	return v.Value()
 }
 
 func mustRSAKey(t *testing.T) *rsa.PrivateKey {

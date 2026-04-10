@@ -39,8 +39,8 @@ func PublicKey(key *rsa.PrivateKey) JWKSKey {
 // BuildClientInfo encodes uid+utid as a base64url JSON blob for MSAL.
 func BuildClientInfo(userID domain.UserID, tenantID domain.TenantID) domain.ClientInfo {
 	info := map[string]any{
-		"uid":  mustParseString(userID),
-		"utid": mustParseString(tenantID),
+		"uid":  userID.Value(),
+		"utid": tenantID.Value(),
 	}
 
 	data, err := json.Marshal(info)
@@ -51,28 +51,10 @@ func BuildClientInfo(userID domain.UserID, tenantID domain.TenantID) domain.Clie
 	return domain.MustClientInfo(base64URLEncode(data))
 }
 
-func mustParseString(val any) string {
-	if s, ok := val.(string); ok {
-		return s
-	}
-
-	p, ok := val.(domain.RawValueProvider)
-	if !ok {
-		panic(fmt.Sprintf("type %T does not implement RawValueProvider", val))
-	}
-
-	s, err := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
-	if err != nil {
-		panic(err)
-	}
-
-	return s
-}
-
-func mustParseStringArray[T domain.RawValueProvider](vals []T) []string {
+func roleValuesToStrings(vals []domain.RoleValue) []string {
 	res := make([]string, len(vals))
 	for i, v := range vals {
-		res[i] = mustParseString(v)
+		res[i] = v.Value()
 	}
 
 	return res

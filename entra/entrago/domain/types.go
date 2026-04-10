@@ -3,6 +3,7 @@ package domain
 import (
 	"crypto/subtle"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,35 +12,6 @@ import (
 const (
 	comparisonMatch = 1
 )
-
-// RawValueProvider allows secure access to the underlying string value of a domain type via a callback.
-type RawValueProvider interface {
-	rawCallback(callback func(string) error) error
-}
-
-// Parse is a generic function that safely extracts a value of type T from a RawValueProvider using a parser callback.
-// The callback prevents the raw string from leaking into the domain layer's public API.
-//
-//nolint:ireturn // generic return is safe due to internal callback controlling extraction
-func Parse[T any](provider RawValueProvider, parserFunc func(string) (T, error)) (T, error) {
-	var (
-		result T
-		err    error
-	)
-
-	cbErr := provider.rawCallback(func(raw string) error {
-		result, err = parserFunc(raw)
-
-		return err
-	})
-	if cbErr != nil {
-		var zero T
-
-		return zero, cbErr
-	}
-
-	return result, nil
-}
 
 // TenantID is the unique identifier for a tenant.
 type TenantID struct {
@@ -77,8 +49,9 @@ func (tenantID TenantID) UUID() uuid.UUID { return tenantID.value }
 // AsClientID returns the tenant ID as a ClientID.
 func (tenantID TenantID) AsClientID() ClientID { return ClientID(tenantID) }
 
-func (tenantID TenantID) rawCallback(callback func(string) error) error {
-	return callback(tenantID.value.String())
+// Value returns the UUID string representation.
+func (tenantID TenantID) Value() string {
+	return tenantID.value.String()
 }
 
 // ClientID is the unique identifier for an app registration or client.
@@ -114,8 +87,9 @@ func ClientIDFromUUID(value uuid.UUID) ClientID {
 // UUID returns the underlying uuid.UUID value.
 func (clientID ClientID) UUID() uuid.UUID { return clientID.value }
 
-func (clientID ClientID) rawCallback(callback func(string) error) error {
-	return callback(clientID.value.String())
+// Value returns the UUID string representation.
+func (clientID ClientID) Value() string {
+	return clientID.value.String()
 }
 
 // UserID is the unique identifier for a user.
@@ -151,8 +125,9 @@ func UserIDFromUUID(value uuid.UUID) UserID {
 // UUID returns the underlying uuid.UUID value.
 func (userID UserID) UUID() uuid.UUID { return userID.value }
 
-func (userID UserID) rawCallback(callback func(string) error) error {
-	return callback(userID.value.String())
+// Value returns the UUID string representation.
+func (userID UserID) Value() string {
+	return userID.value.String()
 }
 
 // GroupID is the unique identifier for a group.
@@ -188,8 +163,9 @@ func GroupIDFromUUID(value uuid.UUID) GroupID {
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
 
-func (groupID GroupID) rawCallback(callback func(string) error) error {
-	return callback(groupID.value.String())
+// Value returns the UUID string representation.
+func (groupID GroupID) Value() string {
+	return groupID.value.String()
 }
 
 // ScopeID is the unique identifier for a scope.
@@ -225,8 +201,9 @@ func ScopeIDFromUUID(value uuid.UUID) ScopeID {
 // UUID returns the underlying uuid.UUID value.
 func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
-func (scopeID ScopeID) rawCallback(callback func(string) error) error {
-	return callback(scopeID.value.String())
+// Value returns the UUID string representation.
+func (scopeID ScopeID) Value() string {
+	return scopeID.value.String()
 }
 
 // RoleID is the unique identifier for a role.
@@ -262,8 +239,9 @@ func RoleIDFromUUID(value uuid.UUID) RoleID {
 // UUID returns the underlying uuid.UUID value.
 func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
-func (roleID RoleID) rawCallback(callback func(string) error) error {
-	return callback(roleID.value.String())
+// Value returns the UUID string representation.
+func (roleID RoleID) Value() string {
+	return roleID.value.String()
 }
 
 // TenantName is the display name of a tenant.
@@ -294,8 +272,9 @@ func MustTenantName(raw string) TenantName {
 // AsAppName returns the tenant name as an AppName.
 func (tenantName TenantName) AsAppName() AppName { return AppName(tenantName) }
 
-func (tenantName TenantName) rawCallback(callback func(string) error) error {
-	return tenantName.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (tenantName TenantName) Value() string {
+	return tenantName.value.Value()
 }
 
 // AppName is the display name of an app registration or client.
@@ -323,8 +302,9 @@ func MustAppName(raw string) AppName {
 	return name
 }
 
-func (appName AppName) rawCallback(callback func(string) error) error {
-	return appName.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (appName AppName) Value() string {
+	return appName.value.Value()
 }
 
 // IdentifierURI is the application ID URI of an app registration.
@@ -362,8 +342,9 @@ func (identifierURI IdentifierURI) MatchesPrefix(raw string) bool {
 	return strings.HasPrefix(raw, identifierURI.value.value)
 }
 
-func (identifierURI IdentifierURI) rawCallback(callback func(string) error) error {
-	return identifierURI.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (identifierURI IdentifierURI) Value() string {
+	return identifierURI.value.Value()
 }
 
 // ScopeValue is the string value of a scope (e.g. "read", "api://xxx/.default").
@@ -398,8 +379,9 @@ func (scopeValue ScopeValue) Matches(raw string) bool {
 	return v == raw || strings.HasSuffix(raw, "/"+v)
 }
 
-func (scopeValue ScopeValue) rawCallback(callback func(string) error) error {
-	return scopeValue.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (scopeValue ScopeValue) Value() string {
+	return scopeValue.value.Value()
 }
 
 // RoleValue is the string value of a role (e.g. "Admin", "Reader").
@@ -432,8 +414,9 @@ func (roleValue RoleValue) Matches(raw string) bool {
 	return roleValue.value.value == raw
 }
 
-func (roleValue RoleValue) rawCallback(callback func(string) error) error {
-	return roleValue.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (roleValue RoleValue) Value() string {
+	return roleValue.value.Value()
 }
 
 // GroupName is the name of a group.
@@ -466,8 +449,9 @@ func (groupName GroupName) Matches(raw string) bool {
 	return groupName.value.value == raw
 }
 
-func (groupName GroupName) rawCallback(callback func(string) error) error {
-	return groupName.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (groupName GroupName) Value() string {
+	return groupName.value.Value()
 }
 
 // Username is the login name of a user.
@@ -495,8 +479,9 @@ func MustUsername(raw string) Username {
 	return username
 }
 
-func (username Username) rawCallback(callback func(string) error) error {
-	return username.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (username Username) Value() string {
+	return username.value.Value()
 }
 
 // Password is the credential of a user.
@@ -524,8 +509,9 @@ func MustPassword(raw string) Password {
 	return password
 }
 
-func (password Password) rawCallback(callback func(string) error) error {
-	return password.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (password Password) Value() string {
+	return password.value.Value()
 }
 
 // DisplayName is the human-readable name of a user.
@@ -553,8 +539,9 @@ func MustDisplayName(raw string) DisplayName {
 	return displayName
 }
 
-func (displayName DisplayName) rawCallback(callback func(string) error) error {
-	return displayName.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (displayName DisplayName) Value() string {
+	return displayName.value.Value()
 }
 
 // Email is the email address of a user.
@@ -582,23 +569,28 @@ func MustEmail(raw string) Email {
 	return email
 }
 
-func (email Email) rawCallback(callback func(string) error) error {
-	return email.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (email Email) Value() string {
+	return email.value.Value()
 }
 
 // RedirectURL is a permitted OAuth2 redirect URI.
 type RedirectURL struct {
-	value NonEmptyString
+	value url.URL
 }
 
-// NewRedirectURL creates a RedirectURL from a raw string, returning an error if empty.
+// NewRedirectURL creates a RedirectURL from a raw string, returning an error if empty or invalid.
 func NewRedirectURL(raw string) (RedirectURL, error) {
-	v, err := NewNonEmptyString(raw)
+	if raw == emptyString {
+		return RedirectURL{}, errRedirectURLEmpty
+	}
+
+	v, err := url.Parse(raw)
 	if err != nil {
 		return RedirectURL{}, errRedirectURLEmpty
 	}
 
-	return RedirectURL{value: v}, nil
+	return RedirectURL{*v}, nil
 }
 
 // MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
@@ -611,8 +603,14 @@ func MustRedirectURL(raw string) RedirectURL {
 	return redirectURL
 }
 
-func (redirectURL RedirectURL) rawCallback(callback func(string) error) error {
-	return redirectURL.value.rawCallback(callback)
+// AsURL returns the underlying url.URL value.
+func (redirectURL RedirectURL) AsURL() url.URL {
+	return redirectURL.value
+}
+
+// Value returns the URL string representation.
+func (redirectURL RedirectURL) Value() string {
+	return redirectURL.value.String()
 }
 
 // ClientSecret is the secret credential of a confidential client.
@@ -653,8 +651,9 @@ func (clientSecret ClientSecret) Match(other ClientSecret) bool {
 	return subtle.ConstantTimeCompare(expected, provided) == comparisonMatch
 }
 
-func (clientSecret ClientSecret) rawCallback(callback func(string) error) error {
-	return clientSecret.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (clientSecret ClientSecret) Value() string {
+	return clientSecret.value.Value()
 }
 
 // ScopeDescription is the human-readable description of a scope.
@@ -682,8 +681,9 @@ func MustScopeDescription(raw string) ScopeDescription {
 	return v
 }
 
-func (scopeDescription ScopeDescription) rawCallback(callback func(string) error) error {
-	return scopeDescription.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (scopeDescription ScopeDescription) Value() string {
+	return scopeDescription.value.Value()
 }
 
 // RoleDescription is the human-readable description of a role.
@@ -711,28 +711,29 @@ func MustRoleDescription(raw string) RoleDescription {
 	return v
 }
 
-func (roleDescription RoleDescription) rawCallback(callback func(string) error) error {
-	return roleDescription.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (roleDescription RoleDescription) Value() string {
+	return roleDescription.value.Value()
 }
 
-// AccessToken is an issued OAuth2 access token.
-type AccessToken struct {
+// Nonce is an OAuth2 nonce parameter used to prevent replay attacks.
+type Nonce struct {
 	value NonEmptyString
 }
 
-// NewAccessToken creates an AccessToken from a raw string, returning an error if empty.
-func NewAccessToken(raw string) (AccessToken, error) {
+// NewNonce creates a Nonce from a raw string, returning an error if empty.
+func NewNonce(raw string) (Nonce, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
-		return AccessToken{}, err
+		return Nonce{}, errNonceEmpty
 	}
 
-	return AccessToken{value: v}, nil
+	return Nonce{value: v}, nil
 }
 
-// MustAccessToken creates an AccessToken from a raw string, panicking if invalid.
-func MustAccessToken(raw string) AccessToken {
-	v, err := NewAccessToken(raw)
+// MustNonce creates a Nonce, panicking if invalid. For use in tests and constants only.
+func MustNonce(raw string) Nonce {
+	v, err := NewNonce(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -740,54 +741,27 @@ func MustAccessToken(raw string) AccessToken {
 	return v
 }
 
-// AsByteArray returns the token as a byte slice with a trailing newline.
-func (at AccessToken) AsByteArray() []byte { return ([]byte)(at.value.value + "\n") }
+// Value returns the underlying string value.
+func (n Nonce) Value() string { return n.value.value }
 
-func (at AccessToken) rawCallback(callback func(string) error) error {
-	return callback(at.value.value)
-}
-
-// ParseTokenAdapter is a standalone function that handles the generics.
-//
-//nolint:ireturn // generic return is safe due to internal callback controlling extraction
-func ParseTokenAdapter[T any](token AccessToken, parserFunc func(string) (T, error)) (T, error) {
-	var (
-		zero   T
-		result T
-		err    error
-	)
-
-	// We use the struct's callback to get the string, and execute the parser!
-	cbErr := token.rawCallback(func(rawToken string) error {
-		result, err = parserFunc(rawToken)
-
-		return err
-	})
-	if cbErr != nil {
-		return zero, cbErr
-	}
-
-	return result, nil
-}
-
-// TokenType is the type of an issued token (e.g. "Bearer").
-type TokenType struct {
+// CorrelationID is an opaque request correlation identifier.
+type CorrelationID struct {
 	value NonEmptyString
 }
 
-// NewTokenType creates a TokenType from a raw string, returning an error if empty.
-func NewTokenType(raw string) (TokenType, error) {
+// NewCorrelationID creates a CorrelationID from a raw string, returning an error if empty.
+func NewCorrelationID(raw string) (CorrelationID, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
-		return TokenType{}, err
+		return CorrelationID{}, errCorrelationIDEmpty
 	}
 
-	return TokenType{value: v}, nil
+	return CorrelationID{value: v}, nil
 }
 
-// MustTokenType creates a TokenType from a raw string, panicking if invalid.
-func MustTokenType(raw string) TokenType {
-	v, err := NewTokenType(raw)
+// MustCorrelationID creates a CorrelationID, panicking if invalid. For use in tests and constants only.
+func MustCorrelationID(raw string) CorrelationID {
+	v, err := NewCorrelationID(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -795,57 +769,31 @@ func MustTokenType(raw string) TokenType {
 	return v
 }
 
-func (tt TokenType) rawCallback(callback func(string) error) error {
-	return tt.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (c CorrelationID) Value() string { return c.value.value }
+
+// BaseURL is the validated scheme+host origin of the identity server (e.g. https://login.microsoftonline.com).
+type BaseURL struct {
+	value url.URL
 }
 
-// IDToken is an issued OIDC ID token.
-type IDToken struct {
-	value NonEmptyString
-}
-
-// NewIDToken creates an IDToken from a raw string, returning an error if empty.
-func NewIDToken(raw string) (IDToken, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return IDToken{}, err
+// NewBaseURL creates a BaseURL from a raw string, returning an error if empty or invalid.
+func NewBaseURL(raw string) (BaseURL, error) {
+	if raw == emptyString {
+		return BaseURL{}, errBaseURLEmpty
 	}
 
-	return IDToken{value: v}, nil
-}
-
-// MustIDToken creates an IDToken from a raw string, panicking if invalid.
-func MustIDToken(raw string) IDToken {
-	v, err := NewIDToken(raw)
-	if err != nil {
-		panic(err)
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.Host == emptyString {
+		return BaseURL{}, errBaseURLInvalid
 	}
 
-	return v
+	return BaseURL{value: *parsed}, nil
 }
 
-func (it IDToken) rawCallback(callback func(string) error) error {
-	return it.value.rawCallback(callback)
-}
-
-// RefreshToken is an issued OAuth2 refresh token.
-type RefreshToken struct {
-	value NonEmptyString
-}
-
-// NewRefreshToken creates a RefreshToken from a raw string, returning an error if empty.
-func NewRefreshToken(raw string) (RefreshToken, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return RefreshToken{}, err
-	}
-
-	return RefreshToken{value: v}, nil
-}
-
-// MustRefreshToken creates a RefreshToken from a raw string, panicking if invalid.
-func MustRefreshToken(raw string) RefreshToken {
-	v, err := NewRefreshToken(raw)
+// MustBaseURL creates a BaseURL, panicking if invalid. For use in tests and constants only.
+func MustBaseURL(raw string) BaseURL {
+	v, err := NewBaseURL(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -853,28 +801,27 @@ func MustRefreshToken(raw string) RefreshToken {
 	return v
 }
 
-func (rt RefreshToken) rawCallback(callback func(string) error) error {
-	return rt.value.rawCallback(callback)
-}
+// Value returns the underlying string value.
+func (b BaseURL) Value() string { return b.value.String() }
 
-// ClientInfo is the base64-encoded MSAL client information.
-type ClientInfo struct {
+// Issuer is a validated JWT issuer URI (scheme + host + optional path).
+type Issuer struct {
 	value NonEmptyString
 }
 
-// NewClientInfo creates a ClientInfo from a raw string, returning an error if empty.
-func NewClientInfo(raw string) (ClientInfo, error) {
+// NewIssuer creates an Issuer from a raw string, returning an error if empty.
+func NewIssuer(raw string) (Issuer, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
-		return ClientInfo{}, err
+		return Issuer{}, errIssuerEmpty
 	}
 
-	return ClientInfo{value: v}, nil
+	return Issuer{value: v}, nil
 }
 
-// MustClientInfo creates a ClientInfo from a raw string, panicking if invalid.
-func MustClientInfo(raw string) ClientInfo {
-	v, err := NewClientInfo(raw)
+// MustIssuer creates an Issuer, panicking if invalid. For use in tests and constants only.
+func MustIssuer(raw string) Issuer {
+	v, err := NewIssuer(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -882,28 +829,27 @@ func MustClientInfo(raw string) ClientInfo {
 	return v
 }
 
-func (ci ClientInfo) rawCallback(callback func(string) error) error {
-	return ci.value.rawCallback(callback)
-}
+// Value returns the underlying string value.
+func (i Issuer) Value() string { return i.value.value }
 
-// AuthCode is an issued OAuth2 authorization code.
-type AuthCode struct {
+// Subject is a JWT subject claim value — the unique identifier of the principal.
+type Subject struct {
 	value NonEmptyString
 }
 
-// NewAuthCode creates an AuthCode from a raw string, returning an error if empty.
-func NewAuthCode(raw string) (AuthCode, error) {
+// NewSubject creates a Subject from a raw string, returning an error if empty.
+func NewSubject(raw string) (Subject, error) {
 	v, err := NewNonEmptyString(raw)
 	if err != nil {
-		return AuthCode{}, err
+		return Subject{}, errSubjectEmpty
 	}
 
-	return AuthCode{value: v}, nil
+	return Subject{value: v}, nil
 }
 
-// MustAuthCode creates an AuthCode from a raw string, panicking if invalid.
-func MustAuthCode(raw string) AuthCode {
-	v, err := NewAuthCode(raw)
+// MustSubject creates a Subject, panicking if invalid. For use in tests and constants only.
+func MustSubject(raw string) Subject {
+	v, err := NewSubject(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -911,16 +857,117 @@ func MustAuthCode(raw string) AuthCode {
 	return v
 }
 
-func (ac AuthCode) rawCallback(callback func(string) error) error {
-	return ac.value.rawCallback(callback)
+// Value returns the underlying string value.
+func (s Subject) Value() string { return s.value.value }
+
+// TokenVersion is the version string embedded in JWT claims (e.g. "1.0" or "2.0").
+type TokenVersion struct {
+	value NonEmptyString
 }
 
-// JoinRoleValues joins multiple role values into a single string using the provided separator.
-func JoinRoleValues(roles []RoleValue, sep string) string {
-	ss := make([]string, len(roles))
-	for i, r := range roles {
-		ss[i] = r.value.value
+// NewTokenVersion creates a TokenVersion from a raw string, returning an error if empty.
+func NewTokenVersion(raw string) (TokenVersion, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return TokenVersion{}, errTokenVersionEmpty
 	}
 
-	return strings.Join(ss, sep)
+	return TokenVersion{value: v}, nil
 }
+
+// MustTokenVersion creates a TokenVersion, panicking if invalid. For use in tests and constants only.
+func MustTokenVersion(raw string) TokenVersion {
+	v, err := NewTokenVersion(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+// Value returns the underlying string value.
+func (tv TokenVersion) Value() string { return tv.value.value }
+
+// OAuthState is the opaque state parameter passed through the OAuth2 authorization flow.
+type OAuthState struct {
+	value NonEmptyString
+}
+
+// NewOAuthState creates an OAuthState from a raw string, returning an error if empty.
+func NewOAuthState(raw string) (OAuthState, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return OAuthState{}, errOAuthStateEmpty
+	}
+
+	return OAuthState{value: v}, nil
+}
+
+// MustOAuthState creates an OAuthState, panicking if invalid. For use in tests and constants only.
+func MustOAuthState(raw string) OAuthState {
+	v, err := NewOAuthState(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+// Value returns the underlying string value.
+func (o OAuthState) Value() string { return o.value.value }
+
+// ResponseMode is the OAuth2 response_mode parameter value (e.g. "query", "fragment", "form_post").
+type ResponseMode struct {
+	value NonEmptyString
+}
+
+// NewResponseMode creates a ResponseMode from a raw string, returning an error if empty.
+func NewResponseMode(raw string) (ResponseMode, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return ResponseMode{}, errResponseModeEmpty
+	}
+
+	return ResponseMode{value: v}, nil
+}
+
+// MustResponseMode creates a ResponseMode, panicking if invalid. For use in tests and constants only.
+func MustResponseMode(raw string) ResponseMode {
+	v, err := NewResponseMode(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+// Value returns the underlying string value.
+func (rm ResponseMode) Value() string { return rm.value.value }
+
+// ResponseType is the OAuth2 response_type parameter value (e.g. "code", "id_token").
+type ResponseType struct {
+	value NonEmptyString
+}
+
+// NewResponseType creates a ResponseType from a raw string, returning an error if empty.
+func NewResponseType(raw string) (ResponseType, error) {
+	v, err := NewNonEmptyString(raw)
+	if err != nil {
+		return ResponseType{}, errResponseTypeEmpty
+	}
+
+	return ResponseType{value: v}, nil
+}
+
+// MustResponseType creates a ResponseType, panicking if invalid. For use in tests and constants only.
+func MustResponseType(raw string) ResponseType {
+	v, err := NewResponseType(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
+}
+
+// Value returns the underlying string value.
+func (rt ResponseType) Value() string { return rt.value.value }

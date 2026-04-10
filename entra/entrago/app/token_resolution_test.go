@@ -43,7 +43,10 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("NewTenant: %v", err)
 	}
 
-	gotAud, gotApps := app.ExportResolveAudienceForTest(&tenant, "openid api://app/access")
+	gotAud, gotApps := app.ExportResolveAudienceForTest(&tenant, []domain.ScopeValue{
+		domain.MustScopeValue("openid"),
+		domain.MustScopeValue("api://app/access"),
+	})
 	if !gotAud.Matches(testApp) {
 		t.Fatalf("expected audience %q, got %q", testApp, gotAud)
 	}
@@ -52,7 +55,9 @@ func TestResolveAudienceForTest(t *testing.T) {
 		t.Fatalf("expected target apps to include %s", clientID.UUID().String())
 	}
 
-	gotAud, gotApps = app.ExportResolveAudienceForTest(&tenant, "openid")
+	gotAud, gotApps = app.ExportResolveAudienceForTest(&tenant, []domain.ScopeValue{
+		domain.MustScopeValue("openid"),
+	})
 	if !gotAud.Matches("api://default") {
 		t.Fatalf("expected default audience %q, got %q", "api://default", gotAud)
 	}
@@ -166,13 +171,13 @@ func verifyResolvedRoles(
 	t.Helper()
 
 	targetApps := map[domain.ClientID]bool{appClientID: true}
-	requested := []string{testApp + "/access"}
+	requested := []domain.ScopeValue{domain.MustScopeValue(testApp + "/access")}
 
 	roles := app.ExportResolveRolesForTest(tenant, client, user, targetApps, requested)
 	roleSet := make(map[string]bool)
 
 	for _, r := range roles {
-		roleStr, _ := domain.Parse[string](r, func(s string) (string, error) { return s, nil })
+		roleStr := r.Value()
 		roleSet[roleStr] = true
 	}
 

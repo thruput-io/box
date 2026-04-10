@@ -30,17 +30,17 @@ func ExportFromDomainError(domErr *domain.Error) Response {
 }
 
 // ExportCollectAssignmentRoles is for testing collectAssignmentRoles from handlers_test.
-func ExportCollectAssignmentRoles(user domain.User, client *domain.Client) map[domain.ClientID][]string {
+func ExportCollectAssignmentRoles(user domain.User, client *domain.Client) map[domain.ClientID][]domain.RoleValue {
 	return collectAssignmentRoles(user, *client)
 }
 
 // ExportResolveAppName is for testing resolveAppName from handlers_test.
-func ExportResolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
+func ExportResolveAppName(tenant domain.Tenant, appID domain.ClientID) domain.AppName {
 	return resolveAppName(tenant, appID)
 }
 
 // ExportResolveDisplayRoles is for testing resolveDisplayRoles from handlers_test.
-func ExportResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
+func ExportResolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []domain.NonEmptyString {
 	return resolveDisplayRoles(user, client, tenant)
 }
 
@@ -95,7 +95,11 @@ func ExportFirstOf(primary, fallback string) string {
 	return firstOf(primary, fallback)
 }
 
-// ExportCorrelationID is for testing correlationID from handlers_test.
+// ExportCorrelationID is for testing parseOptionalCorrelationID from handlers_test.
 func ExportCorrelationID(request *http.Request) string {
-	return correlationID(request)
+	if c, ok := parseOptionalCorrelationID(request).Get(); ok {
+		return c.Value()
+	}
+
+	return ""
 }

@@ -2,12 +2,11 @@ package app
 
 import (
 	"crypto/rsa"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/samber/mo"
 
 	"identity/domain"
 )
@@ -17,10 +16,8 @@ const (
 	refreshTokenDuration = 90 * 24 * time.Hour
 	authCodeDuration     = 5 * time.Minute
 	accessTokenExpiry    = 3600
-	scopeSeparator       = " "
 	graphClientID        = "00000003-0000-0000-c000-000000000000"
 	graphAudience        = "https://graph.microsoft.com"
-	emptyString          = ""
 	emptySliceLen        = 0
 	defaultDisplayName   = "Mock User"
 	defaultEmail         = "user@example.com"
@@ -28,11 +25,11 @@ const (
 
 // tokenClaimsBase groups the common fields used to build JWT claim sets.
 type tokenClaimsBase struct {
-	issuer   string
-	subject  any
+	issuer   domain.Issuer
+	subject  mo.Option[domain.Subject]
 	audience domain.IdentifierURI
 	tenantID domain.TenantID
-	version  string
+	version  domain.TokenVersion
 	now      time.Time
 }
 
@@ -41,13 +38,11 @@ func BuildAccessTokenClaims(input domain.TokenInput) jwt.MapClaims {
 	issuer, version := buildIssuerForInput(input)
 	tenantID := input.Tenant.TenantID()
 	subject := resolveSubject(input)
-	displayName, email := resolveUserInfo(input.User)
 	targetAudience, targetAppIDs := resolveAudience(input.Tenant, input.Scope)
 
-	requestedScopes := strings.Split(input.Scope, scopeSeparator)
 	roles := resolveRoles(
 		input.Tenant, input.Client, input.User,
-		targetAppIDs, requestedScopes,
+		targetAppIDs, input.Scope,
 	)
 
 	now := time.Now()
@@ -60,7 +55,7 @@ func BuildAccessTokenClaims(input domain.TokenInput) jwt.MapClaims {
 		now:      now,
 	}
 
-	return buildAccessClaims(base, input, email, displayName, roles)
+	return buildAccessClaims(base, input, roles)
 }
 
 // IssueToken issues a signed access token from pre-validated domain inputs.
@@ -69,10 +64,8 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 	claims := BuildAccessTokenClaims(input)
 	accessToken := domain.MustAccessToken(SignClaims(key, claims))
 
-	requestedScopes := strings.Split(input.Scope, scopeSeparator)
-	now := time.Now() // Use fresh time for ID/Refresh tokens if needed, or use claims time
+	now := time.Now()
 
-	// Re-construct some parts for ID/Refresh token logic
 	issuer, version := buildIssuerForInput(input)
 	tenantID := input.Tenant.TenantID()
 	subject := resolveSubject(input)
@@ -81,7 +74,7 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 	base := tokenClaimsBase{
 		issuer:   issuer,
 		subject:  subject,
-		audience: domain.IdentifierURI{}, // not used by buildIDClaims/buildRefreshClaims
+		audience: domain.IdentifierURI{},
 		tenantID: tenantID,
 		version:  version,
 		now:      now,
@@ -92,29 +85,29 @@ func IssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenRespon
 		TokenType:     domain.MustTokenType("Bearer"),
 		ExpiresIn:     accessTokenExpiry,
 		Scope:         input.Scope,
-		IDToken:       nil,
-		RefreshToken:  nil,
-		ClientInfo:    nil,
+		IDToken:       mo.None[domain.IDToken](),
+		RefreshToken:  mo.None[domain.RefreshToken](),
+		ClientInfo:    mo.None[domain.ClientInfo](),
 		CorrelationID: input.CorrelationID,
 	}
 
-	if slices.Contains(requestedScopes, "openid") && input.User != nil {
+	if containsScope(input.Scope, "openid") && input.User != nil {
 		idClaims := buildIDClaims(base, clientID(input), input.Nonce, displayName, email)
 		idToken := domain.MustIDToken(SignClaims(key, idClaims))
-		response.IDToken = &idToken
+		response.IDToken = mo.Some(idToken)
 	}
 
-	if slices.Contains(requestedScopes, "offline_access") || input.Grant == domain.GrantRefreshToken {
+	if containsScope(input.Scope, "offline_access") || input.Grant == domain.GrantRefreshToken {
 		refreshToken := domain.MustRefreshToken(SignClaims(
 			key,
 			buildRefreshClaims(issuer, subject, clientID(input), tenantID, input.Scope, now),
 		))
-		response.RefreshToken = &refreshToken
+		response.RefreshToken = mo.Some(refreshToken)
 	}
 
 	if input.User != nil {
 		clientInfo := BuildClientInfo(input.User.ID(), input.Tenant.TenantID())
-		response.ClientInfo = &clientInfo
+		response.ClientInfo = mo.Some(clientInfo)
 	}
 
 	return response
@@ -126,18 +119,21 @@ func IssueAuthCode(
 	user domain.User,
 	clientID domain.ClientID,
 	redirectURI domain.RedirectURL,
-	scope string,
+	scope []domain.ScopeValue,
 	tenantID domain.TenantID,
-	nonce string,
+	nonce mo.Option[domain.Nonce],
 ) domain.AuthCode {
 	claims := jwt.MapClaims{
-		claimSub:         mustParseString(user.ID()),
-		claimClientID:    mustParseString(clientID),
-		claimRedirectURI: mustParseString(redirectURI),
-		claimScope:       scope,
-		claimTenant:      mustParseString(tenantID),
-		claimNonce:       nonce,
+		claimSub:         user.ID().Value(),
+		claimClientID:    clientID.Value(),
+		claimRedirectURI: redirectURI.Value(),
+		claimScope:       domain.JoinScopeValues(scope),
+		claimTenant:      tenantID.Value(),
 		claimExp:         time.Now().Add(authCodeDuration).Unix(),
+	}
+
+	if n, ok := nonce.Get(); ok {
+		claims[claimNonce] = n.Value()
 	}
 
 	return domain.MustAuthCode(SignClaims(key, claims))
@@ -146,45 +142,42 @@ func IssueAuthCode(
 func buildAccessClaims(
 	base tokenClaimsBase,
 	input domain.TokenInput,
-	email domain.Email,
-	displayName domain.DisplayName,
 	roles []domain.RoleValue,
 ) jwt.MapClaims {
+	subjectVal := subjectString(base.subject)
+
 	claims := jwt.MapClaims{
-		claimIss:   base.issuer,
-		claimSub:   mustParseString(base.subject),
-		claimAud:   mustParseString(base.audience),
+		claimIss:   base.issuer.Value(),
+		claimSub:   subjectVal,
+		claimAud:   base.audience.Value(),
 		claimExp:   base.now.Add(accessTokenDuration).Unix(),
 		claimIat:   base.now.Unix(),
 		claimNbf:   base.now.Unix(),
 		claimJti:   uuid.New().String(),
-		claimTid:   mustParseString(base.tenantID),
-		claimVer:   base.version,
-		claimOid:   mustParseString(base.subject),
-		claimRoles: mustParseStringArray(roles),
+		claimTid:   base.tenantID.Value(),
+		claimVer:   base.version.Value(),
+		claimOid:   subjectVal,
+		claimRoles: roleValuesToStrings(roles),
 	}
 
 	if input.Client != nil {
-		claims[claimAzp] = mustParseString(input.Client.ClientID())
+		claims[claimAzp] = input.Client.ClientID().Value()
 		claims[claimAzpacls] = claimAzpacls0
-		claims[claimAppid] = mustParseString(input.Client.ClientID())
+		claims[claimAppid] = input.Client.ClientID().Value()
 	}
 
 	if input.User != nil {
-		claims[claimName] = mustParseString(displayName)
-		claims[claimPreferredUsername] = mustParseString(email)
-		claims[claimEmail] = mustParseString(email)
-		claims[claimUniqueName] = mustParseString(email)
+		input.User.MapClaims(claims)
 
 		if base.audience.Matches(graphClientID) || base.audience.Matches(graphAudience) {
-			claims[claimScp] = domain.JoinRoleValues(roles, scopeSeparator)
+			claims[claimScp] = domain.JoinRoleValues(roles, " ")
 		} else {
-			claims[claimScp] = input.Scope
+			claims[claimScp] = domain.JoinScopeValues(input.Scope)
 		}
 	}
 
-	if input.Nonce != emptyString {
-		claims[claimNonce] = input.Nonce
+	if n, ok := input.Nonce.Get(); ok {
+		claims[claimNonce] = n.Value()
 	}
 
 	return claims
@@ -193,63 +186,73 @@ func buildAccessClaims(
 func buildIDClaims(
 	base tokenClaimsBase,
 	clientID domain.ClientID,
-	nonce string,
+	nonce mo.Option[domain.Nonce],
 	displayName domain.DisplayName,
 	email domain.Email,
 ) jwt.MapClaims {
+	subjectVal := subjectString(base.subject)
+
 	claims := jwt.MapClaims{
-		claimIss:               base.issuer,
-		claimSub:               mustParseString(base.subject),
-		claimAud:               mustParseString(clientID),
+		claimIss:               base.issuer.Value(),
+		claimSub:               subjectVal,
+		claimAud:               clientID.Value(),
 		claimExp:               base.now.Add(accessTokenDuration).Unix(),
 		claimIat:               base.now.Unix(),
 		claimNbf:               base.now.Unix(),
-		claimTid:               mustParseString(base.tenantID),
-		claimVer:               base.version,
-		claimOid:               mustParseString(base.subject),
-		claimName:              mustParseString(displayName),
-		claimPreferredUsername: mustParseString(email),
-		claimEmail:             mustParseString(email),
+		claimTid:               base.tenantID.Value(),
+		claimVer:               base.version.Value(),
+		claimOid:               subjectVal,
+		claimName:              displayName.Value(),
+		claimPreferredUsername: email.Value(),
+		claimEmail:             email.Value(),
 	}
 
-	if nonce != emptyString {
-		claims[claimNonce] = nonce
+	if n, ok := nonce.Get(); ok {
+		claims[claimNonce] = n.Value()
 	}
 
 	return claims
 }
 
 func buildRefreshClaims(
-	issuer string,
-	subject any,
+	issuer domain.Issuer,
+	subject mo.Option[domain.Subject],
 	clientID domain.ClientID,
 	tenantID domain.TenantID,
-	scope string,
+	scope []domain.ScopeValue,
 	now time.Time,
 ) jwt.MapClaims {
 	return jwt.MapClaims{
-		claimIss:      issuer,
-		claimSub:      mustParseString(subject),
-		claimAud:      issuer,
+		claimIss:      issuer.Value(),
+		claimSub:      subjectString(subject),
+		claimAud:      issuer.Value(),
 		claimExp:      now.Add(refreshTokenDuration).Unix(),
 		claimIat:      now.Unix(),
-		claimClientID: mustParseString(clientID),
-		claimScope:    scope,
-		claimTid:      mustParseString(tenantID),
+		claimClientID: clientID.Value(),
+		claimScope:    domain.JoinScopeValues(scope),
+		claimTid:      tenantID.Value(),
 		claimTyp:      claimRefreshTyp,
 	}
 }
 
-func resolveSubject(input domain.TokenInput) any {
+func resolveSubject(input domain.TokenInput) mo.Option[domain.Subject] {
 	if input.User != nil {
-		return input.User.ID()
+		return mo.Some(input.User.ID().AsSubject())
 	}
 
 	if input.Client != nil {
-		return input.Client.ClientID()
+		return mo.Some(input.Client.ClientID().AsSubject())
 	}
 
-	return emptyString
+	return mo.None[domain.Subject]()
+}
+
+func subjectString(subject mo.Option[domain.Subject]) string {
+	if s, ok := subject.Get(); ok {
+		return s.Value()
+	}
+
+	return ""
 }
 
 func clientID(input domain.TokenInput) domain.ClientID {
@@ -268,21 +271,25 @@ func resolveUserInfo(user *domain.User) (domain.DisplayName, domain.Email) {
 	return domain.MustDisplayName(defaultDisplayName), domain.MustEmail(defaultEmail)
 }
 
-func buildIssuerForInput(input domain.TokenInput) (issuer, version string) {
+func buildIssuerForInput(input domain.TokenInput) (domain.Issuer, domain.TokenVersion) {
 	tenantID := input.Tenant.TenantID()
+	base := tenantID.AsURL(input.BaseURL)
 
 	if input.IsV2 {
-		return tenantID.AsURL(input.BaseURL) + "/v2.0", "2.0"
+		return domain.MustIssuer(base.Value() + "/v2.0"), domain.MustTokenVersion("2.0")
 	}
 
-	return tenantID.AsURL(input.BaseURL), "1.0"
+	return base, domain.MustTokenVersion("1.0")
 }
 
-func resolveAudience(tenant *domain.Tenant, scope string) (domain.IdentifierURI, map[domain.ClientID]bool) {
+func resolveAudience(
+	tenant *domain.Tenant,
+	scope []domain.ScopeValue,
+) (domain.IdentifierURI, map[domain.ClientID]bool) {
 	targetAudience := domain.MustIdentifierURI("api://default")
 	targetAppIDs := make(map[domain.ClientID]bool)
 
-	for scopePart := range strings.SplitSeq(scope, scopeSeparator) {
+	for _, scopePart := range scope {
 		if isOIDCScope(scopePart) {
 			continue
 		}
@@ -295,7 +302,7 @@ func resolveAudience(tenant *domain.Tenant, scope string) (domain.IdentifierURI,
 
 func matchAudienceForScope(
 	tenant *domain.Tenant,
-	scopePart string,
+	scopePart domain.ScopeValue,
 	targetAppIDs map[domain.ClientID]bool,
 	targetAudience *domain.IdentifierURI,
 ) {
@@ -311,7 +318,7 @@ func matchAudienceForScope(
 
 func matchRoleScopesForScope(
 	registration domain.AppRegistration,
-	scopePart string,
+	scopePart domain.ScopeValue,
 	targetAppIDs map[domain.ClientID]bool,
 	targetAudience *domain.IdentifierURI,
 ) {
@@ -328,7 +335,7 @@ func resolveRoles(
 	client *domain.Client,
 	user *domain.User,
 	targetAppIDs map[domain.ClientID]bool,
-	requestedScopes []string,
+	requestedScopes []domain.ScopeValue,
 ) []domain.RoleValue {
 	resolved := make(map[domain.RoleValue]bool)
 
@@ -398,7 +405,7 @@ func buildUserGroupSet(user *domain.User) map[domain.GroupName]bool {
 func resolveScopeMatchedRoles(
 	tenant *domain.Tenant,
 	targetAppIDs map[domain.ClientID]bool,
-	requestedScopes []string,
+	requestedScopes []domain.ScopeValue,
 	resolved map[domain.RoleValue]bool,
 ) {
 	for _, registration := range tenant.AppRegistrations() {
@@ -412,7 +419,7 @@ func resolveScopeMatchedRoles(
 
 func matchRolesToScopes(
 	registration domain.AppRegistration,
-	requestedScopes []string,
+	requestedScopes []domain.ScopeValue,
 	resolved map[domain.RoleValue]bool,
 ) {
 	for _, role := range registration.AppRoles() {
@@ -422,7 +429,7 @@ func matchRolesToScopes(
 	}
 }
 
-func roleMatchesAnyScope(role domain.Role, requestedScopes []string) bool {
+func roleMatchesAnyScope(role domain.Role, requestedScopes []domain.ScopeValue) bool {
 	for _, requestedScope := range requestedScopes {
 		if !isOIDCScope(requestedScope) && roleScopesMatchScope(role.Scopes(), requestedScope) {
 			return true
@@ -432,9 +439,9 @@ func roleMatchesAnyScope(role domain.Role, requestedScopes []string) bool {
 	return false
 }
 
-func roleScopesMatchScope(scopes []domain.Scope, requestedScope string) bool {
+func roleScopesMatchScope(scopes []domain.Scope, requestedScope domain.ScopeValue) bool {
 	for _, roleScope := range scopes {
-		if roleScope.Value().Matches(requestedScope) {
+		if roleScope.Value().Matches(requestedScope.Value()) {
 			return true
 		}
 	}
@@ -442,8 +449,8 @@ func roleScopesMatchScope(scopes []domain.Scope, requestedScope string) bool {
 	return false
 }
 
-func isOIDCScope(scope string) bool {
-	switch scope {
+func isOIDCScope(scope domain.ScopeValue) bool {
+	switch scope.Value() {
 	case "openid", "profile", "offline_access", "email":
 		return true
 	default:
@@ -451,8 +458,21 @@ func isOIDCScope(scope string) bool {
 	}
 }
 
+func containsScope(scopes []domain.ScopeValue, name string) bool {
+	for _, s := range scopes {
+		if s.Value() == name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ResolveAudienceForTest exposes resolveAudience for testing.
-func ResolveAudienceForTest(tenant *domain.Tenant, scope string) (domain.IdentifierURI, map[domain.ClientID]bool) {
+func ResolveAudienceForTest(
+	tenant *domain.Tenant,
+	scope []domain.ScopeValue,
+) (domain.IdentifierURI, map[domain.ClientID]bool) {
 	return resolveAudience(tenant, scope)
 }
 
@@ -462,7 +482,7 @@ func ResolveRolesForTest(
 	client *domain.Client,
 	user *domain.User,
 	targetAppIDs map[domain.ClientID]bool,
-	requestedScopes []string,
+	requestedScopes []domain.ScopeValue,
 ) []domain.RoleValue {
 	return resolveRoles(tenant, client, user, targetAppIDs, requestedScopes)
 }

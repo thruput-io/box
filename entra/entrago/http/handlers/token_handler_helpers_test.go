@@ -131,7 +131,7 @@ func TestTokenHelpers_CorrelationID(t *testing.T) {
 	}
 }
 
-// --- New Tests & Helpers for domain.Parse ---
+// --- New Tests & Helpers for domain.SafeTo ---
 
 // TestCustomClaims represents the clean domain struct you want to extract
 // without leaking the jwt library's types across your app.
@@ -147,26 +147,20 @@ func TestDomain_Parse(t *testing.T) {
 	rawJWT := createTestJWT(t, privateKey)
 	accessToken := domain.MustAccessToken(rawJWT)
 
-	extractedClaims, err := domain.Parse[*TestCustomClaims](
-		accessToken,
-		func(rawToken string) (*TestCustomClaims, error) {
-			var mapClaims jwt.MapClaims
+	rawToken := accessToken.Value()
 
-			_, err := jwt.ParseWithClaims(rawToken, &mapClaims, func(_ *jwt.Token) (any, error) {
-				return &privateKey.PublicKey, nil
-			})
-			if err != nil {
-				return nil, fmt.Errorf("jwt.ParseWithClaims: %w", err)
-			}
+	var mapClaims jwt.MapClaims
 
-			return &TestCustomClaims{
-				Subject: fmt.Sprint(mapClaims["sub"]),
-				Tenant:  fmt.Sprint(mapClaims["tid"]),
-			}, nil
-		},
-	)
+	_, err := jwt.ParseWithClaims(rawToken, &mapClaims, func(_ *jwt.Token) (any, error) {
+		return &privateKey.PublicKey, nil
+	})
 	if err != nil {
-		t.Fatalf("failed to parse token: %v", err)
+		t.Fatalf("jwt.ParseWithClaims: %v", err)
+	}
+
+	extractedClaims := &TestCustomClaims{
+		Subject: fmt.Sprint(mapClaims["sub"]),
+		Tenant:  fmt.Sprint(mapClaims["tid"]),
 	}
 
 	if extractedClaims.Subject != "user-123" {

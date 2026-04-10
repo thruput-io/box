@@ -62,9 +62,9 @@ func configCsharpAppHandler(request *http.Request, server *app.App) Response {
 
 	content := fmt.Sprintf(
 		"AzureAd__Instance=https://%s/\nAzureAd__TenantId=%s\nAzureAd__ClientId=%s\n",
-		request.Host, mustParseString(tenant.TenantID()), mustParseString(registration.ClientID()),
+		request.Host, tenant.TenantID().Value(), registration.ClientID().Value(),
 	)
-	disposition := fmt.Sprintf(fmtDisposition, mustParseString(registration.Name())+"-appsettings.env")
+	disposition := fmt.Sprintf(fmtDisposition, registration.Name().Value()+"-appsettings.env")
 
 	return Response{
 		Status:      http.StatusOK,
@@ -94,12 +94,12 @@ func configJsAppHandler(request *http.Request, server *app.App) Response {
 		"\n    authority: \"https://%s/%s\",\n    knownAuthorities: [%q],\n  },\n};\n"
 	content := fmt.Sprintf(
 		msalFmt,
-		mustParseString(registration.ClientID()),
+		registration.ClientID().Value(),
 		request.Host,
-		mustParseString(tenant.TenantID()),
+		tenant.TenantID().Value(),
 		request.Host,
 	)
-	disposition := fmt.Sprintf(fmtDisposition, mustParseString(registration.Name())+"-msal-config.js")
+	disposition := fmt.Sprintf(fmtDisposition, registration.Name().Value()+"-msal-config.js")
 
 	return Response{
 		Status:      http.StatusOK,
@@ -127,14 +127,14 @@ func configCsharpClientHandler(request *http.Request, server *app.App) Response 
 
 	content := fmt.Sprintf(
 		"AzureAd__Instance=https://%s/\nAzureAd__TenantId=%s\nAzureAd__ClientId=%s\n",
-		request.Host, mustParseString(tenant.TenantID()), mustParseString(client.ClientID()),
+		request.Host, tenant.TenantID().Value(), client.ClientID().Value(),
 	)
 
 	if client.ClientSecret() != nil {
-		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", mustParseString(*client.ClientSecret()))
+		content += fmt.Sprintf("AzureAd__ClientSecret=%s\n", client.ClientSecret().Value())
 	}
 
-	disposition := fmt.Sprintf(fmtDisposition, mustParseString(client.Name())+"-client.env")
+	disposition := fmt.Sprintf(fmtDisposition, client.Name().Value()+"-client.env")
 
 	return Response{
 		Status:      http.StatusOK,

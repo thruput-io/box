@@ -112,8 +112,6 @@ func mustRSAKey(t *testing.T) *rsa.PrivateKey {
 	return key
 }
 
-func parseString(p domain.RawValueProvider) string {
-	s, _ := domain.Parse[string](p, func(v string) (string, error) { return v, nil })
-
-	return s
+func parseString(v interface{ Value() string }) string {
+	return v.Value()
 }

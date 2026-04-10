@@ -30,7 +30,7 @@ func TestNewNonEmptyString_NonEmptyStringSucceeds(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got, _ := domain.Parse[string](result, func(v string) (string, error) { return v, nil })
+	got := domain.MustParse(result)
 	if got != testVal {
 		t.Fatalf("expected %q, got %q", testVal, got)
 	}

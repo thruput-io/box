@@ -35,7 +35,7 @@ func TestAppRegistration_IsAudienceForScope(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := app.IsAudienceForScope(tt.scope); got != tt.want {
+		if got := app.IsAudienceForScope(domain.MustScopeValue(tt.scope)); got != tt.want {
 			t.Errorf("IsAudienceForScope(%q) = %v, want %v", tt.scope, got, tt.want)
 		}
 	}
@@ -72,7 +72,7 @@ func TestRole_MatchesScope(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := role.MatchesScope(tt.scope); got != tt.want {
+		if got := role.MatchesScope(domain.MustScopeValue(tt.scope)); got != tt.want {
 			t.Errorf("MatchesScope(%q) = %v, want %v", tt.scope, got, tt.want)
 		}
 	}
@@ -168,10 +168,10 @@ func TestTenantID_AsURL(t *testing.T) {
 	t.Parallel()
 
 	id := domain.MustTenantID("88888888-8888-8888-8888-888888888888")
-	got := id.AsURL("https://entra.test")
+	got := id.AsURL(domain.MustBaseURL("https://entra.test"))
 	want := "https://entra.test/88888888-8888-8888-8888-888888888888"
 
-	if got != want {
+	if got.Value() != want {
 		t.Errorf("AsURL() = %q, want %q", got, want)
 	}
 }

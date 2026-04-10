@@ -3,7 +3,7 @@
 These guidelines apply to all work in this repository.
 
 ## Tooling
-- Makefile contains target for developing and testing.
+- Makefile contains target for devand testing.
 - box command is a wrapper around make but is tied to the project and can be issued from anywhere
 - box self-test is the command you start and end tasks with.
 

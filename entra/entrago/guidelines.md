@@ -1,4 +1,31 @@
 ## GO
+
+Domain objects should be created directly at the boundaries of the application.
+ - When parsing configuration
+ - When parsing incoming query parameters or request bodies  
+
+Domain are the only allowed objects to be used in the application in any values returned from methods or used as arguments
+
+Domain objects should be Opaque, meaning all fields should be private and never read directly.
+Domain objects should be immutable. 
+Domain objects can be combined, transformed merged in any way.
+Domain object always have a semantic meaning.
+Thereofre a domain object can never be a primitive type or a generic value object type.
+
+IMPORTANT: Primitives are not allowed to be used in the application.
+Exceptions are:
+- When parsing configuration
+- When parsing incoming query parameters or request bodies
+- When used as output in a web page or API response, however, if possible should use other representations than strings.
+
+Unit tests should expected outcomes via domain objects.
+
+
+
+
+
+
+
 ### Writing Unit Tests
 
 Unit tests MUST deterministic, and isolated.

@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/samber/mo"
+
 	"identity/app"
 	"identity/domain"
 )
@@ -52,15 +54,17 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 		return badRequest(err)
 	}
 
+	tenantOpt := parseTenantIDOption(tenantIDStr)
+
 	data := loginTemplateData{
-		ClientID:     clientIDStr,
-		RedirectURI:  redirectURIStr,
-		State:        request.URL.Query().Get("state"),
-		Scope:        request.URL.Query().Get("scope"),
-		ResponseType: request.URL.Query().Get("response_type"),
-		Tenant:       tenantIDStr,
-		Nonce:        request.URL.Query().Get("nonce"),
-		ResponseMode: request.URL.Query().Get("response_mode"),
+		ClientID:     clientID,
+		RedirectURI:  redirectURI,
+		State:        parseOptionalOAuthState(request.URL.Query().Get("state")),
+		Scope:        parseScopeValues(request.URL.Query().Get("scope")),
+		ResponseType: parseOptionalResponseType(request.URL.Query().Get("response_type")),
+		Tenant:       tenantOpt,
+		Nonce:        parseOptionalNonce(request.URL.Query().Get("nonce")),
+		ResponseMode: parseOptionalResponseMode(request.URL.Query().Get("response_mode")),
 		Users:        buildUsersDisplay(*tenant, clientID),
 	}
 
@@ -142,17 +146,18 @@ func loginHandler(request *http.Request, application *app.App) Response {
 
 	authCode := app.IssueAuthCode(
 		application.Key, *user, validated.clientID, validated.redirectURI,
-		request.Form.Get("scope"), validated.tenant.TenantID(), request.Form.Get("nonce"),
+		parseScopeValues(request.Form.Get("scope")),
+		validated.tenant.TenantID(),
+		parseOptionalNonce(request.Form.Get("nonce")),
 	)
 
-	redirectURIStr, _ := domain.Parse[string](validated.redirectURI, func(s string) (string, error) { return s, nil })
+	target := validated.redirectURI.AsURL()
 
-	target, err := url.Parse(redirectURIStr)
-	if err != nil {
-		return badRequest(err)
-	}
-
-	return buildLoginRedirect(target, authCode, request.Form.Get("state"), request.Form.Get("response_mode"))
+	return buildLoginRedirect(
+		&target, authCode,
+		parseOptionalOAuthState(request.Form.Get("state")),
+		parseOptionalResponseMode(request.Form.Get("response_mode")),
+	)
 }
 
 func authenticateLoginRequest(request *http.Request, tenant domain.Tenant) (*domain.User, *domain.Error) {
@@ -174,18 +179,27 @@ func authenticateLoginRequest(request *http.Request, tenant domain.Tenant) (*dom
 	return user, nil
 }
 
-func buildLoginRedirect(target *url.URL, authCode domain.AuthCode, state, responseMode string) Response {
+func buildLoginRedirect(
+	target *url.URL,
+	authCode domain.AuthCode,
+	state mo.Option[domain.OAuthState],
+	responseMode mo.Option[domain.ResponseMode],
+) Response {
 	values := url.Values{}
-	codeStr, _ := domain.Parse[string](authCode, func(s string) (string, error) { return s, nil })
-	values.Set("code", codeStr)
+	authCode.AddTo(values)
 
-	if state != emptyType {
-		values.Set(formKeyState, state)
+	if s, ok := state.Get(); ok {
+		values.Set(formKeyState, s.Value())
 	}
 
 	var location string
 
-	if responseMode == "fragment" {
+	isFragment := false
+	if rm, ok := responseMode.Get(); ok {
+		isFragment = rm.Value() == "fragment"
+	}
+
+	if isFragment {
 		target.RawQuery = ""
 		location = target.String() + "#" + values.Encode()
 	} else {
@@ -208,23 +222,64 @@ func buildLoginRedirect(target *url.URL, authCode domain.AuthCode, state, respon
 
 // loginTemplateData is the data passed to the login template.
 type loginTemplateData struct {
-	ClientID     string
-	RedirectURI  string
-	State        string
-	Scope        string
-	ResponseType string
-	Tenant       string
-	Nonce        string
-	ResponseMode string
+	ClientID     domain.ClientID
+	RedirectURI  domain.RedirectURL
+	State        mo.Option[domain.OAuthState]
+	Scope        []domain.ScopeValue
+	ResponseType mo.Option[domain.ResponseType]
+	Tenant       mo.Option[domain.TenantID]
+	Nonce        mo.Option[domain.Nonce]
+	ResponseMode mo.Option[domain.ResponseMode]
 	Users        []userDisplay
+}
+
+// JoinedScope returns the scope values as a space-separated string for template rendering.
+func (d loginTemplateData) JoinedScope() string {
+	return domain.JoinScopeValues(d.Scope)
+}
+
+// StateValue returns the OAuth state string for template rendering, or empty string if absent.
+func (d loginTemplateData) StateValue() string {
+	if s, ok := d.State.Get(); ok {
+		return s.Value()
+	}
+
+	return emptyValue
+}
+
+// TenantValue returns the tenant ID string for template rendering, or empty string if absent (common).
+func (d loginTemplateData) TenantValue() string {
+	if t, ok := d.Tenant.Get(); ok {
+		return t.Value()
+	}
+
+	return emptyValue
+}
+
+// NonceValue returns the nonce string for template rendering, or empty string if absent.
+func (d loginTemplateData) NonceValue() string {
+	if n, ok := d.Nonce.Get(); ok {
+		return n.Value()
+	}
+
+	return emptyValue
+}
+
+// ResponseModeValue returns the response_mode string for template rendering, or empty string if absent.
+func (d loginTemplateData) ResponseModeValue() string {
+	if rm, ok := d.ResponseMode.Get(); ok {
+		return rm.Value()
+	}
+
+	return emptyValue
 }
 
 // userDisplay is a view model for a user on the login page.
 type userDisplay struct {
-	Username    string
-	Password    string
-	DisplayName string
-	Roles       []string
+	Username    domain.Username
+	Password    domain.Password
+	DisplayName domain.DisplayName
+	Roles       []domain.NonEmptyString
 }
 
 func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDisplay {
@@ -238,14 +293,11 @@ func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDis
 	result := make([]userDisplay, emptySliceSize, len(tenant.Users()))
 
 	for _, user := range tenant.Users() {
-		username, _ := domain.Parse[string](user.Username(), func(s string) (string, error) { return s, nil })
-		password, _ := domain.Parse[string](user.Password(), func(s string) (string, error) { return s, nil })
-		displayName, _ := domain.Parse[string](user.DisplayName(), func(s string) (string, error) { return s, nil })
-
+		display := user.Display()
 		result = append(result, userDisplay{
-			Username:    username,
-			Password:    password,
-			DisplayName: displayName,
+			Username:    display.Username,
+			Password:    display.Password,
+			DisplayName: display.DisplayName,
 			Roles:       resolveDisplayRoles(user, activeClient, tenant),
 		})
 	}
@@ -253,30 +305,37 @@ func buildUsersDisplay(tenant domain.Tenant, clientID domain.ClientID) []userDis
 	return result
 }
 
-func resolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []string {
+func resolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.Tenant) []domain.NonEmptyString {
 	if client == nil {
 		return nil
 	}
 
 	appRoles := collectAssignmentRoles(user, *client)
-	result := make([]string, emptySliceSize, len(appRoles))
+	result := make([]domain.NonEmptyString, emptySliceSize, len(appRoles))
 
-	for appIDStr, roles := range appRoles {
-		appName := resolveAppName(tenant, appIDStr)
-		result = append(result, appName+": "+strings.Join(roles, ", "))
+	for appID, roles := range appRoles {
+		appName := resolveAppName(tenant, appID)
+		roleStrs := make([]string, len(roles))
+
+		for i, r := range roles {
+			roleStrs[i] = r.Value()
+		}
+
+		display := appName.Value() + ": " + strings.Join(roleStrs, ", ")
+		result = append(result, domain.MustNonEmptyString(display))
 	}
 
 	return result
 }
 
-func collectAssignmentRoles(user domain.User, client domain.Client) map[domain.ClientID][]string {
+func collectAssignmentRoles(user domain.User, client domain.Client) map[domain.ClientID][]domain.RoleValue {
 	userGroups := make(map[domain.GroupName]bool)
 
 	for _, groupName := range user.Groups() {
 		userGroups[groupName] = true
 	}
 
-	appRoles := make(map[domain.ClientID][]string)
+	appRoles := make(map[domain.ClientID][]domain.RoleValue)
 
 	for _, assignment := range client.GroupRoleAssignments() {
 		if !userGroups[assignment.GroupName()] {
@@ -289,25 +348,32 @@ func collectAssignmentRoles(user domain.User, client domain.Client) map[domain.C
 	return appRoles
 }
 
-func addAssignmentRoles(appRoles map[domain.ClientID][]string, assignment domain.GroupRoleAssignment) {
+func addAssignmentRoles(appRoles map[domain.ClientID][]domain.RoleValue, assignment domain.GroupRoleAssignment) {
 	appID := assignment.ApplicationID()
-
-	for _, roleValue := range assignment.Roles() {
-		roleStr, _ := domain.Parse[string](roleValue, func(s string) (string, error) { return s, nil })
-		appRoles[appID] = append(appRoles[appID], roleStr)
-	}
+	appRoles[appID] = append(appRoles[appID], assignment.Roles()...)
 }
 
-func resolveAppName(tenant domain.Tenant, appID domain.ClientID) string {
+func resolveAppName(tenant domain.Tenant, appID domain.ClientID) domain.AppName {
 	for _, registration := range tenant.AppRegistrations() {
 		if registration.ClientID() == appID {
-			appName, _ := domain.Parse[string](registration.Name(), func(s string) (string, error) { return s, nil })
-
-			return appName
+			return registration.Name()
 		}
 	}
 
-	appIDStr, _ := domain.Parse[string](appID, func(s string) (string, error) { return s, nil })
+	return domain.MustAppName(appID.Value())
+}
 
-	return appIDStr
+// parseTenantIDOption wraps the raw tenant ID string in mo.Option[domain.TenantID].
+// Returns None for "common" or empty string (resolved to first tenant by FindTenant).
+func parseTenantIDOption(raw string) mo.Option[domain.TenantID] {
+	if raw == emptyValue || raw == segmentCommon {
+		return mo.None[domain.TenantID]()
+	}
+
+	tid, err := domain.NewTenantID(raw)
+	if err != nil {
+		return mo.None[domain.TenantID]()
+	}
+
+	return mo.Some(tid)
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/samber/mo"
+
 	"identity/app"
 	"identity/domain"
 )
@@ -25,12 +27,12 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 		&fixture.user,
 		fixture.client.ClientID(),
 		domain.MustRedirectURL(testCallback),
-		"openid profile",
+		[]domain.ScopeValue{domain.MustScopeValue("openid"), domain.MustScopeValue("profile")},
 		fixture.tenant.TenantID(),
-		nonceStr,
+		mo.Some(domain.MustNonce(nonceStr)),
 	)
 
-	authCodeStr, _ := domain.Parse[string](code, func(s string) (string, error) { return s, nil })
+	authCodeStr := code.Value()
 
 	claims, err := app.ExportParseSignedToken(key, authCodeStr)
 	if err != nil {
@@ -152,7 +154,7 @@ func TestBuildClientInfo(t *testing.T) {
 
 	encoded := app.BuildClientInfo(domain.MustUserID(userID), domain.MustTenantID(tenantID))
 
-	clientInfoStr, _ := domain.Parse[string](encoded, func(s string) (string, error) { return s, nil })
+	clientInfoStr := encoded.Value()
 
 	decoded, err := base64.RawURLEncoding.DecodeString(clientInfoStr)
 	if err != nil {

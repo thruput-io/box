@@ -18,18 +18,8 @@ var (
 	ErrRoleDescriptionEmpty  = errRoleDescriptionEmpty
 )
 
-// Exported for testing only.
-
-// MockProvider is for testing domain.Parse.
-type MockProvider struct {
-	Val string
-	Err error
-}
-
-func (m MockProvider) rawCallback(cb func(string) error) error {
-	if m.Err != nil {
-		return m.Err
-	}
-
-	return cb(m.Val)
+// MustParse extracts the underlying string from a domain value type.
+// For use in tests and constants only.
+func MustParse(v interface{ Value() string }) string {
+	return v.Value()
 }

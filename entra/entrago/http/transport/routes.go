@@ -43,6 +43,7 @@ func registerStaticRoutes(
 ) {
 	mux.HandleFunc("/_health", adapt(handlers.Health))
 	mux.HandleFunc("/", adapt(handlers.Index))
+	mux.HandleFunc("/index.html", adapt(handlers.Index))
 }
 
 func registerAuthRoutes(

@@ -165,7 +165,7 @@ func TestLookup_ClientRegistrationAndRedirects(t *testing.T) {
 		t.Fatalf("expected %d allowed redirect url, got %d", expectedAllowedLen, len(allowed))
 	}
 
-	redirectURIStr, _ := domain.Parse[string](allowed[0], func(s string) (string, error) { return s, nil })
+	redirectURIStr := allowed[0].Value()
 
 	err = app.ExportValidateRedirectURI(redirectURIStr, allowed)
 	if err != nil {
