@@ -312,7 +312,7 @@ func loadProdToken(t *testing.T, tokenPath string) []byte {
 
 	tokenContent, err := os.ReadFile(tokenPath)
 	if err != nil {
-		t.Skip("skipping test: testdata/test-token.json not found")
+		panic(err)
 	}
 
 	return tokenContent
