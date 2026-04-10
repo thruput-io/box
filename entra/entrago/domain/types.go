@@ -837,26 +837,6 @@ type Subject struct {
 	value NonEmptyString
 }
 
-// NewSubject creates a Subject from a raw string, returning an error if empty.
-func NewSubject(raw string) (Subject, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Subject{}, errSubjectEmpty
-	}
-
-	return Subject{value: v}, nil
-}
-
-// MustSubject creates a Subject, panicking if invalid. For use in tests and constants only.
-func MustSubject(raw string) Subject {
-	v, err := NewSubject(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
-
 // Value returns the underlying string value.
 func (s Subject) Value() string { return s.value.value }
 
@@ -903,16 +883,6 @@ func NewOAuthState(raw string) (OAuthState, error) {
 	return OAuthState{value: v}, nil
 }
 
-// MustOAuthState creates an OAuthState, panicking if invalid. For use in tests and constants only.
-func MustOAuthState(raw string) OAuthState {
-	v, err := NewOAuthState(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
-
 // Value returns the underlying string value.
 func (o OAuthState) Value() string { return o.value.value }
 
@@ -931,16 +901,6 @@ func NewResponseMode(raw string) (ResponseMode, error) {
 	return ResponseMode{value: v}, nil
 }
 
-// MustResponseMode creates a ResponseMode, panicking if invalid. For use in tests and constants only.
-func MustResponseMode(raw string) ResponseMode {
-	v, err := NewResponseMode(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
-
 // Value returns the underlying string value.
 func (rm ResponseMode) Value() string { return rm.value.value }
 
@@ -957,16 +917,6 @@ func NewResponseType(raw string) (ResponseType, error) {
 	}
 
 	return ResponseType{value: v}, nil
-}
-
-// MustResponseType creates a ResponseType, panicking if invalid. For use in tests and constants only.
-func MustResponseType(raw string) ResponseType {
-	v, err := NewResponseType(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
 }
 
 // Value returns the underlying string value.

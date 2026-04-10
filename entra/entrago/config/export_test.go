@@ -47,7 +47,3 @@ func ExportBuildAppRegistration(raw RawAppRegistration) (*domain.AppRegistration
 func ExportBuildTenant(raw RawTenant) (*domain.Tenant, error) {
 	return buildTenant(raw)
 }
-
-func ExportBuildGroups(raws []RawGroup) ([]domain.Group, error) {
-	return buildGroups(raws)
-}

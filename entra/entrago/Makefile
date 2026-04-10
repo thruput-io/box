@@ -1,10 +1,11 @@
-ma.PHONY: all fmt lint lint-fix test coverage build ci
+.PHONY: all fmt lint lint-fix deadcode test coverage build ci
 
 GOPATH := $(shell go env GOPATH)
 GOFUMPT := $(GOPATH)/bin/gofumpt
 GOIMPORTS := $(GOPATH)/bin/goimports
+DEADCODE := $(GOPATH)/bin/deadcode
 
-all: fmt lint-fix lint test build
+all: fmt lint-fix lint deadcode test build
 
 fmt:
 	$(GOFUMPT) -l -w .
@@ -15,6 +16,9 @@ lint:
 
 lint-fix:
 	golangci-lint run --fix ./...
+
+deadcode:
+	go run scripts/deadcode_fix.go
 
 test:
 	go test ./...
@@ -27,4 +31,4 @@ build:
 	go build -o bin/server .
 	go build ./...
 
-ci: lint test coverage build
+ci: lint deadcode test coverage build

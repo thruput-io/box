@@ -3,7 +3,6 @@ package app
 import (
 	"crypto/rsa"
 	"fmt"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/samber/mo"
@@ -74,11 +73,6 @@ func ExportValidateClientSecret(client *domain.Client, secretStr string) error {
 	return ValidateClientSecret(*client, secret)
 }
 
-// ExportIssueToken is for testing IssueToken from app_test.
-func ExportIssueToken(key *rsa.PrivateKey, input domain.TokenInput) domain.TokenResponse {
-	return IssueToken(key, input)
-}
-
 // ExportIssueAuthCode is for testing IssueAuthCode from app_test.
 func ExportIssueAuthCode(
 	key *rsa.PrivateKey,
@@ -124,18 +118,6 @@ func ExportSignClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
 // IsOIDCScopeForTest is for testing isOIDCScope from app_test.
 func IsOIDCScopeForTest(scope domain.ScopeValue) bool {
 	return isOIDCScope(scope)
-}
-
-// ExportBuildRefreshClaims is for testing buildRefreshClaims from app_test.
-func ExportBuildRefreshClaims(
-	issuer domain.Issuer,
-	subject mo.Option[domain.Subject],
-	clientID domain.ClientID,
-	tenantID domain.TenantID,
-	scope []domain.ScopeValue,
-	now time.Time,
-) jwt.MapClaims {
-	return buildRefreshClaims(issuer, subject, clientID, tenantID, scope, now)
 }
 
 // ClaimSub exports claimSub constant for testing.

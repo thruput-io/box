@@ -29,7 +29,6 @@ var (
 	errBaseURLEmpty          = errors.New("base URL must not be empty")
 	errBaseURLInvalid        = errors.New("base URL is not a valid URL")
 	errIssuerEmpty           = errors.New("issuer must not be empty")
-	errSubjectEmpty          = errors.New("subject must not be empty")
 	errTokenVersionEmpty     = errors.New("token version must not be empty")
 	errOAuthStateEmpty       = errors.New("OAuth state must not be empty")
 	errResponseModeEmpty     = errors.New("response mode must not be empty")
