@@ -1,0 +1,19 @@
+version: 1
+dependenciesRules:
+  - package: "identity/domain"
+    shouldNotDependsOn:
+      internal:
+        - "identity/app"
+        - "identity/http/handlers"
+        - "identity/http/transport"
+        - "identity/config"
+  - package: "identity/app"
+    shouldNotDependsOn:
+      internal:
+        - "identity/http/handlers"
+        - "identity/http/transport"
+        - "identity/config"
+  - package: "identity/http/handlers"
+    shouldNotDependsOn:
+      internal:
+        - "identity/http/transport"

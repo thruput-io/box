@@ -1,0 +1,21 @@
+{
+  "appid": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+  "aud": "api://default",
+  "azp": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+  "azpacls": "0",
+  "email": "healer@logistics.com",
+  "exp": "<DYNAMIC>",
+  "iat": "<DYNAMIC>",
+  "iss": "<DYNAMIC>",
+  "jti": "<DYNAMIC>",
+  "name": "Dean Healer",
+  "nbf": "<DYNAMIC>",
+  "oid": "6320573e-360a-426c-829d-649a5b3260c8",
+  "preferred_username": "healer@logistics.com",
+  "roles": [],
+  "scp": "openid",
+  "sub": "6320573e-360a-426c-829d-649a5b3260c8",
+  "tid": "10000000-0000-4000-a000-000000000000",
+  "unique_name": "healer@logistics.com",
+  "ver": "2.0"
+}

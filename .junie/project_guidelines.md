@@ -3,7 +3,7 @@
 These guidelines apply to all work in this repository.
 
 ## Tooling
-- Makefile contains target for developing and testing.
+- Makefile contains target for devand testing.
 - box command is a wrapper around make but is tied to the project and can be issued from anywhere
 - box self-test is the command you start and end tasks with.
 
@@ -21,6 +21,7 @@ These guidelines apply to all work in this repository.
 - Weaken ssl security by ignoring or disabling ssl errors
 - Solve issue by using something that would not work in production.
 - Using 'hardening' or 'robust' configuration or features that can hide weaknesses or issues.
+
 ## Remember!
 - There is a network inside docker and a network outside docker. DNS names resolve differently.
 - To verify behavior inside docker use:

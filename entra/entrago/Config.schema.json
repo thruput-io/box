@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Identity Mock Configuration",
+  "description": "JSON Schema for the Mock Microsoft Entra ID configuration file.",
+  "type": "object",
+  "properties": {
+    "tenants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/tenant"
+      }
+    }
+  },
+  "required": ["tenants"],
+  "definitions": {
+    "TenantID": { "type": "string", "format": "uuid" },
+    "TenantName": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "AppRegistrationName": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ClientID": { "type": "string", "format": "uuid" },
+    "IdentifierURI": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "RedirectURL": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "ScopeID": { "type": "string", "format": "uuid" },
+    "ScopeValue": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ScopeDescription": { "type": "string", "maxLength": 1024 },
+    "RoleID": { "type": "string", "format": "uuid" },
+    "RoleValue": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "RoleDescription": { "type": "string", "maxLength": 1024 },
+    "GroupID": { "type": "string", "format": "uuid" },
+    "GroupName": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "UserID": { "type": "string", "format": "uuid" },
+    "Username": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "Password": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "DisplayName": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "Email": { "type": "string", "format": "email", "maxLength": 256 },
+    "GroupNameReference": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "RoleValueReference": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ClientName": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ClientSecret": { "type": "string", "maxLength": 1024 },
+    "ApplicationIDReference": { "type": "string", "format": "uuid" },
+
+    "tenant": {
+      "type": "object",
+      "properties": {
+        "tenantId": { "$ref": "#/definitions/TenantID" },
+        "name": { "$ref": "#/definitions/TenantName" },
+        "appRegistrations": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/appRegistration" }
+        },
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/group" }
+        },
+        "users": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/user" }
+        },
+        "clients": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/client" }
+        }
+      },
+      "required": ["tenantId", "name", "appRegistrations", "groups", "users", "clients"]
+    },
+    "appRegistration": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/definitions/AppRegistrationName" },
+        "clientId": { "$ref": "#/definitions/ClientID" },
+        "identifierUri": { "$ref": "#/definitions/IdentifierURI" },
+        "redirectUrls": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RedirectURL" }
+        },
+        "scopes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/scope" }
+        },
+        "appRoles": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/role" }
+        }
+      },
+      "required": ["name", "clientId", "identifierUri", "appRoles"]
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/ScopeID" },
+        "value": { "$ref": "#/definitions/ScopeValue" },
+        "description": { "$ref": "#/definitions/ScopeDescription" }
+      },
+      "required": ["value"]
+    },
+    "role": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/RoleID" },
+        "value": { "$ref": "#/definitions/RoleValue" },
+        "description": { "$ref": "#/definitions/RoleDescription" },
+        "scopes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/scope" }
+        }
+      },
+      "required": ["value", "scopes"]
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/GroupID" },
+        "name": { "$ref": "#/definitions/GroupName" }
+      },
+      "required": ["name"]
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/definitions/UserID" },
+        "username": { "$ref": "#/definitions/Username" },
+        "password": { "$ref": "#/definitions/Password" },
+        "displayName": { "$ref": "#/definitions/DisplayName" },
+        "email": { "$ref": "#/definitions/Email" },
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GroupNameReference" }
+        }
+      },
+      "required": ["username", "password", "displayName", "email", "groups"]
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/definitions/ClientName" },
+        "clientId": { "$ref": "#/definitions/ClientID" },
+        "clientSecret": { "$ref": "#/definitions/ClientSecret" },
+        "redirectUrls": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RedirectURL" }
+        },
+        "groupRoleAssignments": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/groupRoleAssignment" }
+        }
+      },
+      "required": ["name", "clientId", "groupRoleAssignments"]
+    },
+    "groupRoleAssignment": {
+      "type": "object",
+      "properties": {
+        "groupName": { "$ref": "#/definitions/GroupNameReference" },
+        "roles": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RoleValueReference" }
+        },
+        "applicationId": { "$ref": "#/definitions/ApplicationIDReference" }
+      },
+      "required": ["groupName", "roles", "applicationId"]
+    }
+  }
+}

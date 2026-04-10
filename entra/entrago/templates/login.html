@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Login</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #121a33;
+            --text: #e8ecff;
+            --muted: #a9b2d6;
+            --border: rgba(232, 236, 255, 0.12);
+            --link: #8ab4ff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.4;
+        }
+
+        .container { max-width: 880px; margin: 0 auto; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        .user-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .user-item button {
+            margin-top: 0;
+            white-space: nowrap;
+        }
+
+        .user-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .user-name {
+            font-weight: 600;
+        }
+
+        .user-roles {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        h1 { margin: 0 0 8px; font-size: 24px; }
+        p { margin: 8px 0; color: var(--muted); }
+        label { display: block; margin: 10px 0 4px; color: var(--muted); }
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            outline: none;
+        }
+
+        button {
+            margin-top: 14px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(138, 180, 255, 0.15);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        code { color: var(--muted); }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Mock login</h1>
+    <p>
+        Client: <code>{{ .ClientID.Value }}</code>
+    </p>
+
+    <div class="panel">
+        <p>Quick sign-in</p>
+        <div class="user-list">
+            {{- range .Users }}
+            <div class="user-item">
+                <div class="user-meta">
+                    <span class="user-name">{{ .Username.Value }}{{ if .DisplayName.Value }} — {{ .DisplayName.Value }}{{ end }}</span>
+                    {{- if .Roles }}
+                    <span class="user-roles">{{ range $i, $role := .Roles }}{{ if $i }}, {{ end }}{{ $role.Value }}{{ end }}</span>
+                    {{- end }}
+                </div>
+                <form method="post" action="/login">
+                    <input type="hidden" name="client_id" value="{{ $.ClientID.Value }}"/>
+                    <input type="hidden" name="redirect_uri" value="{{ $.RedirectURI.Value }}"/>
+                    <input type="hidden" name="state" value="{{ $.StateValue }}"/>
+                    <input type="hidden" name="scope" value="{{ $.JoinedScope }}"/>
+                    <input type="hidden" name="tenant" value="{{ $.TenantValue }}"/>
+                    <input type="hidden" name="nonce" value="{{ $.NonceValue }}"/>
+                    <input type="hidden" name="response_mode" value="{{ $.ResponseModeValue }}"/>
+                    <input type="hidden" name="username" value="{{ .Username.Value }}"/>
+                    <input type="hidden" name="password" value="{{ .Password.Value }}"/>
+                    <button type="submit">Sign in as {{ .Username.Value }}</button>
+                </form>
+            </div>
+            {{- end }}
+        </div>
+    </div>
+
+    <div class="panel">
+        <form method="post" action="/login">
+            <input type="hidden" name="client_id" value="{{ .ClientID.Value }}"/>
+            <input type="hidden" name="redirect_uri" value="{{ .RedirectURI.Value }}"/>
+            <input type="hidden" name="state" value="{{ .StateValue }}"/>
+            <input type="hidden" name="scope" value="{{ .JoinedScope }}"/>
+            <input type="hidden" name="tenant" value="{{ .TenantValue }}"/>
+            <input type="hidden" name="nonce" value="{{ .NonceValue }}"/>
+            <input type="hidden" name="response_mode" value="{{ .ResponseModeValue }}"/>
+
+            <label for="username">Username</label>
+            <select id="username" name="username" required>
+                {{- range .Users }}
+                <option value="{{ .Username.Value }}">{{ .Username.Value }}{{ if .DisplayName.Value }} — {{ .DisplayName.Value }}{{ end }}</option>
+                {{- end }}
+            </select>
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" placeholder="password" required/>
+
+            <button type="submit">Sign in</button>
+        </form>
+    </div>
+</div>
+</body>
+
+</html>

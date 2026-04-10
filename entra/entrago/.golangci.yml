@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+version: "2"
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  tests: true
+linters:
+  default: all
+  disable:
+    - depguard    # Too restrictive for most projects
+    - tagalign    # Aesthetic only
+    - nonamedreturns # Opinionated; sometimes named returns are better
+  settings:
+    cyclop:
+      max-complexity: 10
+    funlen:
+      lines: 60
+      statements: 30
+    maintidx:
+      under: 20
+    lll:
+      line-length: 120
+    revive:
+      enable-all-rules: true
+      severity: error
+      rules:
+        - name: line-length-limit
+          arguments: [120]
+        - name: max-public-structs
+          arguments: [30]
+    exhaustruct:
+      exclude:
+        - "^net/http\\.Server$"
+    exhaustive:
+      default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        - G304 # File path is validated/controlled in this dev-only mock server
+        - G101 # Potential hardcoded credentials: false positive on domain error code constants
+    staticcheck:
+      checks: ["all"]
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+formatters:
+  settings:
+    gofumpt:
+      extra-rules: true
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+  sort-order:
+    - linter
+    - severity
+    - file

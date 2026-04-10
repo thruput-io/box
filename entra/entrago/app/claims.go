@@ -1,0 +1,32 @@
+package app
+
+// JWT claim key constants used across token issuance and parsing.
+const (
+	claimSub               = "sub"
+	claimClientID          = "client_id"
+	claimRedirectURI       = "redirect_uri"
+	claimScope             = "scope"
+	claimTenant            = "tenant"
+	claimNonce             = "nonce"
+	claimExp               = "exp"
+	claimIat               = "iat"
+	claimNbf               = "nbf"
+	claimJti               = "jti"
+	claimTid               = "tid"
+	claimVer               = "ver"
+	claimOid               = "oid"
+	claimRoles             = "roles"
+	claimAzp               = "azp"
+	claimAzpacls           = "azpacls"
+	claimAppid             = "appid"
+	claimName              = "name"
+	claimPreferredUsername = "preferred_username"
+	claimEmail             = "email"
+	claimUniqueName        = "unique_name"
+	claimScp               = "scp"
+	claimIss               = "iss"
+	claimAud               = "aud"
+	claimTyp               = "typ"
+	claimRefreshTyp        = "Refresh"
+	claimAzpacls0          = "0"
+)

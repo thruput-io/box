@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Entra mock</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #121a33;
+            --text: #e8ecff;
+            --muted: #a9b2d6;
+            --border: rgba(232, 236, 255, 0.12);
+            --link: #8ab4ff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.4;
+        }
+
+        a { color: var(--link); }
+        code, pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        h1 { margin: 0 0 8px; font-size: 28px; }
+        h2 { margin: 0 0 8px; font-size: 20px; }
+        h3 { margin: 16px 0 8px; font-size: 16px; }
+        p { margin: 8px 0; color: var(--muted); }
+        ul { margin: 8px 0; }
+        li { margin: 6px 0; }
+        .pill {
+            display: inline-block;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 12px;
+        }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .kv { color: var(--muted); }
+        .kv b { color: var(--text); }
+        .mono { color: var(--muted); }
+        .config-copy { display: flex; align-items: flex-start; gap: 8px; }
+        .config-snippet {
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(11, 16, 32, 0.6);
+            color: var(--text);
+            white-space: pre;
+            overflow: auto;
+        }
+        .copy-btn {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text);
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Entra mock</h1>
+    <p>Describe the endpoints that are available and how they will respond.</p>
+
+    <div class="panel">
+        <h2>Entra endpoints</h2>
+        <ul>
+            <li><span class="pill">GET</span> <code>/.well-known/openid-configuration</code></li>
+            <li><span class="pill">GET</span> <code>/{tenant}/.well-known/openid-configuration</code></li>
+            <li><span class="pill">GET</span> <code>/discovery/keys</code> / <code>/discovery/v2.0/keys</code></li>
+            <li><span class="pill">POST</span> <code>/token</code> and Entra-compatible token paths</li>
+            <li><span class="pill">GET</span> <code>/authorize</code> (interactive flow)</li>
+            <li><span class="pill">POST</span> <code>/login</code></li>
+        </ul>
+    </div>
+
+    <div class="panel">
+        <h2>Mock utility endpoints</h2>
+        <ul>
+            <li>
+                Endpoint to retrieve a test token with defaulted (if not configured) claims plus any query parameters as claims
+                <div class="mono"><span class="pill">GET</span> <code>/mock-utils/{tenantId}/{appId}/{clientId}?scope=read,scope=write</code></div>
+            </li>
+            <li>
+                Endpoint for just signing provided token
+                <div class="mono"><span class="pill">POST</span> <code>/mock-utils/sign?token=token</code></div>
+            </li>
+        </ul>
+    </div>
+
+    <div class="panel">
+        <h2>Current configuration</h2>
+
+        {{- if not .Tenants }}
+        <p>No tenants configured.</p>
+        {{- end }}
+
+        {{- range $t := .Tenants }}
+        <div class="panel">
+            <div class="row">
+                <h3 style="margin:0">Tenant: {{ $t.Name.Value }}</h3>
+                <span class="pill">{{ $t.TenantID.Value }}</span>
+            </div>
+
+            {{- if not $t.AppRegistrations }}
+            <p>No app registrations configured for this tenant.</p>
+            {{- end }}
+
+            <div class="grid">
+                {{- range $app := $t.AppRegistrations }}
+                <div class="panel">
+                    <h3 style="margin:0 0 8px">{{ $app.Name.Value }}</h3>
+                    <div class="kv"><b>Client ID:</b> <code>{{ $app.ClientID.Value }}</code></div>
+                    {{- if $app.IdentifierURI.IsPresent }}
+                    <div class="kv"><b>Identifier URI:</b> <code>{{ $app.IdentifierURI.MustGet.Value }}</code></div>
+                    {{- end }}
+
+                    <h3>Link to login page for it</h3>
+                    {{- if gt (len $app.RedirectURLs) 0 }}
+                    <ul>
+                        <li>
+                            <a href="/authorize?client_id={{ $app.ClientID.Value }}&redirect_uri={{ (index $app.RedirectURLs 0).Value }}&response_type=code&scope=openid">Start login (first redirect URL)</a>
+                        </li>
+                    </ul>
+                    {{- else }}
+                    <p>No redirect URLs configured.</p>
+                    {{- end }}
+
+                    <h3>Links to get configuration for it in different formats</h3>
+                    <ul>
+                        <li>
+                            C# container apps environment variables (msal host configuration)
+                            {{- $fragment := $app.CsharpConfig.Fragment }}
+                            <div class="config-copy" style="margin-top:8px">
+                                <pre id="csharp-host-config-{{ $t.TenantID.Value }}-{{ $app.ClientID.Value }}" class="config-snippet" data-copy="{{ $fragment }}">{{ $fragment }}</pre>
+                                <button type="button" class="copy-btn" data-copy-target="csharp-host-config-{{ $t.TenantID.Value }}-{{ $app.ClientID.Value }}" title="Copy C# host env vars" aria-label="Copy C# host env vars">
+                                    <span aria-hidden="true">⧉</span>
+                                </button>
+                            </div>
+                        </li>
+                        <li>JavaScript msal configuration <span class="pill">TODO</span></li>
+                    </ul>
+
+                    <h3>Claims and roles for it</h3>
+                    {{- if or $app.Scopes $app.AppRoles }}
+                    {{- if $app.Scopes }}
+                    <div class="kv"><b>Scopes</b></div>
+                    <ul>
+                        {{- range $s := $app.Scopes }}
+                        <li><code>{{ $s.Value.Value }}</code>{{ if $s.Description.IsPresent }} — {{ $s.Description.MustGet.Value }}{{ end }}</li>
+                        {{- end }}
+                    </ul>
+                    {{- end }}
+                    {{- if $app.AppRoles }}
+                    <div class="kv"><b>App roles</b></div>
+                    <ul>
+                        {{- range $r := $app.AppRoles }}
+                        <li><code>{{ $r.Value.Value }}</code>{{ if $r.Description.IsPresent }} — {{ $r.Description.MustGet.Value }}{{ end }}</li>
+                        {{- end }}
+                    </ul>
+                    {{- end }}
+                    {{- else }}
+                    <p>No scopes or roles configured.</p>
+                    {{- end }}
+
+                    <h3>Users / groups / clients</h3>
+                    <ul>
+                        <li>Then user groups that has roles for it <span class="pill">See tenant groups below</span></li>
+                        <li>Users that has role for it with link to start login to any registered redirect url <span class="pill">See tenant users below</span></li>
+                        <li>Clients that have access to it with a link to retrieve token for app by default scope and C# environment variables for Client configuration <span class="pill">TODO</span></li>
+                    </ul>
+                </div>
+                {{- end }}
+            </div>
+
+            <h3>Groups</h3>
+            {{- if $t.Groups }}
+            <ul>
+                {{- range $g := $t.Groups }}
+                <li><code>{{ $g.Name.Value }}</code> <span class="pill">{{ $g.ID.Value }}</span></li>
+                {{- end }}
+            </ul>
+            {{- else }}
+            <p>No groups configured.</p>
+            {{- end }}
+
+            <h3>Users</h3>
+            {{- if $t.Users }}
+            <ul>
+                {{- range $u := $t.Users }}
+                <li>
+                    <code>{{ $u.Username.Value }}</code>
+                    {{- if $u.DisplayName.Value }} — {{ $u.DisplayName.Value }}{{- end }}
+                    {{- if $u.Email.Value }} (<code>{{ $u.Email.Value }}</code>){{- end }}
+                </li>
+                {{- end }}
+            </ul>
+            {{- else }}
+            <p>No users configured.</p>
+            {{- end }}
+
+            <h3>Clients</h3>
+            {{- if $t.Clients }}
+            <ul>
+                {{- range $c := $t.Clients }}
+                <li><code>{{ $c.Name.Value }}</code> — <code>{{ $c.ClientID.Value }}</code></li>
+                {{- end }}
+            </ul>
+            {{- else }}
+            <p>No clients configured.</p>
+            {{- end }}
+        </div>
+        {{- end }}
+    </div>
+</div>
+<script>
+    async function copyConfigText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+
+            return;
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-1000px";
+        textArea.style.top = "-1000px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) {
+            throw new Error("failed to copy config");
+        }
+    }
+
+    for (const button of document.querySelectorAll("[data-copy-target]")) {
+        button.addEventListener("click", async () => {
+            const targetId = button.getAttribute("data-copy-target");
+            if (!targetId) {
+                throw new Error("missing copy target id");
+            }
+
+            const target = document.getElementById(targetId);
+            if (!target) {
+                throw new Error("copy target not found");
+            }
+
+            const copyValue = target.getAttribute("data-copy") || target.textContent || "";
+            await copyConfigText(copyValue);
+        });
+    }
+</script>
+</body>
+
+</html>
