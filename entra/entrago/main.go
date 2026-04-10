@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"identity/app"
+	"identity/config"
 	"identity/domain"
 	identityhttp "identity/http/transport"
 )
@@ -32,7 +33,7 @@ type runDeps struct {
 func run(deps runDeps) error {
 	configPath := resolveConfigPath(deps.stat)
 
-	config, err := deps.loadConfig(configPath)
+	cfg, err := deps.loadConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func run(deps runDeps) error {
 	}
 
 	application := &app.App{
-		Config:        config,
+		Config:        cfg,
 		Key:           key,
 		LoginTemplate: loginTemplate,
 		IndexTemplate: indexTemplate,
@@ -110,7 +111,7 @@ func loadTemplates() (login *template.Template, index *template.Template, err er
 }
 
 func defaultLoadConfig(path string) (*domain.Config, error) {
-	cfg, err := domain.LoadConfig(path, "")
+	cfg, err := config.LoadConfig(path, "")
 	if err != nil {
 		return nil, fmt.Errorf("LoadConfig: %w", err)
 	}

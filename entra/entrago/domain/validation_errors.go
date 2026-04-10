@@ -3,13 +3,8 @@ package domain
 import "errors"
 
 const (
-	emptyLen      = 0
-	emptyString   = ""
-	fmtTenantWrap = "tenant %q: %w"
-	fmtAppRegWrap = "app registration %q: %w"
-	fmtRoleWrap   = "role %q: %w"
-	fmtUserWrap   = "user %q: %w"
-	fmtClientWrap = "client %q: %w"
+	emptyLen    = 0
+	emptyString = ""
 )
 
 var (

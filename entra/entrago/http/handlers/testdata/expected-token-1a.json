@@ -6,7 +6,7 @@
   "email": "healer@logistics.com",
   "exp": "<DYNAMIC>",
   "iat": "<DYNAMIC>",
-  "iss": "http://example.com/10000000-0000-4000-a000-000000000000/v2.0",
+  "iss": "<DYNAMIC>",
   "jti": "<DYNAMIC>",
   "name": "Dean Healer",
   "nbf": "<DYNAMIC>",

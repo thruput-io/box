@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,43 +16,57 @@ import (
 	"testing"
 
 	"identity/app"
+	"identity/config"
 	"identity/domain"
-	"identity/http/handlers"
+	"identity/http/transport"
 )
 
 const (
-	testAppID     = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
-	testTenantID  = "10000000-0000-4000-a000-000000000000"
-	pathSeparator = "/"
-	fmtUnexpected = "unexpected status: %d, body: %s"
-	permOwnerRW   = 0o600
+	testAppID         = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
+	testTenantID      = "10000000-0000-4000-a000-000000000000"
+	pathSeparator     = "/"
+	fmtUnexpected     = "unexpected status: %d, body: %s"
+	fmtFailedRequest  = "failed to make request: %v"
+	fmtFailedReadBody = "failed to read body: %v"
+	fmtFailedCreate   = "failed to create request: %v"
+	permOwnerRW       = 0o600
 )
 
 func TestTestTokenHandler_ProdIntegration_1a(t *testing.T) {
 	t.Parallel()
 
-	config := loadConfigForTest(t)
+	srv := newTestServer(t)
+	defer srv.Close()
+
 	tenantID := testTenantID
 	appID := testAppID
 	clientID := testAppID
 
-	application := &app.App{
-		Config:        config,
-		Key:           mustRSAKey(t),
-		LoginTemplate: nil,
-		IndexTemplate: nil,
+	testURL := srv.URL + pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, testURL, nil)
+	if err != nil {
+		t.Fatalf(fmtFailedCreate, err)
 	}
 
-	testURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
-	ctx := context.Background()
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
-
-	resp := handlers.ExportInvokeTestTokenHandler(request, application)
-	if resp.Status != http.StatusOK {
-		t.Fatalf(fmtUnexpected, resp.Status, string(resp.Body))
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf(fmtFailedRequest, err)
 	}
 
-	tokenStr := strings.TrimSpace(string(resp.Body))
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf(fmtUnexpected, resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf(fmtFailedReadBody, err)
+	}
+
+	tokenStr := strings.TrimSpace(string(body))
 	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1a.json")
 	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1a.json")
 }
@@ -59,7 +74,9 @@ func TestTestTokenHandler_ProdIntegration_1a(t *testing.T) {
 func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
 	t.Parallel()
 
-	config := loadConfigForTest(t)
+	srv := newTestServer(t)
+	defer srv.Close()
+
 	tokenContent := loadProdToken(t, "testdata/test-token-all.json")
 
 	var inputClaims map[string]any
@@ -69,34 +86,38 @@ func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
 		t.Fatalf("failed to unmarshal input token: %v", err)
 	}
 
-	tenantID := testTenantID
-	appID := testAppID
-	clientID := testAppID
-
-	application := &app.App{
-		Config:        config,
-		Key:           mustRSAKey(t),
-		LoginTemplate: nil,
-		IndexTemplate: nil,
-	}
-
-	baseURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
 	queryParams := url.Values{}
 
 	for k, v := range inputClaims {
 		addClaimAsQueryParam(queryParams, k, v)
 	}
 
+	baseURL := srv.URL + pathMockUtils + testTenantID + pathSeparator + testAppID + pathSeparator + testAppID
 	fullURL := baseURL + "?" + queryParams.Encode()
-	ctx := context.Background()
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 
-	resp := handlers.ExportInvokeTestTokenHandler(request, application)
-	if resp.Status != http.StatusOK {
-		t.Fatalf(fmtUnexpected, resp.Status, string(resp.Body))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fullURL, nil)
+	if err != nil {
+		t.Fatalf(fmtFailedCreate, err)
 	}
 
-	tokenStr := strings.TrimSpace(string(resp.Body))
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf(fmtFailedRequest, err)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf(fmtUnexpected, resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf(fmtFailedReadBody, err)
+	}
+
+	tokenStr := strings.TrimSpace(string(body))
 	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1b.json")
 	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1b.json")
 }
@@ -104,32 +125,45 @@ func TestTestTokenHandler_ProdIntegration_1b(t *testing.T) {
 func TestTestTokenHandler_ProdIntegration_1c(t *testing.T) {
 	t.Parallel()
 
-	config := loadConfigForTest(t)
+	srv := newTestServer(t)
+	defer srv.Close()
+
 	tokenContent := loadProdToken(t, "testdata/test-token-all.json")
 
 	tenantID := testTenantID
 	appID := testAppID
 	clientID := testAppID
 
-	application := &app.App{
-		Config:        config,
-		Key:           mustRSAKey(t),
-		LoginTemplate: nil,
-		IndexTemplate: nil,
+	testURL := srv.URL + pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
+
+	req, err := http.NewRequestWithContext(
+		context.Background(), http.MethodPost, testURL, bytes.NewReader(tokenContent),
+	)
+	if err != nil {
+		t.Fatalf(fmtFailedCreate, err)
 	}
 
-	testURL := pathMockUtils + tenantID + pathSeparator + appID + pathSeparator + clientID
-	ctx := context.Background()
-	request := httptest.NewRequestWithContext(ctx, http.MethodPost, testURL, bytes.NewReader(tokenContent))
-	request.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	resp := handlers.ExportInvokeTestTokenHandler(request, application)
-	if resp.Status != http.StatusOK {
-		t.Fatalf(fmtUnexpected, resp.Status, string(resp.Body))
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf(fmtFailedRequest, err)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf(fmtUnexpected, resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf(fmtFailedReadBody, err)
 	}
 
 	// 1c should yield same results as 1b if input is same (but without mock-added claims)
-	tokenStr := strings.TrimSpace(string(resp.Body))
+	tokenStr := strings.TrimSpace(string(body))
 	saveActualTokenPayload(t, tokenStr, "testdata/actual-token-1c.json")
 	compareTokenWithExpected(t, tokenStr, "testdata/expected-token-1c.json")
 }
@@ -265,12 +299,12 @@ func loadConfigForTest(t *testing.T) *domain.Config {
 		configPath = "../../DefaultConfig.yaml"
 	}
 
-	config, err := domain.LoadConfig(configPath, "")
+	cfg, err := config.LoadConfig(configPath, "")
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	return config
+	return cfg
 }
 
 func loadProdToken(t *testing.T, tokenPath string) []byte {
@@ -316,4 +350,20 @@ func saveActualTokenPayload(t *testing.T, tokenStr, outputPath string) {
 	if err != nil {
 		t.Fatalf("failed to write payload to %s: %v", outputPath, err)
 	}
+}
+
+func newTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	cfg := loadConfigForTest(t)
+	application := &app.App{
+		Config:        cfg,
+		Key:           mustRSAKey(t),
+		LoginTemplate: nil,
+		IndexTemplate: nil,
+	}
+
+	server := &transport.Server{App: application}
+
+	return httptest.NewServer(server.Handler())
 }
