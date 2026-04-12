@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "golang-design-patterns": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "computedHash": "40e05dfa2916cd801f894151d587a93a6969117bf44d8a767e48b2952380adf7"
+    },
+    "golang-lint": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "computedHash": "1699c2de9908c0060792848ac05283dd34c6daf10fe9471a1bbcc986b9e52799"
+    },
+    "golang-testing": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "computedHash": "1b1774d5a127d5851392b072147ced5129babf13bff75429819a5d10b696cca2"
+    }
+  }
+}

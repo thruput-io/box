@@ -4,7 +4,6 @@ import (
 	"crypto/rsa"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/samber/mo"
 
 	"identity/app"
@@ -17,43 +16,29 @@ const (
 )
 
 func parseAuthCode(key *rsa.PrivateKey, code string) mo.Either[domain.Error, domain.Claims] {
-	rawClaims, err := app.ParseSignedToken(key, code)
-	if err != nil {
-		return mo.Left[domain.Error, domain.Claims](
-			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidAuthCode),
-		)
-	}
-
-	domainClaims, ok := parseDomainClaims(rawClaims).Right()
-	if !ok {
-		return mo.Left[domain.Error, domain.Claims](
-			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidAuthCode),
-		)
-	}
-
-	return mo.Right[domain.Error, domain.Claims](domainClaims)
+	return parseSignedToken(key, code, errMsgInvalidAuthCode)
 }
 
 func parseRefreshToken(key *rsa.PrivateKey, tokenString string) mo.Either[domain.Error, domain.Claims] {
-	claims, err := app.ParseSignedToken(key, tokenString)
+	return parseSignedToken(key, tokenString, errMsgInvalidRefreshToken)
+}
+
+func parseSignedToken(key *rsa.PrivateKey, tokenString string, errMsg string) mo.Either[domain.Error, domain.Claims] {
+	rawClaims, err := app.ParseSignedToken(key, tokenString)
 	if err != nil {
 		return mo.Left[domain.Error, domain.Claims](
-			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidRefreshToken),
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsg),
 		)
 	}
 
-	domainClaims, ok := parseDomainClaims(claims).Right()
+	domainClaims, ok := domain.From(rawClaims).Right()
 	if !ok {
 		return mo.Left[domain.Error, domain.Claims](
-			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidRefreshToken),
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsg),
 		)
 	}
 
 	return mo.Right[domain.Error, domain.Claims](domainClaims)
-}
-
-func parseDomainClaims(rawClaims jwt.MapClaims) mo.Either[domain.Error, domain.Claims] {
-	return domain.From(rawClaims)
 }
 
 // parseScopeValues splits a space-separated scope string into a slice of ScopeValues.

@@ -10,7 +10,7 @@ ENV PATH="/go/bin:${PATH}"
 COPY entrago/go.mod ./
 COPY entrago/ .
 
-RUN make test build
+RUN make ci
 
 COPY entrago/${IDENTITY_CONFIG} ./Config.yaml
 
