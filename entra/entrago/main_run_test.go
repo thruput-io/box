@@ -8,11 +8,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/samber/mo"
+
 	"identity/domain"
 )
 
 var (
-	errBoom       = errors.New("boom")
+	errBoom       = domain.NewError(domain.ErrCodeInvalidConfig, "boom")
 	errListenBoom = errors.New("listen boom")
 )
 
@@ -54,33 +56,75 @@ func TestLoadTemplates(t *testing.T) {
 func TestRun_LoadConfigError(t *testing.T) {
 	t.Parallel()
 
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected panic")
+		}
+
+		domErr, ok := recovered.(domain.Error)
+		if !ok {
+			t.Fatalf("expected domain.Error panic, got %T", recovered)
+		}
+
+		if domErr.Code != domain.ErrCodeInvalidConfig {
+			t.Fatalf("code=%v", domErr.Code)
+		}
+	}()
+
 	deps := runDeps{
 		keyBits: testRSAKeyBits,
 		stat:    func(string) (os.FileInfo, error) { return nil, nil }, //nolint:nilnil
 		getenv:  func(string) string { return "" },
 		logf:    func(string, ...any) {},
-		loadConfig: func(string) (*domain.Config, error) {
-			return nil, errBoom
+		loadConfig: func(string) mo.Either[domain.Error, domain.Config] {
+			return mo.Left[domain.Error, domain.Config](errBoom)
 		},
 		listen: func(*http.Server) error { return nil },
 	}
 
-	err := run(deps)
-	if !errors.Is(err, errBoom) {
-		t.Fatalf("expected %v, got %v", errBoom, err)
-	}
+	_ = run(deps)
 }
 
 func TestRun_ListenError(t *testing.T) {
 	t.Parallel()
 
+	appReg := domain.NewAppRegistration(
+		domain.NewAppName("App").MustRight(),
+		domain.NewClientID("22222222-2222-4222-8222-222222222222").MustRight(),
+		domain.NewIdentifierURI("api://app").MustRight(),
+		[]domain.RedirectURL{},
+		[]domain.Scope{},
+		[]domain.Role{},
+	)
+
+	user := domain.NewUser(
+		domain.NewUserID("33333333-3333-4333-8333-333333333333").MustRight(),
+		domain.NewUsername("user").MustRight(),
+		domain.NewPassword("pass").MustRight(),
+		domain.NewDisplayName("User").MustRight(),
+		domain.NewEmail("user@example.com").MustRight(),
+		[]domain.GroupName{},
+	)
+
+	tenant := domain.NewTenant(
+		domain.NewTenantID("11111111-1111-4111-8111-111111111111").MustRight(),
+		domain.NewTenantName("Tenant").MustRight(),
+		domain.NewNonEmptyArray(appReg).MustRight(),
+		[]domain.Group{},
+		domain.NewNonEmptyArray(user).MustRight(),
+		[]domain.Client{},
+	).MustRight()
+
+	cfg := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
+
 	deps := runDeps{
 		keyBits: testRSAKeyBits,
 		stat:    func(string) (os.FileInfo, error) { return nil, nil }, //nolint:nilnil
 		getenv:  func(string) string { return "" },
 		logf:    func(string, ...any) {},
-		loadConfig: func(string) (*domain.Config, error) {
-			return nil, nil //nolint:nilnil
+		loadConfig: func(string) mo.Either[domain.Error, domain.Config] {
+			return mo.Right[domain.Error](cfg)
 		},
 		listen: func(*http.Server) error {
 			return errListenBoom
@@ -96,9 +140,9 @@ func TestRun_ListenError(t *testing.T) {
 func TestDefaultLoadConfig_Error(t *testing.T) {
 	t.Parallel()
 
-	_, err := defaultLoadConfig("nonexistent.yaml")
-	if err == nil {
-		t.Fatal("expected error for nonexistent config")
+	err := defaultLoadConfig("nonexistent.yaml").MustLeft()
+	if err.Code != domain.ErrCodeInvalidConfig {
+		t.Fatalf("code=%v", err.Code)
 	}
 }
 

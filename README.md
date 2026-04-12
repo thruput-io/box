@@ -33,7 +33,7 @@ Details: see `portal/portal.md`.
 ## Remember!
 - There is a network inside docker and a network outside docker. DNS names resolve differently.
 - To verify behavior inside docker use:
-    - browser: https://browser.web.com
+    - browser: https://browser.web.internal
     - mcp: https://tools.web.internal/sse
 - This is a development, mock and testing environment:
     - Do not apply security measures for other reasons than emulating production. Make it supereasy to bypass.

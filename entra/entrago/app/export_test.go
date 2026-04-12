@@ -37,8 +37,10 @@ func ExportFindRedirectURLs(tenant *domain.Tenant, clientID domain.ClientID) ([]
 
 // ExportValidateRedirectURI is for testing ValidateRedirectURI from app_test.
 func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectURL) error {
-	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
-	if err != nil {
+	redirectURI, ok := domain.NewRedirectURL(redirectURIStr).Right()
+	if !ok {
+		err, _ := domain.NewRedirectURL(redirectURIStr).Left()
+
 		return fmt.Errorf("invalid redirect URI: %w", err)
 	}
 
@@ -47,8 +49,19 @@ func ExportValidateRedirectURI(redirectURIStr string, allowed []domain.RedirectU
 
 // ExportAuthenticateUser is for testing AuthenticateUser from app_test.
 func ExportAuthenticateUser(tenant *domain.Tenant, usernameStr, passwordStr string) (*domain.User, error) {
-	username, _ := domain.NewUsername(usernameStr)
-	password, _ := domain.NewPassword(passwordStr)
+	username, ok := domain.NewUsername(usernameStr).Right()
+	if !ok {
+		err, _ := domain.NewUsername(usernameStr).Left()
+
+		return nil, fmt.Errorf("invalid username: %w", err)
+	}
+
+	password, ok := domain.NewPassword(passwordStr).Right()
+	if !ok {
+		err, _ := domain.NewPassword(passwordStr).Left()
+
+		return nil, fmt.Errorf("invalid password: %w", err)
+	}
 
 	return AuthenticateUser(*tenant, username, password)
 }
@@ -62,8 +75,10 @@ func ExportValidateClientSecret(client *domain.Client, secretStr string) error {
 	var secret *domain.ClientSecret
 
 	if secretStr != "" {
-		s, err := domain.NewClientSecret(secretStr)
-		if err != nil {
+		s, ok := domain.NewClientSecret(secretStr).Right()
+		if !ok {
+			err, _ := domain.NewClientSecret(secretStr).Left()
+
 			return fmt.Errorf("invalid client secret: %w", err)
 		}
 
@@ -96,7 +111,7 @@ func ExportResolveAudienceForTest(
 	tenant *domain.Tenant,
 	scope []domain.ScopeValue,
 ) (domain.IdentifierURI, map[domain.ClientID]bool) {
-	return ResolveAudienceForTest(tenant, scope)
+	return resolveAudience(tenant, scope)
 }
 
 // ExportResolveRolesForTest is for testing ResolveRoles from app_test.
@@ -107,12 +122,12 @@ func ExportResolveRolesForTest(
 	targetAppIDs map[domain.ClientID]bool,
 	requestedScopes []domain.ScopeValue,
 ) []domain.RoleValue {
-	return ResolveRolesForTest(tenant, client, user, targetAppIDs, requestedScopes)
+	return resolveRoles(tenant, client, user, targetAppIDs, requestedScopes)
 }
 
 // ExportSignClaims is for testing SignClaims from app_test.
 func ExportSignClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
-	return SignClaims(key, claims)
+	return SignMapClaims(key, claims)
 }
 
 // IsOIDCScopeForTest is for testing isOIDCScope from app_test.
@@ -123,17 +138,17 @@ func IsOIDCScopeForTest(scope domain.ScopeValue) bool {
 // ClaimSub exports claimSub constant for testing.
 const ClaimSub = claimSub
 
-// ClaimClientID exports claimClientID constant for testing.
-const ClaimClientID = claimClientID
+// ClaimAzp exports claimAzp constant for testing.
+const ClaimAzp = claimAzp
 
-// ClaimRedirectURI exports claimRedirectURI constant for testing.
-const ClaimRedirectURI = claimRedirectURI
+// ClaimAud exports claimAud constant for testing.
+const ClaimAud = claimAud
 
-// ClaimScope exports claimScope constant for testing.
-const ClaimScope = claimScope
+// ClaimScp exports claimScp constant for testing.
+const ClaimScp = claimScp
 
-// ClaimTenant exports claimTenant constant for testing.
-const ClaimTenant = claimTenant
+// ClaimTid exports claimTid constant for testing.
+const ClaimTid = claimTid
 
 // ClaimNonce exports claimNonce constant for testing.
 const ClaimNonce = claimNonce

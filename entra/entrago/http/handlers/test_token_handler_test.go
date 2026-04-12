@@ -33,28 +33,22 @@ func MustAppForTestTokenHandler(t *testing.T) tokenHandlerFixture {
 		userUUID   = "33333333-3333-4333-8333-333333333333"
 	)
 
-	tenantID := domain.MustTenantID(tenantUUID)
-	appID := domain.MustClientID(appUUID)
-	userID := domain.MustUserID(userUUID)
+	tenantID := mustTenantID(t, tenantUUID)
+	appID := mustClientID(t, appUUID)
+	userID := mustUserID(t, userUUID)
 
 	user, reg, client := setupEntitiesForTokenHandler(t, appID, userID)
 
-	tenant, err := domain.NewTenant(
+	tenant := domain.NewTenant(
 		tenantID,
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{reg},
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(reg).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
-	config, err := domain.NewConfig([]domain.Tenant{tenant})
-	if err != nil {
-		t.Fatalf("NewConfig: %v", err)
-	}
+	config := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
 
 	return tokenHandlerFixture{
 		application: &app.App{
@@ -74,13 +68,10 @@ func setupEntitiesForTokenHandler(
 ) (domain.User, domain.AppRegistration, domain.Client) {
 	t.Helper()
 
-	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
+	redirectURL := mustRedirectURL(t, testCallbackURI)
 
 	appReg := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		appID,
 		mustIdentifierURI(t, testAppURI),
 		[]domain.RedirectURL{redirectURL},
@@ -88,18 +79,18 @@ func setupEntitiesForTokenHandler(
 		nil,
 	)
 	client := domain.NewClientWithSecret(
-		domain.MustAppName("Client"),
+		mustAppName(t, "Client"),
 		appID,
-		domain.MustClientSecret("test-secret"),
+		mustClientSecret(t, "test-secret"),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
 	user := domain.NewUser(
 		userID,
-		domain.MustUsername(testUserName),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUsername(t, testUserName),
+		mustPassword(t, "pass"),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		nil,
 	)
 

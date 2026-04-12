@@ -16,18 +16,27 @@ func TestIssueToken_Coverage(t *testing.T) {
 
 	key, clientID, userID := setupTokenCoverageBase(t)
 	user := domain.NewUser(
-		userID, domain.MustUsername("user"), domain.MustPassword("pass"),
-		domain.MustDisplayName("User"), domain.MustEmail("user@example.com"), nil,
+		userID,
+		mustUsername(t, "user"),
+		mustPassword(t, "pass"),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
+		nil,
 	)
 	appReg := domain.NewAppRegistration(
-		domain.MustAppName("App"), clientID,
-		domain.MustIdentifierURI("api://app"), nil, nil, nil,
+		mustAppName(t, "App"),
+		clientID,
+		mustIdentifierURI(t, "api://app"),
+		nil, nil, nil,
 	)
-	tenant, _ := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-1111-1111-111111111111"),
-		domain.MustTenantName("T"), []domain.AppRegistration{appReg},
-		nil, []domain.User{user}, nil,
-	)
+	tenant := domain.NewTenant(
+		mustTenantID(t, "11111111-1111-1111-1111-111111111111"),
+		mustTenantName(t, "T"),
+		domain.NewNonEmptyArray(appReg).MustRight(),
+		nil,
+		domain.NewNonEmptyArray(user).MustRight(),
+		nil,
+	).MustRight()
 
 	input := domain.TokenInput{
 		Grant:  domain.GrantPassword,
@@ -35,15 +44,15 @@ func TestIssueToken_Coverage(t *testing.T) {
 		User:   &user,
 		Client: nil,
 		Scope: []domain.ScopeValue{
-			domain.MustScopeValue("openid"),
-			domain.MustScopeValue("profile"),
-			domain.MustScopeValue("offline_access"),
-			domain.MustScopeValue("api://app/access"),
+			mustScopeValue(t, "openid"),
+			mustScopeValue(t, "profile"),
+			mustScopeValue(t, "offline_access"),
+			mustScopeValue(t, "api://app/access"),
 		},
 		IsV2:          true,
 		BaseURL:       domain.MustBaseURL("https://entra.test"),
-		Nonce:         mo.Some(domain.MustNonce("nonce")),
-		CorrelationID: mo.Some(domain.MustCorrelationID("corr")),
+		Nonce:         mo.Some(mustNonce(t, "nonce")),
+		CorrelationID: mo.Some(mustCorrelationID(t, "corr")),
 	}
 
 	resp := app.IssueToken(key, input)
@@ -63,9 +72,13 @@ func setupTokenCoverageBase(t *testing.T) (*rsa.PrivateKey, domain.ClientID, dom
 
 	const rsaKeySize = 2048
 
-	key, _ := rsa.GenerateKey(rand.Reader, rsaKeySize)
-	clientID := domain.MustClientID("22222222-2222-2222-2222-222222222222")
-	userID := domain.MustUserID("33333333-3333-3333-3333-333333333333")
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+
+	clientID := mustClientID(t, "22222222-2222-2222-2222-222222222222")
+	userID := mustUserID(t, "33333333-3333-3333-3333-333333333333")
 
 	return key, clientID, userID
 }
@@ -91,24 +104,28 @@ func TestIssueAuthCode_Coverage(t *testing.T) {
 
 	const rsaKeySize = 2048
 
-	key, _ := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-3333-3333-333333333333"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, "33333333-3333-3333-3333-333333333333"),
+		mustUsername(t, "user"),
+		mustPassword(t, "pass"),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		nil,
 	)
 
 	code := app.IssueAuthCode(
 		key,
 		user,
-		domain.MustClientID("22222222-2222-2222-2222-222222222222"),
-		domain.MustRedirectURL("https://app.test/callback"),
-		[]domain.ScopeValue{domain.MustScopeValue("openid")},
-		domain.MustTenantID("11111111-1111-1111-1111-111111111111"),
-		mo.Some(domain.MustNonce("nonce")),
+		mustClientID(t, "22222222-2222-2222-2222-222222222222"),
+		mustRedirectURL(t, "https://app.test/callback"),
+		[]domain.ScopeValue{mustScopeValue(t, "openid")},
+		mustTenantID(t, "11111111-1111-1111-1111-111111111111"),
+		mo.Some(mustNonce(t, "nonce")),
 	)
 
 	if code == (domain.AuthCode{}) {
@@ -119,11 +136,11 @@ func TestIssueAuthCode_Coverage(t *testing.T) {
 func TestToken_InternalHelpers_Coverage(t *testing.T) {
 	t.Parallel()
 
-	if !app.IsOIDCScopeForTest(domain.MustScopeValue("openid")) {
+	if !app.IsOIDCScopeForTest(mustScopeValue(t, "openid")) {
 		t.Error("expected true for openid")
 	}
 
-	if app.IsOIDCScopeForTest(domain.MustScopeValue("other")) {
+	if app.IsOIDCScopeForTest(mustScopeValue(t, "other")) {
 		t.Error("expected false for other")
 	}
 }

@@ -11,82 +11,74 @@ import (
 	"identity/domain"
 )
 
-// authCodeClaims holds the validated claims extracted from an authorization code JWT.
-type authCodeClaims struct {
-	subject     string
-	clientID    string
-	redirectURI string
-	scope       []domain.ScopeValue
-	nonce       mo.Option[domain.Nonce]
-}
+const (
+	errMsgInvalidAuthCode     = "invalid or expired authorization code"
+	errMsgInvalidRefreshToken = "invalid or expired refresh token"
+)
 
-// refreshTokenClaims holds the validated claims extracted from a refresh token JWT.
-type refreshTokenClaims struct {
-	subject  string
-	clientID string
-	scope    []domain.ScopeValue
-}
-
-func parseAuthCode(key *rsa.PrivateKey, code string) (authCodeClaims, *domain.Error) {
-	claims, err := app.ParseSignedToken(key, code)
+func parseAuthCode(key *rsa.PrivateKey, code string) mo.Either[domain.Error, domain.Claims] {
+	rawClaims, err := app.ParseSignedToken(key, code)
 	if err != nil {
-		return authCodeClaims{}, domain.NewError(domain.ErrCodeInvalidGrant, "invalid or expired authorization code")
+		return mo.Left[domain.Error, domain.Claims](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidAuthCode),
+		)
 	}
 
-	return authCodeClaims{
-		subject:     claimStr(claims, "sub"),
-		clientID:    claimStr(claims, "client_id"),
-		redirectURI: claimStr(claims, "redirect_uri"),
-		scope:       parseScopeValues(claimStr(claims, "scope")),
-		nonce:       parseOptionalNonce(claimStr(claims, "nonce")),
-	}, nil
+	domainClaims, ok := parseDomainClaims(rawClaims).Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.Claims](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidAuthCode),
+		)
+	}
+
+	return mo.Right[domain.Error, domain.Claims](domainClaims)
 }
 
-func parseRefreshToken(key *rsa.PrivateKey, tokenString string) (refreshTokenClaims, *domain.Error) {
+func parseRefreshToken(key *rsa.PrivateKey, tokenString string) mo.Either[domain.Error, domain.Claims] {
 	claims, err := app.ParseSignedToken(key, tokenString)
 	if err != nil {
-		return refreshTokenClaims{}, domain.NewError(domain.ErrCodeInvalidGrant, "invalid or expired refresh token")
+		return mo.Left[domain.Error, domain.Claims](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidRefreshToken),
+		)
 	}
 
-	return refreshTokenClaims{
-		subject:  claimStr(claims, "sub"),
-		clientID: claimStr(claims, "client_id"),
-		scope:    parseScopeValues(claimStr(claims, "scope")),
-	}, nil
-}
-
-func claimStr(claims jwt.MapClaims, key string) string {
-	value, ok := claims[key].(string)
+	domainClaims, ok := parseDomainClaims(claims).Right()
 	if !ok {
-		return emptyValue
+		return mo.Left[domain.Error, domain.Claims](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidRefreshToken),
+		)
 	}
 
-	return value
+	return mo.Right[domain.Error, domain.Claims](domainClaims)
 }
 
-// parseScopeValues splits a space-separated scope string into validated ScopeValue slice.
-// Invalid or empty tokens are silently dropped — scope parsing is best-effort at the JWT boundary.
+func parseDomainClaims(rawClaims jwt.MapClaims) mo.Either[domain.Error, domain.Claims] {
+	return domain.From(rawClaims)
+}
+
+// parseScopeValues splits a space-separated scope string into a slice of ScopeValues.
+// Invalid or empty parts are silently skipped since scope strings come from HTTP query params.
 func parseScopeValues(raw string) []domain.ScopeValue {
-	parts := strings.Fields(raw)
-	values := make([]domain.ScopeValue, emptySliceSize, len(parts))
+	if raw == emptyValue {
+		return nil
+	}
+
+	parts := strings.Split(raw, " ")
+	result := make([]domain.ScopeValue, 0, len(parts))
 
 	for _, part := range parts {
-		sv, err := domain.NewScopeValue(part)
-		if err != nil {
-			continue
+		if sv, ok := domain.NewScopeValue(part).Right(); ok {
+			result = append(result, sv)
 		}
-
-		values = append(values, sv)
 	}
 
-	return values
+	return result
 }
 
 // parseOptionalNonce wraps a raw nonce string in mo.Option[Nonce].
-// Returns None if the raw string is empty or invalid.
 func parseOptionalNonce(raw string) mo.Option[domain.Nonce] {
-	n, err := domain.NewNonce(raw)
-	if err != nil {
+	n, ok := domain.NewNonce(raw).Right()
+	if !ok {
 		return mo.None[domain.Nonce]()
 	}
 
@@ -95,8 +87,8 @@ func parseOptionalNonce(raw string) mo.Option[domain.Nonce] {
 
 // parseOptionalOAuthState wraps a raw state string in mo.Option[OAuthState].
 func parseOptionalOAuthState(raw string) mo.Option[domain.OAuthState] {
-	s, err := domain.NewOAuthState(raw)
-	if err != nil {
+	s, ok := domain.NewOAuthState(raw).Right()
+	if !ok {
 		return mo.None[domain.OAuthState]()
 	}
 
@@ -105,8 +97,8 @@ func parseOptionalOAuthState(raw string) mo.Option[domain.OAuthState] {
 
 // parseOptionalResponseMode wraps a raw response_mode string in mo.Option[ResponseMode].
 func parseOptionalResponseMode(raw string) mo.Option[domain.ResponseMode] {
-	rm, err := domain.NewResponseMode(raw)
-	if err != nil {
+	rm, ok := domain.NewResponseMode(raw).Right()
+	if !ok {
 		return mo.None[domain.ResponseMode]()
 	}
 
@@ -115,8 +107,8 @@ func parseOptionalResponseMode(raw string) mo.Option[domain.ResponseMode] {
 
 // parseOptionalResponseType wraps a raw response_type string in mo.Option[ResponseType].
 func parseOptionalResponseType(raw string) mo.Option[domain.ResponseType] {
-	rt, err := domain.NewResponseType(raw)
-	if err != nil {
+	rt, ok := domain.NewResponseType(raw).Right()
+	if !ok {
 		return mo.None[domain.ResponseType]()
 	}
 

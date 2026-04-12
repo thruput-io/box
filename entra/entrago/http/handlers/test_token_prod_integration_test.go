@@ -299,12 +299,8 @@ func loadConfigForTest(t *testing.T) *domain.Config {
 		configPath = "../../DefaultConfig.yaml"
 	}
 
-	cfg, err := config.LoadConfig(configPath, "")
-	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
-	}
-
-	return cfg
+	cfg := config.LoadConfig(configPath, "").MustRight()
+	return &cfg
 }
 
 func loadProdToken(t *testing.T, tokenPath string) []byte {

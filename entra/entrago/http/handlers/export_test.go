@@ -25,7 +25,7 @@ func ExportInternalError(msg string) Response {
 }
 
 // ExportFromDomainError is for testing fromDomainError from handlers_test.
-func ExportFromDomainError(domErr *domain.Error) Response {
+func ExportFromDomainError(domErr domain.Error) Response {
 	return fromDomainError(domErr)
 }
 
@@ -80,7 +80,10 @@ func ExportParseTenantAndAppID(path, midSegment, suffix string) (domain.TenantID
 
 // ExportResolveClientFromID is for testing resolveClientFromID from handlers_test.
 func ExportResolveClientFromID(tenant domain.Tenant, clientID string) *domain.Client {
-	id, _ := domain.NewClientID(clientID)
+	id, ok := domain.NewClientID(clientID).Right()
+	if !ok {
+		return nil
+	}
 
 	return resolveClientFromID(tenant, id)
 }

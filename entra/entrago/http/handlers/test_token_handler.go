@@ -10,11 +10,17 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/samber/mo"
 
 	"identity/app"
 	"identity/domain"
 )
+
+func addAzureVerifiedMockUtilsClaims(claims jwt.MapClaims) {
+	claims["azpacls"] = "0"
+	claims["jti"] = uuid.NewString()
+}
 
 func signTokenHandler(request *http.Request, application *app.App) Response {
 	tokenData, err := extractTokenData(request)
@@ -33,7 +39,7 @@ func signTokenHandler(request *http.Request, application *app.App) Response {
 		return badRequest(domain.NewError(domain.ErrCodeInvalidRequest, "invalid json claims"))
 	}
 
-	signed := app.SignClaims(application.Key, claims)
+	signed := app.SignMapClaims(application.Key, claims)
 
 	return okText([]byte(signed + "\n"))
 }
@@ -86,9 +92,14 @@ func testTokenHandler(request *http.Request, application *app.App) Response {
 
 	query := request.URL.Query()
 	if len(query) == emptySize {
-		response := app.IssueToken(application.Key, input)
+		mapClaims := app.BuildAccessTokenClaims(input).ToJWT()
+		addAzureVerifiedMockUtilsClaims(mapClaims)
+		delete(mapClaims, "azpacr")
+		delete(mapClaims, "uti")
 
-		return okText([]byte(response.AccessToken.Value() + "\n"))
+		signed := app.SignMapClaims(application.Key, mapClaims)
+
+		return okText([]byte(signed + "\n"))
 	}
 
 	return issueTokenWithQueryOverrides(application, input, query)
@@ -99,7 +110,7 @@ func issueTokenWithQueryOverrides(
 	input domain.TokenInput,
 	query url.Values,
 ) Response {
-	claims := app.BuildAccessTokenClaims(input)
+	mapClaims := app.BuildAccessTokenClaims(input).ToJWT()
 
 	// Add/Override with any additional query parameters as requested in user_interface.md
 	for key, values := range query {
@@ -108,13 +119,15 @@ func issueTokenWithQueryOverrides(
 		}
 
 		if len(values) == singleValueSize {
-			claims[key] = values[firstIndex]
+			mapClaims[key] = values[firstIndex]
 		} else {
-			claims[key] = values
+			mapClaims[key] = values
 		}
 	}
 
-	signed := app.SignClaims(application.Key, claims)
+	addAzureVerifiedMockUtilsClaims(mapClaims)
+
+	signed := app.SignMapClaims(application.Key, mapClaims)
 
 	return okText([]byte(signed + "\n"))
 }
@@ -137,7 +150,7 @@ func signWithOverrides(
 	claims["aud"] = client.ClientID().UUID().String()
 	claims["azp"] = client.ClientID().UUID().String()
 
-	signed := app.SignClaims(key, claims)
+	signed := app.SignMapClaims(key, claims)
 
 	return okText([]byte(signed + "\n"))
 }
@@ -154,8 +167,8 @@ func resolveTestTenant(config *domain.Config, parts []string) *domain.Tenant {
 }
 
 func resolveTenantFromPart(config *domain.Config, part string, defaultTenant *domain.Tenant) *domain.Tenant {
-	id, idErr := domain.NewTenantID(part)
-	if idErr != nil {
+	id, ok := domain.NewTenantID(part).Right()
+	if !ok {
 		return defaultTenant
 	}
 
@@ -183,8 +196,8 @@ func resolveTestClient(tenant *domain.Tenant, parts []string) *domain.Client {
 }
 
 func resolveClientFromPart(tenant *domain.Tenant, part string) *domain.Client {
-	clientID, err := domain.NewClientID(part)
-	if err != nil {
+	clientID, ok := domain.NewClientID(part).Right()
+	if !ok {
 		c := tenant.AsClient()
 
 		return &c
@@ -218,8 +231,8 @@ func resolveTestUser(tenant *domain.Tenant, username string) *domain.User {
 		return resolveDefaultUser(tenant)
 	}
 
-	uname, err := domain.NewUsername(username)
-	if err != nil {
+	uname, ok := domain.NewUsername(username).Right()
+	if !ok {
 		return resolveDefaultUser(tenant)
 	}
 

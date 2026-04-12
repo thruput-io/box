@@ -32,3 +32,4 @@ build:
 	go build ./...
 
 ci: lint deadcode test coverage build
+ci-refactor: lint-fix build

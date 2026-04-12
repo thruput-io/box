@@ -1,44 +1,31 @@
 package domain
 
 import (
-	"fmt"
+	"github.com/samber/mo"
 	"strings"
-
-	"github.com/golang-jwt/jwt/v5"
-)
-
-const (
-	claimName              = "name"
-	claimPreferredUsername = "preferred_username"
-	claimEmail             = "email"
-	claimUniqueName        = "unique_name"
 )
 
 // Config is the immutable root domain object loaded once at startup.
 // It must contain at least one tenant to be valid.
 type Config struct {
-	tenants []Tenant
+	tenants NonEmptyArray[Tenant]
 }
 
 // NewConfig constructs a Config, enforcing that at least one tenant is present.
-func NewConfig(tenants []Tenant) (Config, error) {
-	if len(tenants) == emptyLen {
-		return Config{}, errConfigNoTenants
-	}
-
-	return Config{tenants: tenants}, nil
+func NewConfig(tenants NonEmptyArray[Tenant]) mo.Either[Error, Config] {
+	return mo.Right[Error](Config{tenants: tenants})
 }
 
 // Tenants returns the list of tenants (always non-empty).
-func (config Config) Tenants() []Tenant { return config.tenants }
+func (config Config) Tenants() []Tenant { return config.tenants.Items() }
 
 // Tenant is an immutable Azure AD tenant with at least one app registration and one user.
 type Tenant struct {
 	tenantID         TenantID
 	name             TenantName
-	appRegistrations []AppRegistration
+	appRegistrations NonEmptyArray[AppRegistration]
 	groups           []Group
-	users            []User
+	users            NonEmptyArray[User]
 	clients          []Client
 }
 
@@ -46,27 +33,19 @@ type Tenant struct {
 func NewTenant(
 	tenantID TenantID,
 	name TenantName,
-	appRegistrations []AppRegistration,
+	appRegistrations NonEmptyArray[AppRegistration],
 	groups []Group,
-	users []User,
+	users NonEmptyArray[User],
 	clients []Client,
-) (Tenant, error) {
-	if len(appRegistrations) == emptyLen {
-		return Tenant{}, fmt.Errorf("%w: %s", ErrTenantNoAppRegistrations, name)
-	}
-
-	if len(users) == emptyLen {
-		return Tenant{}, fmt.Errorf("%w: %s", ErrTenantNoUsers, name)
-	}
-
-	return Tenant{
+) mo.Either[Error, Tenant] {
+	return mo.Right[Error](Tenant{
 		tenantID:         tenantID,
 		name:             name,
 		appRegistrations: appRegistrations,
 		groups:           groups,
 		users:            users,
 		clients:          clients,
-	}, nil
+	})
 }
 
 // TenantID returns the tenant's unique identifier.
@@ -76,13 +55,13 @@ func (tenant Tenant) TenantID() TenantID { return tenant.tenantID }
 func (tenant Tenant) Name() TenantName { return tenant.name }
 
 // AppRegistrations returns the tenant's app registrations (always non-empty).
-func (tenant Tenant) AppRegistrations() []AppRegistration { return tenant.appRegistrations }
+func (tenant Tenant) AppRegistrations() []AppRegistration { return tenant.appRegistrations.Items() }
 
 // Groups returns the tenant's groups (may be empty).
 func (tenant Tenant) Groups() []Group { return tenant.groups }
 
 // Users returns the tenant's users (always non-empty).
-func (tenant Tenant) Users() []User { return tenant.users }
+func (tenant Tenant) Users() []User { return tenant.users.Items() }
 
 // Clients returns the tenant's clients (may be empty).
 func (tenant Tenant) Clients() []Client { return tenant.clients }
@@ -177,7 +156,6 @@ func NewScope(id ScopeID, value ScopeValue, description ScopeDescription) Scope 
 }
 
 // ID returns the scope's unique identifier.
-func (scope Scope) ID() ScopeID { return scope.id }
 
 // Value returns the scope's string value.
 func (scope Scope) Value() ScopeValue { return scope.value }
@@ -199,7 +177,6 @@ func NewRole(id RoleID, value RoleValue, description RoleDescription, scopes []S
 }
 
 // ID returns the role's unique identifier.
-func (role Role) ID() RoleID { return role.id }
 
 // Value returns the role's string value.
 func (role Role) Value() RoleValue { return role.value }
@@ -286,14 +263,6 @@ func (user User) DisplayName() DisplayName { return user.displayName }
 // Email returns the user's email address.
 func (user User) Email() Email { return user.email }
 
-// MapClaims writes the user's identity claims into the provided JWT claims map.
-func (user User) MapClaims(claims jwt.MapClaims) {
-	claims[claimName] = user.displayName.value.value
-	claims[claimPreferredUsername] = user.email.value.value
-	claims[claimEmail] = user.email.value.value
-	claims[claimUniqueName] = user.email.value.value
-}
-
 // UserDisplay is the display representation of a User, safe to pass to presentation layers.
 type UserDisplay struct {
 	Username    Username
@@ -374,24 +343,25 @@ func (c Client) RedirectURLs() []RedirectURL { return c.redirectURLs }
 func (c Client) GroupRoleAssignments() []GroupRoleAssignment { return c.groupRoleAssignments }
 
 // Validate checks whether the provided secret matches the client's requirements.
-func (c Client) Validate(secret *ClientSecret) error {
+
+func (c Client) Validate(secret *ClientSecret) mo.Either[Error, Client] {
 	if c.clientSecret == nil {
 		if secret != nil {
-			return ErrPublicClientDoesNotAcceptSecrets
+			return mo.Left[Error, Client](ErrPublicClientDoesNotAcceptSecrets)
 		}
 
-		return nil
+		return mo.Right[Error](c)
 	}
 
 	if secret == nil {
-		return ErrClientSecretRequired
+		return mo.Left[Error, Client](ErrClientSecretRequired)
 	}
 
-	if !c.clientSecret.Match(*secret) {
-		return ErrInvalidCredentials
+	if c.clientSecret.Value() != secret.Value() {
+		return mo.Left[Error, Client](ErrInvalidCredentials)
 	}
 
-	return nil
+	return mo.Right[Error](c)
 }
 
 // GroupRoleAssignment maps a group to a set of roles for a specific application.

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/mo"
+
 	"identity/app"
 	"identity/config"
 	"identity/domain"
@@ -26,16 +28,18 @@ type runDeps struct {
 	stat       func(string) (os.FileInfo, error)
 	getenv     func(string) string
 	logf       func(string, ...any)
-	loadConfig func(string) (*domain.Config, error)
+	loadConfig func(string) mo.Either[domain.Error, domain.Config]
 	listen     func(*http.Server) error
 }
 
 func run(deps runDeps) error {
 	configPath := resolveConfigPath(deps.stat)
 
-	cfg, err := deps.loadConfig(configPath)
-	if err != nil {
-		return err
+	cfgE := deps.loadConfig(configPath)
+	cfg, isRight := cfgE.Right()
+	if !isRight {
+		domErr, _ := cfgE.Left()
+		panic(domErr)
 	}
 
 	key, err := rsa.GenerateKey(rand.Reader, deps.keyBits)
@@ -49,7 +53,7 @@ func run(deps runDeps) error {
 	}
 
 	application := &app.App{
-		Config:        cfg,
+		Config:        &cfg,
 		Key:           key,
 		LoginTemplate: loginTemplate,
 		IndexTemplate: indexTemplate,
@@ -110,13 +114,8 @@ func loadTemplates() (login *template.Template, index *template.Template, err er
 	return login, index, nil
 }
 
-func defaultLoadConfig(path string) (*domain.Config, error) {
-	cfg, err := config.LoadConfig(path, "")
-	if err != nil {
-		return nil, fmt.Errorf("LoadConfig: %w", err)
-	}
-
-	return cfg, nil
+func defaultLoadConfig(path string) mo.Either[domain.Error, domain.Config] {
+	return config.LoadConfig(path, "")
 }
 
 const (

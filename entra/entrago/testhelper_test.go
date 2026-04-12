@@ -37,61 +37,60 @@ func newTestServer(t *testing.T) *identityhttp.Server {
 	}
 
 	return &identityhttp.Server{App: &app.App{
-		Config:        newTestConfig(),
+		Config:        newTestConfig(t),
 		Key:           key,
 		LoginTemplate: loginTmpl,
 		IndexTemplate: indexTmpl,
 	}}
 }
 
-func newTestConfig() *domain.Config {
-	tenantID := domain.MustTenantID("b5a920d6-7d3c-44fe-baad-4ffed6b8774d")
-	clientID := domain.MustClientID("e697b97c-9b4b-487f-9f7a-248386f78864")
-	appID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
-	userID := domain.MustUserID("6320573e-360a-426c-829d-649a5b3260c8")
+func newTestConfig(t *testing.T) *domain.Config {
+	t.Helper()
 
-	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
-	identifierURI, _ := domain.NewIdentifierURI("api://testapp")
+	tenantID := mustTenantID(t, "b5a920d6-7d3c-44fe-baad-4ffed6b8774d")
+	clientID := mustClientID(t, "e697b97c-9b4b-487f-9f7a-248386f78864")
+	appID := mustClientID(t, "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
+	userID := mustUserID(t, "6320573e-360a-426c-829d-649a5b3260c8")
+
+	redirectURL := mustRedirectURL(t, testRedirectURL)
+	identifierURI := mustIdentifierURI(t, "api://testapp")
 
 	user := domain.NewUser(
 		userID,
-		domain.MustUsername(testUsername),
-		domain.MustPassword(testPassword),
-		domain.MustDisplayName("Test User"),
-		domain.MustEmail("test@example.com"),
+		mustUsername(t, testUsername),
+		mustPassword(t, testPassword),
+		mustDisplayName(t, "Test User"),
+		mustEmail(t, "test@example.com"),
 		nil,
 	)
 
 	client := domain.NewClientWithoutSecret(
-		domain.MustAppName("TestClient"),
+		mustAppName(t, "TestClient"),
 		clientID,
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
 
 	registration := domain.NewAppRegistration(
-		domain.MustAppName("TestApp"),
+		mustAppName(t, "TestApp"),
 		appID,
 		identifierURI,
 		nil, nil, nil,
 	)
+	appRegistrations := domain.NewNonEmptyArray(registration).MustRight()
+	users := domain.NewNonEmptyArray(user).MustRight()
 
-	tenant, err := domain.NewTenant(
+	tenant := domain.NewTenant(
 		tenantID,
-		domain.MustTenantName("Default Tenant"),
-		[]domain.AppRegistration{registration},
+		mustTenantName(t, "Default Tenant"),
+		appRegistrations,
 		nil,
-		[]domain.User{user},
+		users,
 		[]domain.Client{client},
-	)
-	if err != nil {
-		panic(err)
-	}
+	).MustRight()
 
-	config, err := domain.NewConfig([]domain.Tenant{tenant})
-	if err != nil {
-		panic(err)
-	}
+	tenants := domain.NewNonEmptyArray(tenant).MustRight()
+	config := domain.NewConfig(tenants).MustRight()
 
 	return &config
 }
@@ -102,19 +101,13 @@ func serverWithClient(t *testing.T, base *identityhttp.Server, client domain.Cli
 	tenant := base.App.Config.Tenants()[firstIndex]
 	clients := append(tenant.Clients(), client)
 
-	newTenant, err := domain.NewTenant(
+	newTenant := domain.NewTenant(
 		tenant.TenantID(), tenant.Name(),
-		tenant.AppRegistrations(), tenant.Groups(),
-		tenant.Users(), clients,
-	)
-	if err != nil {
-		t.Fatalf("build tenant: %v", err)
-	}
+		domain.NewNonEmptyArray(tenant.AppRegistrations()...).MustRight(), tenant.Groups(),
+		domain.NewNonEmptyArray(tenant.Users()...).MustRight(), clients,
+	).MustRight()
 
-	config, err := domain.NewConfig([]domain.Tenant{newTenant})
-	if err != nil {
-		t.Fatalf("build config: %v", err)
-	}
+	config := domain.NewConfig(domain.NewNonEmptyArray(newTenant).MustRight()).MustRight()
 
 	return &identityhttp.Server{App: &app.App{
 		Config:        &config,

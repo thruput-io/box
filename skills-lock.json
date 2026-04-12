@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "golang-samber-mo": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "computedHash": "a2b54765f311c006dd44188ae05abe58c7f88dcadc9ad57ab5382734b4cff3cf"
+    }
+  }
+}

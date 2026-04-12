@@ -10,11 +10,11 @@ import (
 func TestResolveAudienceForTest(t *testing.T) {
 	t.Parallel()
 
-	clientID := domain.MustClientID(testClientID)
+	clientID := mustClientID(t, testClientID)
 	redirectURL := mustRedirectURL(t, testCallback)
 
 	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		clientID,
 		mustIdentifierURI(t, testApp),
 		[]domain.RedirectURL{redirectURL},
@@ -23,29 +23,26 @@ func TestResolveAudienceForTest(t *testing.T) {
 	)
 
 	user := domain.NewUser(
-		domain.MustUserID(testUserID),
-		domain.MustUsername(testUser),
-		domain.MustPassword(testPass),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, testUserID),
+		mustUsername(t, testUser),
+		mustPassword(t, testPass),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		nil,
 	)
 
-	tenant, err := domain.NewTenant(
-		domain.MustTenantID(testTenantID),
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+	tenant := domain.NewTenant(
+		mustTenantID(t, testTenantID),
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(registration).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		nil,
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
 	gotAud, gotApps := app.ExportResolveAudienceForTest(&tenant, []domain.ScopeValue{
-		domain.MustScopeValue("openid"),
-		domain.MustScopeValue("api://app/access"),
+		mustScopeValue(t, "openid"),
+		mustScopeValue(t, "api://app/access"),
 	})
 	if !gotAud.Matches(testApp) {
 		t.Fatalf("expected audience %q, got %q", testApp, gotAud)
@@ -56,7 +53,7 @@ func TestResolveAudienceForTest(t *testing.T) {
 	}
 
 	gotAud, gotApps = app.ExportResolveAudienceForTest(&tenant, []domain.ScopeValue{
-		domain.MustScopeValue("openid"),
+		mustScopeValue(t, "openid"),
 	})
 	if !gotAud.Matches("api://default") {
 		t.Fatalf("expected default audience %q, got %q", "api://default", gotAud)
@@ -72,7 +69,7 @@ func TestResolveAudienceForTest(t *testing.T) {
 func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	t.Parallel()
 
-	appClientID := domain.MustClientID(testClientID)
+	appClientID := mustClientID(t, testClientID)
 	redirectURL := mustRedirectURL(t, testCallback)
 
 	const (
@@ -81,19 +78,19 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 	)
 
 	scope := domain.NewScope(
-		domain.MustScopeID(scopeID),
+		mustScopeID(t, scopeID),
 		mustScopeValue(t, "access"),
 		mustScopeDescription(t, "desc"),
 	)
 	roleFromScope := domain.NewRole(
-		domain.MustRoleID(roleID),
+		mustRoleID(t, roleID),
 		mustRoleValue(t, "RoleFromScope"),
 		mustRoleDescription(t, "desc"),
 		[]domain.Scope{scope},
 	)
 
 	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		appClientID,
 		mustIdentifierURI(t, testApp),
 		[]domain.RedirectURL{redirectURL},
@@ -103,17 +100,14 @@ func TestResolveRolesForTest_AssignmentsAndScopeMatchedRoles(t *testing.T) {
 
 	user, client := setupUserAndClientForRoles(t, appClientID, redirectURL)
 
-	tenant, err := domain.NewTenant(
-		domain.MustTenantID(testTenantID),
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+	tenant := domain.NewTenant(
+		mustTenantID(t, testTenantID),
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(registration).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
 	verifyResolvedRoles(t, &tenant, &client, &user, appClientID)
 }
@@ -126,11 +120,11 @@ func setupUserAndClientForRoles(
 	t.Helper()
 
 	user := domain.NewUser(
-		domain.MustUserID(testUserID),
-		domain.MustUsername(testUser),
-		domain.MustPassword(testPass),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, testUserID),
+		mustUsername(t, testUser),
+		mustPassword(t, testPass),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		[]domain.GroupName{mustGroupName(t, "GroupA")},
 	)
 
@@ -147,13 +141,13 @@ func setupUserAndClientForRoles(
 	assignmentNilApp := domain.NewGroupRoleAssignment(
 		mustGroupName(t, "GroupA"),
 		[]domain.RoleValue{mustRoleValue(t, "RoleFromNilApp")},
-		domain.MustClientID("00000000-0000-0000-0000-000000000000"),
+		mustClientID(t, "00000000-0000-0000-0000-000000000000"),
 	)
 
 	client := domain.NewClientWithSecret(
-		domain.MustAppName("Client"),
+		mustAppName(t, "Client"),
 		appClientID,
-		domain.MustClientSecret(testSecret),
+		mustClientSecret(t, testSecret),
 		[]domain.RedirectURL{redirectURL},
 		[]domain.GroupRoleAssignment{assignmentMatching, assignmentWrongGroup, assignmentNilApp},
 	)
@@ -171,7 +165,7 @@ func verifyResolvedRoles(
 	t.Helper()
 
 	targetApps := map[domain.ClientID]bool{appClientID: true}
-	requested := []domain.ScopeValue{domain.MustScopeValue(testApp + "/access")}
+	requested := []domain.ScopeValue{mustScopeValue(t, testApp+"/access")}
 
 	roles := app.ExportResolveRolesForTest(tenant, client, user, targetApps, requested)
 	roleSet := make(map[string]bool)

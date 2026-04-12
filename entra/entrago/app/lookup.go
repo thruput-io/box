@@ -19,8 +19,13 @@ func FindTenant(config *domain.Config, tenantIDStr string) (*domain.Tenant, erro
 		return &config.Tenants()[firstTenantIndex], nil
 	}
 
-	id, err := domain.NewTenantID(tenantIDStr)
-	if err != nil {
+	either := domain.NewTenantID(tenantIDStr)
+
+	id, ok := either.Right()
+
+	if !ok {
+		err, _ := either.Left()
+
 		return nil, fmt.Errorf("invalid tenant ID: %w", err)
 	}
 
@@ -114,8 +119,7 @@ func FindUserByID(tenant domain.Tenant, id domain.UserID) (*domain.User, bool) {
 
 // ValidateClientSecret checks the client secret using constant-time comparison.
 func ValidateClientSecret(client domain.Client, secret *domain.ClientSecret) error {
-	err := client.Validate(secret)
-	if err != nil {
+	if client.Validate(secret).IsLeft() {
 		return domain.ErrInvalidCredentials
 	}
 

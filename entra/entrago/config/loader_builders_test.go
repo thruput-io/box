@@ -10,24 +10,17 @@ import (
 func TestBuildScope_Success(t *testing.T) {
 	t.Parallel()
 
-	scope, err := config.ExportBuildScope(config.RawScope{
+	scope := config.ExportBuildScope(config.RawScope{
 		ID:          "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
 		Value:       testAccess,
 		Description: testDesc,
-	})
-	if err != nil {
-		t.Fatalf("BuildScope: %v", err)
-	}
+	}).MustRight()
 
-	if scope.ID() != domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa") {
-		t.Fatal("Scope ID mismatch")
-	}
-
-	if scope.Description() != domain.MustScopeDescription(testDesc) {
+	if scope.Description() != domain.NewScopeDescription(testDesc).MustRight() {
 		t.Fatal("Scope Description mismatch")
 	}
 
-	if scope.Value() != domain.MustScopeValue(testAccess) {
+	if scope.Value() != domain.NewScopeValue(testAccess).MustRight() {
 		t.Fatal("Scope Value mismatch")
 	}
 }
@@ -35,7 +28,7 @@ func TestBuildScope_Success(t *testing.T) {
 func TestBuildRole_Success(t *testing.T) {
 	t.Parallel()
 
-	role, err := config.ExportBuildRole(config.RawRole{
+	role := config.ExportBuildRole(config.RawRole{
 		ID:          "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
 		Value:       testAdmin,
 		Description: testDesc,
@@ -44,24 +37,17 @@ func TestBuildRole_Success(t *testing.T) {
 			Value:       "scope",
 			Description: testDesc,
 		}},
-	})
-	if err != nil {
-		t.Fatalf("BuildRole: %v", err)
-	}
+	}).MustRight()
 
-	if role.ID() != domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb") {
-		t.Fatal("Role ID mismatch")
-	}
-
-	if role.Description() != domain.MustRoleDescription(testDesc) {
+	if role.Description() != domain.NewRoleDescription(testDesc).MustRight() {
 		t.Fatal("Role Description mismatch")
 	}
 
-	if role.Value() != domain.MustRoleValue(testAdmin) {
+	if role.Value() != domain.NewRoleValue(testAdmin).MustRight() {
 		t.Fatal("Role Value mismatch")
 	}
 
-	if len(role.Scopes()) != expectedOneAssignment || role.Scopes()[0].Value() != domain.MustScopeValue("scope") {
+	if len(role.Scopes()) != expectedOneAssignment || role.Scopes()[0].Value() != domain.NewScopeValue("scope").MustRight() {
 		t.Fatal("Role Scopes mismatch")
 	}
 }
@@ -69,9 +55,9 @@ func TestBuildRole_Success(t *testing.T) {
 func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
 	t.Parallel()
 
-	clientSecret := domain.MustClientSecret("secret")
+	clientSecret := domain.NewClientSecret("secret").MustRight()
 
-	client, err := config.ExportBuildClient(config.RawClient{
+	client := config.ExportBuildClient(config.RawClient{
 		Name:         "Client",
 		ClientID:     testClientID,
 		ClientSecret: "secret",
@@ -81,27 +67,24 @@ func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
 			Roles:         []string{"RoleA"},
 			ApplicationID: testClientID,
 		}},
-	})
-	if err != nil {
-		t.Fatalf("BuildClient: %v", err)
-	}
+	}).MustRight()
 
-	if client.Name() != domain.MustAppName("Client") {
+	if client.Name() != domain.NewAppName("Client").MustRight() {
 		t.Fatal("Client name mismatch")
 	}
 
-	if client.ClientID() != domain.MustClientID(testClientID) {
+	if client.ClientID() != domain.NewClientID(testClientID).MustRight() {
 		t.Fatal("Client ID mismatch")
 	}
 
-	// For secrets, we use Match since it's a secret.
-	err = client.Validate(&clientSecret)
-	if err != nil {
+	// Client secrets are mock values in this repo; validation is strict equality.
+	validated := client.Validate(&clientSecret).MustRight()
+	if validated.ClientSecret() == nil || validated.ClientSecret().Value() != clientSecret.Value() {
 		t.Fatal("Client secret mismatch")
 	}
 
 	if len(client.RedirectURLs()) != expectedOneAssignment ||
-		client.RedirectURLs()[firstIndex] != domain.MustRedirectURL(testCallback) {
+		client.RedirectURLs()[firstIndex] != domain.NewRedirectURL(testCallback).MustRight() {
 		t.Fatal("Client RedirectURLs mismatch")
 	}
 
@@ -113,14 +96,11 @@ func TestBuildClient_WithGroupRoleAssignment(t *testing.T) {
 func TestBuildGroupRoleAssignments_Success(t *testing.T) {
 	t.Parallel()
 
-	assignments, err := config.ExportBuildGroupRoleAssignments([]config.RawGroupRoleAssignment{{
+	assignments := config.ExportBuildGroupRoleAssignments([]config.RawGroupRoleAssignment{{
 		GroupName:     "GroupA",
 		Roles:         []string{"RoleA"},
 		ApplicationID: testClientID,
-	}})
-	if err != nil {
-		t.Fatalf("BuildGroupRoleAssignments: %v", err)
-	}
+	}}).MustRight()
 
 	if len(assignments) != expectedOneAssignment {
 		t.Fatal("expected 1 assignment")
@@ -130,25 +110,22 @@ func TestBuildGroupRoleAssignments_Success(t *testing.T) {
 func TestBuildGroupRoleAssignment_Success(t *testing.T) {
 	t.Parallel()
 
-	assignment, err := config.ExportBuildGroupRoleAssignment(config.RawGroupRoleAssignment{
+	assignment := config.ExportBuildGroupRoleAssignment(config.RawGroupRoleAssignment{
 		GroupName:     "GroupA",
 		Roles:         []string{"RoleA"},
 		ApplicationID: testClientID,
-	})
-	if err != nil {
-		t.Fatalf("BuildGroupRoleAssignment: %v", err)
-	}
+	}).MustRight()
 
-	if assignment.GroupName() != domain.MustGroupName("GroupA") {
+	if assignment.GroupName() != domain.NewGroupName("GroupA").MustRight() {
 		t.Fatal("unexpected group name")
 	}
 
 	if len(assignment.Roles()) != expectedOneAssignment ||
-		assignment.Roles()[firstIndex] != domain.MustRoleValue("RoleA") {
+		assignment.Roles()[firstIndex] != domain.NewRoleValue("RoleA").MustRight() {
 		t.Fatal("unexpected roles")
 	}
 
-	if assignment.ApplicationID() != domain.MustClientID(testClientID) {
+	if assignment.ApplicationID() != domain.NewClientID(testClientID).MustRight() {
 		t.Fatal("unexpected application id")
 	}
 }
@@ -156,45 +133,42 @@ func TestBuildGroupRoleAssignment_Success(t *testing.T) {
 func TestBuildUser_Success(t *testing.T) {
 	t.Parallel()
 
-	user, err := config.ExportBuildUser(config.RawUser{
+	user := config.ExportBuildUser(config.RawUser{
 		ID:          "33333333-3333-4333-8333-333333333333",
 		Username:    "user",
 		Password:    "pass",
 		DisplayName: "User",
 		Email:       "user@example.com",
 		Groups:      []string{"GroupA"},
-	})
-	if err != nil {
-		t.Fatalf("BuildUser: %v", err)
-	}
+	}).MustRight()
 
-	assertUserFields(t, *user)
+	assertUserFields(t, user)
 }
 
 func assertUserFields(t *testing.T, user domain.User) {
 	t.Helper()
 
-	if user.ID() != domain.MustUserID("33333333-3333-4333-8333-333333333333") {
+	if user.ID() != domain.NewUserID("33333333-3333-4333-8333-333333333333").MustRight() {
 		t.Fatal("User ID mismatch")
 	}
 
-	if user.Username() != domain.MustUsername("user") {
+	if user.Username() != domain.NewUsername("user").MustRight() {
 		t.Fatal("User Username mismatch")
 	}
 
-	if user.Password() != domain.MustPassword("pass") {
+	if user.Password() != domain.NewPassword("pass").MustRight() {
 		t.Fatal("User Password mismatch")
 	}
 
-	if user.DisplayName() != domain.MustDisplayName("User") {
+	if user.DisplayName() != domain.NewDisplayName("User").MustRight() {
 		t.Fatal("User DisplayName mismatch")
 	}
 
-	if user.Email() != domain.MustEmail("user@example.com") {
+	if user.Email() != domain.NewEmail("user@example.com").MustRight() {
 		t.Fatal("User Email mismatch")
 	}
 
-	if len(user.Groups()) != expectedOneAssignment || user.Groups()[firstIndex] != domain.MustGroupName("GroupA") {
+	if len(user.Groups()) != expectedOneAssignment || user.Groups()[firstIndex] != domain.NewGroupName("GroupA").MustRight() {
 		t.Fatal("User Groups mismatch")
 	}
 }
@@ -202,7 +176,7 @@ func assertUserFields(t *testing.T, user domain.User) {
 func TestBuildAppRegistration_Success(t *testing.T) {
 	t.Parallel()
 
-	app, err := config.ExportBuildAppRegistration(config.RawAppRegistration{
+	app := config.ExportBuildAppRegistration(config.RawAppRegistration{
 		Name:          "App",
 		ClientID:      testClientID,
 		IdentifierURI: "api://app",
@@ -218,26 +192,23 @@ func TestBuildAppRegistration_Success(t *testing.T) {
 			Description: testDesc,
 			Scopes:      []config.RawScope{},
 		}},
-	})
-	if err != nil {
-		t.Fatalf("BuildAppRegistration: %v", err)
-	}
+	}).MustRight()
 
-	assertAppFields(t, *app)
+	assertAppFields(t, app)
 }
 
 func assertAppFields(t *testing.T, app domain.AppRegistration) {
 	t.Helper()
 
-	if app.Name() != domain.MustAppName("App") {
+	if app.Name() != domain.NewAppName("App").MustRight() {
 		t.Fatal("App Name mismatch")
 	}
 
-	if app.ClientID() != domain.MustClientID(testClientID) {
+	if app.ClientID() != domain.NewClientID(testClientID).MustRight() {
 		t.Fatal("App ClientID mismatch")
 	}
 
-	if app.IdentifierURI() != domain.MustIdentifierURI("api://app") {
+	if app.IdentifierURI() != domain.NewIdentifierURI("api://app").MustRight() {
 		t.Fatal("App IdentifierURI mismatch")
 	}
 
@@ -248,17 +219,17 @@ func assertAppCollections(t *testing.T, app domain.AppRegistration) {
 	t.Helper()
 
 	if len(app.RedirectURLs()) != expectedOneAssignment ||
-		app.RedirectURLs()[firstIndex] != domain.MustRedirectURL(testCallback) {
+		app.RedirectURLs()[firstIndex] != domain.NewRedirectURL(testCallback).MustRight() {
 		t.Fatal("App RedirectURLs mismatch")
 	}
 
 	if len(app.Scopes()) != expectedOneAssignment ||
-		app.Scopes()[firstIndex].Value() != domain.MustScopeValue(testAccess) {
+		app.Scopes()[firstIndex].Value() != domain.NewScopeValue(testAccess).MustRight() {
 		t.Fatal("App Scopes mismatch")
 	}
 
 	if len(app.AppRoles()) != expectedOneAssignment ||
-		app.AppRoles()[firstIndex].Value() != domain.MustRoleValue(testAdmin) {
+		app.AppRoles()[firstIndex].Value() != domain.NewRoleValue(testAdmin).MustRight() {
 		t.Fatal("App AppRoles mismatch")
 	}
 }
@@ -266,7 +237,7 @@ func assertAppCollections(t *testing.T, app domain.AppRegistration) {
 func TestBuildTenant_Success(t *testing.T) {
 	t.Parallel()
 
-	tenant, err := config.ExportBuildTenant(config.RawTenant{
+	tenant := config.ExportBuildTenant(config.RawTenant{
 		TenantID: "11111111-1111-4111-8111-111111111111",
 		Name:     "Tenant",
 		AppRegistrations: []config.RawAppRegistration{{
@@ -287,22 +258,19 @@ func TestBuildTenant_Success(t *testing.T) {
 				GroupName: "Group", Roles: []string{"Role"}, ApplicationID: testClientID,
 			}},
 		}},
-	})
-	if err != nil {
-		t.Fatalf("BuildTenant: %v", err)
-	}
+	}).MustRight()
 
-	assertTenantFields(t, *tenant)
+	assertTenantFields(t, tenant)
 }
 
 func assertTenantFields(t *testing.T, tenant domain.Tenant) {
 	t.Helper()
 
-	if tenant.TenantID() != domain.MustTenantID("11111111-1111-4111-8111-111111111111") {
+	if tenant.TenantID() != domain.NewTenantID("11111111-1111-4111-8111-111111111111").MustRight() {
 		t.Fatal("Tenant ID mismatch")
 	}
 
-	if tenant.Name() != domain.MustTenantName("Tenant") {
+	if tenant.Name() != domain.NewTenantName("Tenant").MustRight() {
 		t.Fatal("Tenant Name mismatch")
 	}
 

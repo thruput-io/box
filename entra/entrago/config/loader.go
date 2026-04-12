@@ -6,7 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/samber/mo"
+	moeither "github.com/samber/mo/either"
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 
@@ -15,12 +16,24 @@ import (
 
 const (
 	emptyLen      = 0
-	fmtTenantWrap = "tenant %q: %w"
-	fmtAppRegWrap = "app registration %q: %w"
-	fmtRoleWrap   = "role %q: %w"
-	fmtUserWrap   = "user %q: %w"
-	fmtClientWrap = "client %q: %w"
+	fmtTenantWrap = "tenant %q: %s"
+	fmtAppRegWrap = "app registration %q: %s"
+	fmtRoleWrap   = "role %q: %s"
+	fmtUserWrap   = "user %q: %s"
+	fmtClientWrap = "client %q: %s"
 )
+
+func wrap(err domain.Error, format string, args ...any) domain.Error {
+	return domain.NewError(err.Code, fmt.Sprintf(format, append(args, err.Message)...))
+}
+
+func invalidConfig(message string) domain.Error {
+	return domain.NewError(domain.ErrCodeInvalidConfig, message)
+}
+
+func invalidConfigf(format string, args ...any) domain.Error {
+	return invalidConfig(fmt.Sprintf(format, args...))
+}
 
 // RawConfig mirrors the YAML structure exactly for unmarshalling.
 // snake_case keys match the config file format.
@@ -96,42 +109,51 @@ type RawGroupRoleAssignment struct {
 }
 
 // LoadConfig reads, validates, and parses Config.yaml into an immutable domain Config.
-func LoadConfig(configPath, schemaPath string) (*domain.Config, error) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", configPath, err)
-	}
 
-	err = validateYAML(data, schemaPath)
-	if err != nil {
-		return nil, fmt.Errorf("config validation failed: %w", err)
-	}
-
-	var raw RawConfig
-
-	err = yaml.Unmarshal(data, &raw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", configPath, err)
-	}
-
-	return buildConfig(raw)
+func LoadConfig(configPath, schemaPath string) mo.Either[domain.Error, domain.Config] {
+	return moeither.Pipe3(
+		readFile(configPath),
+		moeither.FlatMapRight(func(data []byte) mo.Either[domain.Error, []byte] {
+			return validateYAML(data, schemaPath)
+		}),
+		moeither.FlatMapRight(unmarshalRawConfig),
+		moeither.FlatMapRight(buildConfig),
+	)
 }
 
-func validateYAML(yamlData []byte, schemaPath string) error {
+func readFile(path string) mo.Either[domain.Error, []byte] {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return mo.Left[domain.Error, []byte](invalidConfigf("failed to read %s: %v", path, err))
+	}
+
+	return mo.Right[domain.Error](data)
+}
+
+func unmarshalRawConfig(data []byte) mo.Either[domain.Error, RawConfig] {
+	var raw RawConfig
+	err := yaml.Unmarshal(data, &raw)
+	if err != nil {
+		return mo.Left[domain.Error, RawConfig](invalidConfigf("failed to parse config YAML: %v", err))
+	}
+
+	return mo.Right[domain.Error](raw)
+}
+
+func validateYAML(yamlData []byte, schemaPath string) mo.Either[domain.Error, []byte] {
 	if schemaPath == "" {
-		return nil
+		return mo.Right[domain.Error](yamlData)
 	}
 
 	var raw any
 
-	err := yaml.Unmarshal(yamlData, &raw)
-	if err != nil {
-		return fmt.Errorf("failed to parse YAML: %w", err)
+	if err := yaml.Unmarshal(yamlData, &raw); err != nil {
+		return mo.Left[domain.Error, []byte](invalidConfigf("failed to parse YAML for schema validation: %v", err))
 	}
 
 	schemaData, err := os.ReadFile(schemaPath)
 	if err != nil {
-		return fmt.Errorf("failed to read schema: %w", err)
+		return mo.Left[domain.Error, []byte](invalidConfigf("failed to read schema %s: %v", schemaPath, err))
 	}
 
 	result, err := gojsonschema.Validate(
@@ -139,7 +161,7 @@ func validateYAML(yamlData []byte, schemaPath string) error {
 		gojsonschema.NewGoLoader(raw),
 	)
 	if err != nil {
-		return fmt.Errorf("validation error: %w", err)
+		return mo.Left[domain.Error, []byte](invalidConfigf("schema validation failed: %v", err))
 	}
 
 	if !result.Valid() {
@@ -148,386 +170,615 @@ func validateYAML(yamlData []byte, schemaPath string) error {
 			messages = append(messages, desc.String())
 		}
 
-		return fmt.Errorf("%w: %s", domain.ErrInvalidConfig, strings.Join(messages, "; "))
+		return mo.Left[domain.Error, []byte](
+			invalidConfigf("schema violations: %s", strings.Join(messages, "; ")),
+		)
 	}
 
-	return nil
+	return mo.Right[domain.Error](yamlData)
 }
 
-func buildConfig(raw RawConfig) (*domain.Config, error) {
-	tenants := make([]domain.Tenant, emptyLen, len(raw.Tenants))
+func buildConfig(raw RawConfig) mo.Either[domain.Error, domain.Config] {
+	return moeither.Pipe1(
+		buildTenants(raw.Tenants),
+		moeither.FlatMapRight(domain.NewConfig),
+	)
+}
 
-	for _, rawTenant := range raw.Tenants {
-		tenant, err := buildTenant(rawTenant)
-		if err != nil {
-			return nil, err
+func buildTenants(raws []RawTenant) mo.Either[domain.Error, domain.NonEmptyArray[domain.Tenant]] {
+	tenants := make([]domain.Tenant, emptyLen, len(raws))
+
+	for _, rawTenant := range raws {
+		tenantEither := buildTenant(rawTenant)
+
+		tenant, ok := tenantEither.Right()
+
+		if !ok {
+			domErr, _ := tenantEither.Left()
+
+			return mo.Left[domain.Error, domain.NonEmptyArray[domain.Tenant]](domErr)
 		}
 
-		tenants = append(tenants, *tenant)
+		tenants = append(tenants, tenant)
 	}
 
-	cfg, err := domain.NewConfig(tenants)
-	if err != nil {
-		return nil, fmt.Errorf("NewConfig: %w", err)
-	}
-
-	return &cfg, nil
+	return domain.NewNonEmptyArray(tenants...)
 }
 
-func buildTenant(raw RawTenant) (*domain.Tenant, error) {
-	tenantID, err := domain.NewTenantID(raw.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+func buildTenant(raw RawTenant) mo.Either[domain.Error, domain.Tenant] {
+	tenantIDEither := domain.NewTenantID(raw.TenantID)
+
+	tenantID, ok := tenantIDEither.Right()
+
+	if !ok {
+		domErr, _ := tenantIDEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	name, err := domain.NewTenantName(raw.Name)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	nameEither := domain.NewTenantName(raw.Name)
+
+	name, ok := nameEither.Right()
+
+	if !ok {
+		domErr, _ := nameEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	appRegistrations, err := buildAppRegistrations(raw.AppRegistrations)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	appRegistrationsEither := buildAppRegistrations(raw.AppRegistrations)
+
+	appRegistrations, ok := appRegistrationsEither.Right()
+
+	if !ok {
+		domErr, _ := appRegistrationsEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	groups, err := buildGroups(raw.Groups)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	groupsEither := buildGroups(raw.Groups)
+
+	groups, ok := groupsEither.Right()
+
+	if !ok {
+		domErr, _ := groupsEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	users, err := buildUsers(raw.Users)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	usersEither := buildUsers(raw.Users)
+
+	users, ok := usersEither.Right()
+
+	if !ok {
+		domErr, _ := usersEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	clients, err := buildClients(raw.Clients)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	clientsEither := buildClients(raw.Clients)
+
+	clients, ok := clientsEither.Right()
+
+	if !ok {
+		domErr, _ := clientsEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	ten, err := domain.NewTenant(tenantID, name, appRegistrations, groups, users, clients)
-	if err != nil {
-		return nil, fmt.Errorf(fmtTenantWrap, raw.Name, err)
+	tenantEither := domain.NewTenant(tenantID, name, appRegistrations, groups, users, clients)
+
+	ten, ok := tenantEither.Right()
+
+	if !ok {
+		domErr, _ := tenantEither.Left()
+
+		return mo.Left[domain.Error, domain.Tenant](wrap(domErr, fmtTenantWrap, raw.Name))
 	}
 
-	return &ten, nil
+	return mo.Right[domain.Error](ten)
 }
 
-func buildAppRegistrations(raws []RawAppRegistration) ([]domain.AppRegistration, error) {
+func buildAppRegistrations(raws []RawAppRegistration) mo.Either[domain.Error, domain.NonEmptyArray[domain.AppRegistration]] {
 	result := make([]domain.AppRegistration, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		appRegistration, err := buildAppRegistration(raw)
-		if err != nil {
-			return nil, err
+		appRegistrationEither := buildAppRegistration(raw)
+
+		appRegistration, ok := appRegistrationEither.Right()
+
+		if !ok {
+			domErr, _ := appRegistrationEither.Left()
+
+			return mo.Left[domain.Error, domain.NonEmptyArray[domain.AppRegistration]](domErr)
 		}
 
-		result = append(result, *appRegistration)
+		result = append(result, appRegistration)
 	}
 
-	return result, nil
+	return domain.NewNonEmptyArray(result...)
 }
 
-func buildAppRegistration(raw RawAppRegistration) (*domain.AppRegistration, error) {
-	name, err := domain.NewAppName(raw.Name)
-	if err != nil {
-		return nil, fmt.Errorf("app registration: %w", err)
+func buildAppRegistration(raw RawAppRegistration) mo.Either[domain.Error, domain.AppRegistration] {
+	nameEither := domain.NewAppName(raw.Name)
+
+	name, ok := nameEither.Right()
+
+	if !ok {
+		domErr, _ := nameEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	clientID, err := domain.NewClientID(raw.ClientID)
-	if err != nil {
-		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+	clientIDEither := domain.NewClientID(raw.ClientID)
+
+	clientID, ok := clientIDEither.Right()
+
+	if !ok {
+		domErr, _ := clientIDEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	identifierURI, err := domain.NewIdentifierURI(raw.IdentifierURI)
-	if err != nil {
-		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+	identifierURIEither := domain.NewIdentifierURI(raw.IdentifierURI)
+
+	identifierURI, ok := identifierURIEither.Right()
+
+	if !ok {
+		domErr, _ := identifierURIEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
-	if err != nil {
-		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+	redirectURLsEither := buildRedirectURLs(raw.RedirectURLs)
+
+	redirectURLs, ok := redirectURLsEither.Right()
+
+	if !ok {
+		domErr, _ := redirectURLsEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	scopes, err := buildScopes(raw.Scopes)
-	if err != nil {
-		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+	scopesEither := buildScopes(raw.Scopes)
+
+	scopes, ok := scopesEither.Right()
+
+	if !ok {
+		domErr, _ := scopesEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	roles, err := buildRoles(raw.AppRoles)
-	if err != nil {
-		return nil, fmt.Errorf(fmtAppRegWrap, raw.Name, err)
+	rolesEither := buildRoles(raw.AppRoles)
+
+	roles, ok := rolesEither.Right()
+
+	if !ok {
+		domErr, _ := rolesEither.Left()
+
+		return mo.Left[domain.Error, domain.AppRegistration](wrap(domErr, fmtAppRegWrap, raw.Name))
 	}
 
-	reg := domain.NewAppRegistration(name, clientID, identifierURI, redirectURLs, scopes, roles)
-
-	return &reg, nil
+	return mo.Right[domain.Error](domain.NewAppRegistration(name, clientID, identifierURI, redirectURLs, scopes, roles))
 }
 
-func buildRedirectURLs(raws []string) ([]domain.RedirectURL, error) {
+func buildRedirectURLs(raws []string) mo.Either[domain.Error, []domain.RedirectURL] {
 	result := make([]domain.RedirectURL, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		redirectURL, err := domain.NewRedirectURL(raw)
-		if err != nil {
-			return nil, fmt.Errorf("NewRedirectURL: %w", err)
+		redirectURLEither := domain.NewRedirectURL(raw)
+
+		redirectURL, ok := redirectURLEither.Right()
+
+		if !ok {
+			domErr, _ := redirectURLEither.Left()
+
+			return mo.Left[domain.Error, []domain.RedirectURL](
+				domain.NewError(domErr.Code, fmt.Sprintf("redirect URL %q: %s", raw, domErr.Message)),
+			)
 		}
 
 		result = append(result, redirectURL)
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildScopes(raws []RawScope) ([]domain.Scope, error) {
+func buildScopes(raws []RawScope) mo.Either[domain.Error, []domain.Scope] {
 	result := make([]domain.Scope, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		scope, err := buildScope(raw)
-		if err != nil {
-			return nil, err
+		scopeEither := buildScope(raw)
+
+		scope, ok := scopeEither.Right()
+
+		if !ok {
+			domErr, _ := scopeEither.Left()
+
+			return mo.Left[domain.Error, []domain.Scope](domErr)
 		}
 
 		result = append(result, scope)
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildScope(raw RawScope) (domain.Scope, error) {
-	scopeID, err := domain.NewScopeID(raw.ID)
-	if err != nil {
-		return domain.Scope{}, fmt.Errorf("scope %q: %w", raw.Value, err)
+func buildScope(raw RawScope) mo.Either[domain.Error, domain.Scope] {
+	scopeIDEither := domain.NewScopeID(raw.ID)
+
+	scopeID, ok := scopeIDEither.Right()
+
+	if !ok {
+		domErr, _ := scopeIDEither.Left()
+
+		return mo.Left[domain.Error, domain.Scope](domain.NewError(domErr.Code, fmt.Sprintf("scope %q: %s", raw.Value, domErr.Message)))
 	}
 
-	value, err := domain.NewScopeValue(raw.Value)
-	if err != nil {
-		return domain.Scope{}, fmt.Errorf("scope: %w", err)
+	valueEither := domain.NewScopeValue(raw.Value)
+
+	value, ok := valueEither.Right()
+
+	if !ok {
+		domErr, _ := valueEither.Left()
+
+		return mo.Left[domain.Error, domain.Scope](domain.NewError(domErr.Code, fmt.Sprintf("scope %q: %s", raw.Value, domErr.Message)))
 	}
 
-	description, err := domain.NewScopeDescription(raw.Description)
-	if err != nil {
-		return domain.Scope{}, fmt.Errorf("scope %q: %w", raw.Value, err)
+	descEither := domain.NewScopeDescription(raw.Description)
+
+	description, ok := descEither.Right()
+
+	if !ok {
+		domErr, _ := descEither.Left()
+
+		return mo.Left[domain.Error, domain.Scope](domain.NewError(domErr.Code, fmt.Sprintf("scope %q: %s", raw.Value, domErr.Message)))
 	}
 
-	return domain.NewScope(scopeID, value, description), nil
+	return mo.Right[domain.Error](domain.NewScope(scopeID, value, description))
 }
 
-func buildRoles(raws []RawRole) ([]domain.Role, error) {
+func buildRoles(raws []RawRole) mo.Either[domain.Error, []domain.Role] {
 	result := make([]domain.Role, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		role, err := buildRole(raw)
-		if err != nil {
-			return nil, err
+		roleEither := buildRole(raw)
+
+		role, ok := roleEither.Right()
+
+		if !ok {
+			domErr, _ := roleEither.Left()
+
+			return mo.Left[domain.Error, []domain.Role](domErr)
 		}
 
 		result = append(result, role)
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildRole(raw RawRole) (domain.Role, error) {
-	roleID, err := domain.NewRoleID(raw.ID)
-	if err != nil {
-		return domain.Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
+func buildRole(raw RawRole) mo.Either[domain.Error, domain.Role] {
+	roleIDEither := domain.NewRoleID(raw.ID)
+
+	roleID, ok := roleIDEither.Right()
+
+	if !ok {
+		domErr, _ := roleIDEither.Left()
+
+		return mo.Left[domain.Error, domain.Role](wrap(domErr, fmtRoleWrap, raw.Value))
 	}
 
-	value, err := domain.NewRoleValue(raw.Value)
-	if err != nil {
-		return domain.Role{}, fmt.Errorf("role: %w", err)
+	valueEither := domain.NewRoleValue(raw.Value)
+
+	value, ok := valueEither.Right()
+
+	if !ok {
+		domErr, _ := valueEither.Left()
+
+		return mo.Left[domain.Error, domain.Role](wrap(domErr, fmtRoleWrap, raw.Value))
 	}
 
-	description, err := domain.NewRoleDescription(raw.Description)
-	if err != nil {
-		return domain.Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
+	descEither := domain.NewRoleDescription(raw.Description)
+
+	description, ok := descEither.Right()
+
+	if !ok {
+		domErr, _ := descEither.Left()
+
+		return mo.Left[domain.Error, domain.Role](wrap(domErr, fmtRoleWrap, raw.Value))
 	}
 
-	scopes, err := buildScopes(raw.Scopes)
-	if err != nil {
-		return domain.Role{}, fmt.Errorf(fmtRoleWrap, raw.Value, err)
+	scopesEither := buildScopes(raw.Scopes)
+
+	scopes, ok := scopesEither.Right()
+
+	if !ok {
+		domErr, _ := scopesEither.Left()
+
+		return mo.Left[domain.Error, domain.Role](wrap(domErr, fmtRoleWrap, raw.Value))
 	}
 
-	return domain.NewRole(roleID, value, description, scopes), nil
+	return mo.Right[domain.Error](domain.NewRole(roleID, value, description, scopes))
 }
 
-func buildGroups(raws []RawGroup) ([]domain.Group, error) {
+func buildGroups(raws []RawGroup) mo.Either[domain.Error, []domain.Group] {
 	result := make([]domain.Group, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		groupID, err := domain.NewGroupID(raw.ID)
-		if err != nil {
-			return nil, fmt.Errorf("group %q: %w", raw.Name, err)
+		groupIDEither := domain.NewGroupID(raw.ID)
+
+		groupID, ok := groupIDEither.Right()
+
+		if !ok {
+			domErr, _ := groupIDEither.Left()
+
+			return mo.Left[domain.Error, []domain.Group](domain.NewError(domErr.Code, fmt.Sprintf("group %q: %s", raw.Name, domErr.Message)))
 		}
 
-		name, err := domain.NewGroupName(raw.Name)
-		if err != nil {
-			return nil, fmt.Errorf("group: %w", err)
+		nameEither := domain.NewGroupName(raw.Name)
+
+		name, ok := nameEither.Right()
+
+		if !ok {
+			domErr, _ := nameEither.Left()
+
+			return mo.Left[domain.Error, []domain.Group](domain.NewError(domErr.Code, fmt.Sprintf("group %q: %s", raw.Name, domErr.Message)))
 		}
 
 		result = append(result, domain.NewGroup(groupID, name))
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildUsers(raws []RawUser) ([]domain.User, error) {
+func buildUsers(raws []RawUser) mo.Either[domain.Error, domain.NonEmptyArray[domain.User]] {
 	result := make([]domain.User, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		user, err := buildUser(raw)
-		if err != nil {
-			return nil, err
+		userEither := buildUser(raw)
+
+		user, ok := userEither.Right()
+
+		if !ok {
+			domErr, _ := userEither.Left()
+
+			return mo.Left[domain.Error, domain.NonEmptyArray[domain.User]](domErr)
 		}
 
-		result = append(result, *user)
+		result = append(result, user)
 	}
 
-	return result, nil
+	return domain.NewNonEmptyArray(result...)
 }
 
-func buildUser(raw RawUser) (*domain.User, error) {
-	userID, err := domain.NewUserID(raw.ID)
-	if err != nil {
-		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
+func buildUser(raw RawUser) mo.Either[domain.Error, domain.User] {
+	userIDEither := domain.NewUserID(raw.ID)
+
+	userID, ok := userIDEither.Right()
+
+	if !ok {
+		domErr, _ := userIDEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	username, err := domain.NewUsername(raw.Username)
-	if err != nil {
-		return nil, fmt.Errorf("user: %w", err)
+	usernameEither := domain.NewUsername(raw.Username)
+
+	username, ok := usernameEither.Right()
+
+	if !ok {
+		domErr, _ := usernameEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	password, err := domain.NewPassword(raw.Password)
-	if err != nil {
-		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
+	passwordEither := domain.NewPassword(raw.Password)
+
+	password, ok := passwordEither.Right()
+
+	if !ok {
+		domErr, _ := passwordEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	displayName, err := domain.NewDisplayName(raw.DisplayName)
-	if err != nil {
-		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
+	displayNameEither := domain.NewDisplayName(raw.DisplayName)
+
+	displayName, ok := displayNameEither.Right()
+
+	if !ok {
+		domErr, _ := displayNameEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	email, err := domain.NewEmail(raw.Email)
-	if err != nil {
-		return nil, fmt.Errorf(fmtUserWrap, raw.Username, err)
+	emailEither := domain.NewEmail(raw.Email)
+
+	email, ok := emailEither.Right()
+
+	if !ok {
+		domErr, _ := emailEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	groups, err := buildUserGroups(raw.Username, raw.Groups)
-	if err != nil {
-		return nil, err
+	groupsEither := buildUserGroups(raw.Username, raw.Groups)
+
+	groups, ok := groupsEither.Right()
+
+	if !ok {
+		domErr, _ := groupsEither.Left()
+
+		return mo.Left[domain.Error, domain.User](wrap(domErr, fmtUserWrap, raw.Username))
 	}
 
-	u := domain.NewUser(userID, username, password, displayName, email, groups)
-
-	return &u, nil
+	return mo.Right[domain.Error](domain.NewUser(userID, username, password, displayName, email, groups))
 }
 
-func buildUserGroups(username string, rawGroups []string) ([]domain.GroupName, error) {
+func buildUserGroups(username string, rawGroups []string) mo.Either[domain.Error, []domain.GroupName] {
 	groups := make([]domain.GroupName, emptyLen, len(rawGroups))
 
 	for _, groupName := range rawGroups {
-		name, err := domain.NewGroupName(groupName)
-		if err != nil {
-			return nil, fmt.Errorf("user %q group: %w", username, err)
+		nameEither := domain.NewGroupName(groupName)
+
+		name, ok := nameEither.Right()
+
+		if !ok {
+			domErr, _ := nameEither.Left()
+
+			return mo.Left[domain.Error, []domain.GroupName](
+				domain.NewError(domErr.Code, fmt.Sprintf("user %q group %q: %s", username, groupName, domErr.Message)),
+			)
 		}
 
 		groups = append(groups, name)
 	}
 
-	return groups, nil
+	return mo.Right[domain.Error](groups)
 }
 
-func buildClients(raws []RawClient) ([]domain.Client, error) {
+func buildClients(raws []RawClient) mo.Either[domain.Error, []domain.Client] {
 	result := make([]domain.Client, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		client, err := buildClient(raw)
-		if err != nil {
-			return nil, err
+		clientEither := buildClient(raw)
+
+		client, ok := clientEither.Right()
+
+		if !ok {
+			domErr, _ := clientEither.Left()
+
+			return mo.Left[domain.Error, []domain.Client](domErr)
 		}
 
-		result = append(result, *client)
+		result = append(result, client)
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildClient(raw RawClient) (*domain.Client, error) {
-	name, err := domain.NewAppName(raw.Name)
-	if err != nil {
-		return nil, fmt.Errorf("client: %w", err)
+func buildClient(raw RawClient) mo.Either[domain.Error, domain.Client] {
+	nameEither := domain.NewAppName(raw.Name)
+
+	name, ok := nameEither.Right()
+
+	if !ok {
+		domErr, _ := nameEither.Left()
+
+		return mo.Left[domain.Error, domain.Client](wrap(domErr, fmtClientWrap, raw.Name))
 	}
 
-	clientID, err := domain.NewClientID(raw.ClientID)
-	if err != nil {
-		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
+	clientIDEither := domain.NewClientID(raw.ClientID)
+
+	clientID, ok := clientIDEither.Right()
+
+	if !ok {
+		domErr, _ := clientIDEither.Left()
+
+		return mo.Left[domain.Error, domain.Client](wrap(domErr, fmtClientWrap, raw.Name))
 	}
 
-	redirectURLs, err := buildRedirectURLs(raw.RedirectURLs)
-	if err != nil {
-		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
+	redirectURLsEither := buildRedirectURLs(raw.RedirectURLs)
+
+	redirectURLs, ok := redirectURLsEither.Right()
+
+	if !ok {
+		domErr, _ := redirectURLsEither.Left()
+
+		return mo.Left[domain.Error, domain.Client](wrap(domErr, fmtClientWrap, raw.Name))
 	}
 
-	assignments, err := buildGroupRoleAssignments(raw.GroupRoleAssignments)
-	if err != nil {
-		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
+	assignmentsEither := buildGroupRoleAssignments(raw.GroupRoleAssignments)
+
+	assignments, ok := assignmentsEither.Right()
+
+	if !ok {
+		domErr, _ := assignmentsEither.Left()
+
+		return mo.Left[domain.Error, domain.Client](wrap(domErr, fmtClientWrap, raw.Name))
 	}
 
 	if raw.ClientSecret == "" {
-		c := domain.NewClientWithoutSecret(name, clientID, redirectURLs, assignments)
-
-		return &c, nil
+		return mo.Right[domain.Error](domain.NewClientWithoutSecret(name, clientID, redirectURLs, assignments))
 	}
 
-	clientSecret, err := domain.NewClientSecret(raw.ClientSecret)
-	if err != nil {
-		return nil, fmt.Errorf(fmtClientWrap, raw.Name, err)
+	secretEither := domain.NewClientSecret(raw.ClientSecret)
+
+	clientSecret, ok := secretEither.Right()
+
+	if !ok {
+		domErr, _ := secretEither.Left()
+
+		return mo.Left[domain.Error, domain.Client](wrap(domErr, fmtClientWrap, raw.Name))
 	}
 
-	c := domain.NewClientWithSecret(name, clientID, clientSecret, redirectURLs, assignments)
-
-	return &c, nil
+	return mo.Right[domain.Error](domain.NewClientWithSecret(name, clientID, clientSecret, redirectURLs, assignments))
 }
 
-func buildGroupRoleAssignments(raws []RawGroupRoleAssignment) ([]domain.GroupRoleAssignment, error) {
+func buildGroupRoleAssignments(raws []RawGroupRoleAssignment) mo.Either[domain.Error, []domain.GroupRoleAssignment] {
 	result := make([]domain.GroupRoleAssignment, emptyLen, len(raws))
 
 	for _, raw := range raws {
-		assignment, err := buildGroupRoleAssignment(raw)
-		if err != nil {
-			return nil, err
+		assignmentEither := buildGroupRoleAssignment(raw)
+
+		assignment, ok := assignmentEither.Right()
+
+		if !ok {
+			domErr, _ := assignmentEither.Left()
+
+			return mo.Left[domain.Error, []domain.GroupRoleAssignment](domErr)
 		}
 
 		result = append(result, assignment)
 	}
 
-	return result, nil
+	return mo.Right[domain.Error](result)
 }
 
-func buildGroupRoleAssignment(raw RawGroupRoleAssignment) (domain.GroupRoleAssignment, error) {
-	groupName, err := domain.NewGroupName(raw.GroupName)
-	if err != nil {
-		return domain.GroupRoleAssignment{}, fmt.Errorf("group role assignment: %w", err)
+func buildGroupRoleAssignment(raw RawGroupRoleAssignment) mo.Either[domain.Error, domain.GroupRoleAssignment] {
+	groupNameEither := domain.NewGroupName(raw.GroupName)
+
+	groupName, ok := groupNameEither.Right()
+
+	if !ok {
+		domErr, _ := groupNameEither.Left()
+
+		return mo.Left[domain.Error, domain.GroupRoleAssignment](
+			domain.NewError(domErr.Code, fmt.Sprintf("group role assignment %q: %s", raw.GroupName, domErr.Message)),
+		)
 	}
 
-	appID, err := uuid.Parse(raw.ApplicationID)
-	if err != nil {
-		return domain.GroupRoleAssignment{}, fmt.Errorf(
-			"group role assignment %q: invalid applicationId: %w", raw.GroupName, err,
+	appIDEither := domain.NewClientID(raw.ApplicationID)
+
+	appID, ok := appIDEither.Right()
+
+	if !ok {
+		domErr, _ := appIDEither.Left()
+
+		return mo.Left[domain.Error, domain.GroupRoleAssignment](
+			domain.NewError(domErr.Code, fmt.Sprintf("group role assignment %q: invalid applicationId: %s", raw.GroupName, domErr.Message)),
 		)
 	}
 
 	roles := make([]domain.RoleValue, emptyLen, len(raw.Roles))
 
 	for _, roleValue := range raw.Roles {
-		role, err := domain.NewRoleValue(roleValue)
-		if err != nil {
-			return domain.GroupRoleAssignment{}, fmt.Errorf("group role assignment %q: %w", raw.GroupName, err)
+		roleEither := domain.NewRoleValue(roleValue)
+
+		role, ok := roleEither.Right()
+
+		if !ok {
+			domErr, _ := roleEither.Left()
+
+			return mo.Left[domain.Error, domain.GroupRoleAssignment](
+				domain.NewError(domErr.Code, fmt.Sprintf("group role assignment %q: %s", raw.GroupName, domErr.Message)),
+			)
 		}
 
 		roles = append(roles, role)
 	}
 
-	return domain.NewGroupRoleAssignment(groupName, roles, domain.ClientIDFromUUID(appID)), nil
+	return mo.Right[domain.Error](domain.NewGroupRoleAssignment(groupName, roles, appID))
 }

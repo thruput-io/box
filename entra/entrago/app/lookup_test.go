@@ -12,10 +12,7 @@ import (
 func mustConfigWithTenant(t *testing.T, tenant domain.Tenant) *domain.Config {
 	t.Helper()
 
-	cfg, err := domain.NewConfig([]domain.Tenant{tenant})
-	if err != nil {
-		t.Fatalf("NewConfig: %v", err)
-	}
+	cfg := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
 
 	return &cfg
 }
@@ -30,21 +27,21 @@ type tenantFixture struct {
 func mustTenantFixture(t *testing.T) tenantFixture {
 	t.Helper()
 
-	tenantID := domain.MustTenantID(testTenantID)
-	tenantName := domain.MustTenantName("Tenant")
+	tenantID := mustTenantID(t, testTenantID)
+	tenantName := mustTenantName(t, "Tenant")
 
-	clientID := domain.MustClientID(testClientID)
+	clientID := mustClientID(t, testClientID)
 	redirectURL := mustRedirectURL(t, testCallback)
 	client := domain.NewClientWithSecret(
-		domain.MustAppName("Client"),
+		mustAppName(t, "Client"),
 		clientID,
-		domain.MustClientSecret(testSecret),
+		mustClientSecret(t, testSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
 
 	appReg := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		clientID,
 		mustIdentifierURI(t, testApp),
 		[]domain.RedirectURL{redirectURL},
@@ -53,25 +50,22 @@ func mustTenantFixture(t *testing.T) tenantFixture {
 	)
 
 	user := domain.NewUser(
-		domain.MustUserID(testUserID),
-		domain.MustUsername(testUser),
-		domain.MustPassword(testPass),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, testUserID),
+		mustUsername(t, testUser),
+		mustPassword(t, testPass),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		[]domain.GroupName{mustGroupName(t, "GroupA")},
 	)
 
-	tenant, err := domain.NewTenant(
+	tenant := domain.NewTenant(
 		tenantID,
 		tenantName,
-		[]domain.AppRegistration{appReg},
+		domain.NewNonEmptyArray(appReg).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
 	return tenantFixture{
 		tenant: tenant,
@@ -273,6 +267,6 @@ func TestLookup_UserByID(t *testing.T) {
 	}
 
 	if got.ID() != fixture.user.ID() {
-		t.Fatalf("expected user %s, got %s", fixture.user.ID().UUID(), got.ID().UUID())
+		t.Fatalf("expected user %v, got %v", fixture.user.ID(), got.ID())
 	}
 }

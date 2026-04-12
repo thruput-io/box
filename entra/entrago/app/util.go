@@ -60,8 +60,14 @@ func roleValuesToStrings(vals []domain.RoleValue) []string {
 	return res
 }
 
-// SignClaims signs a JWT with RS256 and kid=1.
-func SignClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
+// SignClaims signs a domain.Claims as a JWT with RS256 and kid=1.
+func SignClaims(key *rsa.PrivateKey, claims domain.Claims) string {
+	return SignMapClaims(key, claims.ToJWT())
+}
+
+// SignMapClaims signs a raw jwt.MapClaims as a JWT with RS256 and kid=1.
+// Use this only at boundaries where raw claim maps are unavoidable (e.g. test token overrides).
+func SignMapClaims(key *rsa.PrivateKey, claims jwt.MapClaims) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "1"
 

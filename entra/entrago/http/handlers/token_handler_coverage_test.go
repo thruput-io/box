@@ -57,24 +57,40 @@ func setupTestApplication(t *testing.T) (*app.App, domain.ClientID) {
 
 	const rsaKeySize = 2048
 
-	key, _ := rsa.GenerateKey(rand.Reader, rsaKeySize)
-	tenantID := domain.MustTenantID("11111111-1111-1111-1111-111111111111")
-	appID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
-	uID := domain.MustUserID("33333333-3333-3333-3333-333333333333")
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tenantID := domain.NewTenantID("11111111-1111-1111-1111-111111111111").MustRight()
+	appID := domain.NewClientID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa").MustRight()
+	uID := domain.NewUserID("33333333-3333-3333-3333-333333333333").MustRight()
 
 	user := domain.NewUser(
-		uID, domain.MustUsername("u"), domain.MustPassword("p"),
-		domain.MustDisplayName("D"), domain.MustEmail("e"), nil,
+		uID,
+		domain.NewUsername("u").MustRight(),
+		domain.NewPassword("p").MustRight(),
+		domain.NewDisplayName("D").MustRight(),
+		domain.NewEmail("e").MustRight(),
+		nil,
 	)
 	appReg := domain.NewAppRegistration(
-		domain.MustAppName("App"), appID,
-		domain.MustIdentifierURI("api://app"), nil, nil, nil,
+		domain.NewAppName("App").MustRight(),
+		appID,
+		domain.NewIdentifierURI("api://app").MustRight(),
+		nil,
+		nil,
+		nil,
 	)
-	tenant, _ := domain.NewTenant(
-		tenantID, domain.MustTenantName("T"),
-		[]domain.AppRegistration{appReg}, nil, []domain.User{user}, nil,
-	)
-	config, _ := domain.NewConfig([]domain.Tenant{tenant})
+	tenant := domain.NewTenant(
+		tenantID,
+		domain.NewTenantName("T").MustRight(),
+		domain.NewNonEmptyArray(appReg).MustRight(),
+		nil,
+		domain.NewNonEmptyArray(user).MustRight(),
+		nil,
+	).MustRight()
+	config := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
 
 	return &app.App{
 		Config:        &config,

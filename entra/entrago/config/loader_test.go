@@ -1,7 +1,6 @@
 package config_test
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,13 +34,9 @@ func TestValidateYAML_InvalidForSchema(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 
-	err := config.ExportValidateYAML([]byte("foo\n"), schemaPath)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	if !errors.Is(err, domain.ErrInvalidConfig) {
-		t.Fatalf("expected ErrInvalidConfig, got %v", err)
+	err := config.ExportValidateYAML([]byte("foo\n"), schemaPath).MustLeft()
+	if err.Code != domain.ErrCodeInvalidConfig {
+		t.Fatalf("code=%v", err.Code)
 	}
 }
 
@@ -72,10 +67,7 @@ func TestLoadConfig_Success(t *testing.T) {
     clients: []
 `)
 
-	cfg, err := config.LoadConfig(yamlPath, schemaPath)
-	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
-	}
+	cfg := config.LoadConfig(yamlPath, schemaPath).MustRight()
 
 	tenants := cfg.Tenants()
 
@@ -83,8 +75,9 @@ func TestLoadConfig_Success(t *testing.T) {
 		t.Fatalf("expected 1 tenant, got %d", len(tenants))
 	}
 
-	if tenants[0].Name() != domain.MustTenantName("Tenant") {
-		t.Fatalf("expected tenant name %v, got %v", domain.MustTenantName("Tenant"), tenants[0].Name())
+	expectedName := domain.NewTenantName("Tenant").MustRight()
+	if tenants[0].Name() != expectedName {
+		t.Fatalf("expected tenant name %v, got %v", expectedName, tenants[0].Name())
 	}
 }
 
@@ -94,34 +87,26 @@ func TestLoadConfig_ReadError(t *testing.T) {
 	dir := t.TempDir()
 	schemaPath := writeTempFile(t, dir, schemaFileName, schemaJSON)
 
-	_, err := config.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath)
-	if err == nil {
-		t.Fatal("expected read error")
+	err := config.LoadConfig(filepath.Join(dir, "does-not-exist.yaml"), schemaPath).MustLeft()
+	if err.Code != domain.ErrCodeInvalidConfig {
+		t.Fatalf("code=%v", err.Code)
 	}
 }
 
 func TestBuildRedirectURLs_InvalidURL(t *testing.T) {
 	t.Parallel()
 
-	urls, err := config.ExportBuildRedirectURLs([]string{""})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-
-	if len(urls) != zeroLength {
-		t.Fatal("expected no urls on error")
+	err := config.ExportBuildRedirectURLs([]string{""}).MustLeft()
+	if err.Code != domain.ErrCodeNonEmptyStringEmpty {
+		t.Fatalf("code=%v", err.Code)
 	}
 }
 
 func TestBuildUserGroups_RejectsEmptyGroupName(t *testing.T) {
 	t.Parallel()
 
-	groups, err := config.ExportBuildUserGroups("user", []string{""})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-
-	if len(groups) != zeroLength {
-		t.Fatal("expected no groups on error")
+	err := config.ExportBuildUserGroups("user", []string{""}).MustLeft()
+	if err.Code != domain.ErrCodeNonEmptyStringEmpty {
+		t.Fatalf("code=%v", err.Code)
 	}
 }

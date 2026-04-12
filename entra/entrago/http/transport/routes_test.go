@@ -14,12 +14,12 @@ import (
 func mustAppForRoutes(t *testing.T) *app.App {
 	t.Helper()
 
-	tenantID := domain.MustTenantID("11111111-1111-4111-8111-111111111111")
-	appID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
+	tenantID := mustTenantID(t, "11111111-1111-4111-8111-111111111111")
+	appID := mustClientID(t, "22222222-2222-4222-8222-222222222222")
 	redirectURL := mustRedirectURL(t, testCallbackURI)
 
 	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		appID,
 		mustIdentifierURI(t, testAppURI),
 		[]domain.RedirectURL{redirectURL},
@@ -28,30 +28,24 @@ func mustAppForRoutes(t *testing.T) *app.App {
 	)
 
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-4333-8333-333333333333"),
-		domain.MustUsername(testUsername),
-		domain.MustPassword(testPassword),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, "33333333-3333-4333-8333-333333333333"),
+		mustUsername(t, testUsername),
+		mustPassword(t, testPassword),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		nil,
 	)
 
-	tenant, err := domain.NewTenant(
+	tenant := domain.NewTenant(
 		tenantID,
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(registration).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		nil,
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
-	config, err := domain.NewConfig([]domain.Tenant{tenant})
-	if err != nil {
-		t.Fatalf("NewConfig: %v", err)
-	}
+	config := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
 
 	return &app.App{
 		Config:        &config,

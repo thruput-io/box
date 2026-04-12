@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/samber/mo"
+	moeither "github.com/samber/mo/either"
 )
 
 // AccessToken is an issued OAuth2 access token.
@@ -13,23 +16,15 @@ type AccessToken struct {
 }
 
 // NewAccessToken creates an AccessToken from a raw string, returning an error if empty.
-func NewAccessToken(raw string) (AccessToken, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return AccessToken{}, err
-	}
-
-	return AccessToken{value: v}, nil
+func NewAccessToken(raw string) mo.Either[Error, AccessToken] {
+	return moeither.MapRight[Error, NonEmptyString, AccessToken](func(nes NonEmptyString) AccessToken {
+		return AccessToken{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustAccessToken creates an AccessToken from a raw string, panicking if invalid.
 func MustAccessToken(raw string) AccessToken {
-	v, err := NewAccessToken(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewAccessToken(raw).MustRight()
 }
 
 // AsByteArray returns the token as a byte slice with a trailing newline.
@@ -56,23 +51,15 @@ type TokenType struct {
 }
 
 // NewTokenType creates a TokenType from a raw string, returning an error if empty.
-func NewTokenType(raw string) (TokenType, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return TokenType{}, err
-	}
-
-	return TokenType{value: v}, nil
+func NewTokenType(raw string) mo.Either[Error, TokenType] {
+	return moeither.MapRight[Error, NonEmptyString, TokenType](func(nes NonEmptyString) TokenType {
+		return TokenType{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustTokenType creates a TokenType from a raw string, panicking if invalid.
 func MustTokenType(raw string) TokenType {
-	v, err := NewTokenType(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewTokenType(raw).MustRight()
 }
 
 // MarshalJSON serializes TokenType as its raw string value.
@@ -91,23 +78,15 @@ type IDToken struct {
 }
 
 // NewIDToken creates an IDToken from a raw string, returning an error if empty.
-func NewIDToken(raw string) (IDToken, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return IDToken{}, err
-	}
-
-	return IDToken{value: v}, nil
+func NewIDToken(raw string) mo.Either[Error, IDToken] {
+	return moeither.MapRight[Error, NonEmptyString, IDToken](func(nes NonEmptyString) IDToken {
+		return IDToken{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustIDToken creates an IDToken from a raw string, panicking if invalid.
 func MustIDToken(raw string) IDToken {
-	v, err := NewIDToken(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewIDToken(raw).MustRight()
 }
 
 // Value returns the raw token string.
@@ -131,23 +110,15 @@ type RefreshToken struct {
 }
 
 // NewRefreshToken creates a RefreshToken from a raw string, returning an error if empty.
-func NewRefreshToken(raw string) (RefreshToken, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return RefreshToken{}, err
-	}
-
-	return RefreshToken{value: v}, nil
+func NewRefreshToken(raw string) mo.Either[Error, RefreshToken] {
+	return moeither.MapRight[Error, NonEmptyString, RefreshToken](func(nes NonEmptyString) RefreshToken {
+		return RefreshToken{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustRefreshToken creates a RefreshToken from a raw string, panicking if invalid.
 func MustRefreshToken(raw string) RefreshToken {
-	v, err := NewRefreshToken(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewRefreshToken(raw).MustRight()
 }
 
 // MarshalJSON serializes RefreshToken as its raw token string.
@@ -171,23 +142,15 @@ type ClientInfo struct {
 }
 
 // NewClientInfo creates a ClientInfo from a raw string, returning an error if empty.
-func NewClientInfo(raw string) (ClientInfo, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ClientInfo{}, err
-	}
-
-	return ClientInfo{value: v}, nil
+func NewClientInfo(raw string) mo.Either[Error, ClientInfo] {
+	return moeither.MapRight[Error, NonEmptyString, ClientInfo](func(nes NonEmptyString) ClientInfo {
+		return ClientInfo{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustClientInfo creates a ClientInfo from a raw string, panicking if invalid.
 func MustClientInfo(raw string) ClientInfo {
-	v, err := NewClientInfo(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewClientInfo(raw).MustRight()
 }
 
 // MarshalJSON serializes ClientInfo as its raw string value.
@@ -211,26 +174,19 @@ type AuthCode struct {
 }
 
 // NewAuthCode creates an AuthCode from a raw string, returning an error if empty.
-func NewAuthCode(raw string) (AuthCode, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return AuthCode{}, err
-	}
-
-	return AuthCode{value: v}, nil
+func NewAuthCode(raw string) mo.Either[Error, AuthCode] {
+	return moeither.MapRight[Error, NonEmptyString, AuthCode](func(nes NonEmptyString) AuthCode {
+		return AuthCode{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustAuthCode creates an AuthCode from a raw string, panicking if invalid.
 func MustAuthCode(raw string) AuthCode {
-	v, err := NewAuthCode(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewAuthCode(raw).MustRight()
 }
 
 // Value returns the underlying string value.
+
 func (ac AuthCode) Value() string {
 	return ac.value.Value()
 }
@@ -262,10 +218,10 @@ func JoinScopeValues(scopes []ScopeValue) string {
 
 // AsSubject returns the UserID as a Subject claim value.
 func (userID UserID) AsSubject() Subject {
-	return Subject{value: MustNonEmptyString(userID.value.String())}
+	return Subject{value: NonEmptyString{value: userID.value.String()}}
 }
 
 // AsSubject returns the ClientID as a Subject claim value.
 func (clientID ClientID) AsSubject() Subject {
-	return Subject{value: MustNonEmptyString(clientID.value.String())}
+	return Subject{value: NonEmptyString{value: clientID.value.String()}}
 }

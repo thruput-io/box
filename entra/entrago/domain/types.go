@@ -1,16 +1,12 @@
 package domain
 
 import (
-	"crypto/subtle"
-	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
-)
-
-const (
-	comparisonMatch = 1
+	"github.com/samber/mo"
+	moeither "github.com/samber/mo/either"
 )
 
 // TenantID is the unique identifier for a tenant.
@@ -19,23 +15,14 @@ type TenantID struct {
 }
 
 // NewTenantID creates a TenantID from a UUID string, returning an error if invalid.
-func NewTenantID(raw string) (TenantID, error) {
+
+func NewTenantID(raw string) mo.Either[Error, TenantID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return TenantID{}, fmt.Errorf("invalid tenant ID %q: %w", raw, err)
+		return mo.Left[Error, TenantID](errTenantIDInvalid)
 	}
 
-	return TenantID{value: parsed}, nil
-}
-
-// MustTenantID creates a TenantID, panicking if invalid. For use in tests and constants only.
-func MustTenantID(raw string) TenantID {
-	tenantID, err := NewTenantID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return tenantID
+	return mo.Right[Error](TenantID{value: parsed})
 }
 
 // TenantIDFromUUID wraps an already-parsed uuid.UUID.
@@ -60,23 +47,13 @@ type ClientID struct {
 }
 
 // NewClientID creates a ClientID from a UUID string, returning an error if invalid.
-func NewClientID(raw string) (ClientID, error) {
+func NewClientID(raw string) mo.Either[Error, ClientID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return ClientID{}, fmt.Errorf("invalid client ID %q: %w", raw, err)
+		return mo.Left[Error, ClientID](errClientIDInvalid)
 	}
 
-	return ClientID{value: parsed}, nil
-}
-
-// MustClientID creates a ClientID, panicking if invalid. For use in tests and constants only.
-func MustClientID(raw string) ClientID {
-	clientID, err := NewClientID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return clientID
+	return mo.Right[Error](ClientID{value: parsed})
 }
 
 // ClientIDFromUUID wraps an already-parsed uuid.UUID.
@@ -98,32 +75,18 @@ type UserID struct {
 }
 
 // NewUserID creates a UserID from a UUID string, returning an error if invalid.
-func NewUserID(raw string) (UserID, error) {
+func NewUserID(raw string) mo.Either[Error, UserID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return UserID{}, fmt.Errorf("invalid user ID %q: %w", raw, err)
+		return mo.Left[Error, UserID](errUserIDInvalid)
 	}
 
-	return UserID{value: parsed}, nil
-}
-
-// MustUserID creates a UserID, panicking if invalid. For use in tests and constants only.
-func MustUserID(raw string) UserID {
-	userID, err := NewUserID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return userID
+	return mo.Right[Error](UserID{value: parsed})
 }
 
 // UserIDFromUUID wraps an already-parsed uuid.UUID.
-func UserIDFromUUID(value uuid.UUID) UserID {
-	return UserID{value: value}
-}
 
 // UUID returns the underlying uuid.UUID value.
-func (userID UserID) UUID() uuid.UUID { return userID.value }
 
 // Value returns the UUID string representation.
 func (userID UserID) Value() string {
@@ -136,29 +99,16 @@ type GroupID struct {
 }
 
 // NewGroupID creates a GroupID from a UUID string, returning an error if invalid.
-func NewGroupID(raw string) (GroupID, error) {
+func NewGroupID(raw string) mo.Either[Error, GroupID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return GroupID{}, fmt.Errorf("invalid group ID %q: %w", raw, err)
+		return mo.Left[Error, GroupID](errGroupIDInvalid)
 	}
 
-	return GroupID{value: parsed}, nil
-}
-
-// MustGroupID creates a GroupID, panicking if invalid. For use in tests and constants only.
-func MustGroupID(raw string) GroupID {
-	groupID, err := NewGroupID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return groupID
+	return mo.Right[Error](GroupID{value: parsed})
 }
 
 // GroupIDFromUUID wraps an already-parsed uuid.UUID.
-func GroupIDFromUUID(value uuid.UUID) GroupID {
-	return GroupID{value: value}
-}
 
 // UUID returns the underlying uuid.UUID value.
 func (groupID GroupID) UUID() uuid.UUID { return groupID.value }
@@ -174,37 +124,20 @@ type ScopeID struct {
 }
 
 // NewScopeID creates a ScopeID from a UUID string, returning an error if invalid.
-func NewScopeID(raw string) (ScopeID, error) {
+func NewScopeID(raw string) mo.Either[Error, ScopeID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return ScopeID{}, fmt.Errorf("invalid scope ID %q: %w", raw, err)
+		return mo.Left[Error, ScopeID](errScopeIDInvalid)
 	}
 
-	return ScopeID{value: parsed}, nil
-}
-
-// MustScopeID creates a ScopeID, panicking if invalid. For use in tests and constants only.
-func MustScopeID(raw string) ScopeID {
-	scopeID, err := NewScopeID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return scopeID
+	return mo.Right[Error](ScopeID{value: parsed})
 }
 
 // ScopeIDFromUUID wraps an already-parsed uuid.UUID.
-func ScopeIDFromUUID(value uuid.UUID) ScopeID {
-	return ScopeID{value: value}
-}
 
 // UUID returns the underlying uuid.UUID value.
-func (scopeID ScopeID) UUID() uuid.UUID { return scopeID.value }
 
 // Value returns the UUID string representation.
-func (scopeID ScopeID) Value() string {
-	return scopeID.value.String()
-}
 
 // RoleID is the unique identifier for a role.
 type RoleID struct {
@@ -212,37 +145,20 @@ type RoleID struct {
 }
 
 // NewRoleID creates a RoleID from a UUID string, returning an error if invalid.
-func NewRoleID(raw string) (RoleID, error) {
+func NewRoleID(raw string) mo.Either[Error, RoleID] {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
-		return RoleID{}, fmt.Errorf("invalid role ID %q: %w", raw, err)
+		return mo.Left[Error, RoleID](errRoleIDInvalid)
 	}
 
-	return RoleID{value: parsed}, nil
-}
-
-// MustRoleID creates a RoleID, panicking if invalid. For use in tests and constants only.
-func MustRoleID(raw string) RoleID {
-	roleID, err := NewRoleID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return roleID
+	return mo.Right[Error](RoleID{value: parsed})
 }
 
 // RoleIDFromUUID wraps an already-parsed uuid.UUID.
-func RoleIDFromUUID(value uuid.UUID) RoleID {
-	return RoleID{value: value}
-}
 
 // UUID returns the underlying uuid.UUID value.
-func (roleID RoleID) UUID() uuid.UUID { return roleID.value }
 
 // Value returns the UUID string representation.
-func (roleID RoleID) Value() string {
-	return roleID.value.String()
-}
 
 // TenantName is the display name of a tenant.
 type TenantName struct {
@@ -250,24 +166,13 @@ type TenantName struct {
 }
 
 // NewTenantName creates a TenantName, returning an error if empty.
-func NewTenantName(raw string) (TenantName, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return TenantName{}, errTenantNameEmpty
-	}
-
-	return TenantName{value: v}, nil
+func NewTenantName(raw string) mo.Either[Error, TenantName] {
+	return moeither.MapRight[Error, NonEmptyString, TenantName](func(nes NonEmptyString) TenantName {
+		return TenantName{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustTenantName creates a TenantName, panicking if invalid. For use in tests and constants only.
-func MustTenantName(raw string) TenantName {
-	name, err := NewTenantName(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return name
-}
 
 // AsAppName returns the tenant name as an AppName.
 func (tenantName TenantName) AsAppName() AppName { return AppName(tenantName) }
@@ -283,23 +188,15 @@ type AppName struct {
 }
 
 // NewAppName creates an AppName, returning an error if empty.
-func NewAppName(raw string) (AppName, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return AppName{}, errAppNameEmpty
-	}
-
-	return AppName{value: v}, nil
+func NewAppName(raw string) mo.Either[Error, AppName] {
+	return moeither.MapRight[Error, NonEmptyString, AppName](func(nes NonEmptyString) AppName {
+		return AppName{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustAppName creates an AppName, panicking if invalid. For use in tests and constants only.
 func MustAppName(raw string) AppName {
-	name, err := NewAppName(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return name
+	return NewAppName(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -313,23 +210,15 @@ type IdentifierURI struct {
 }
 
 // NewIdentifierURI creates an IdentifierURI, returning an error if empty.
-func NewIdentifierURI(raw string) (IdentifierURI, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return IdentifierURI{}, errIdentifierURIEmpty
-	}
-
-	return IdentifierURI{value: v}, nil
+func NewIdentifierURI(raw string) mo.Either[Error, IdentifierURI] {
+	return moeither.MapRight[Error, NonEmptyString, IdentifierURI](func(nes NonEmptyString) IdentifierURI {
+		return IdentifierURI{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustIdentifierURI creates an IdentifierURI, panicking if invalid. For use in tests and constants only.
 func MustIdentifierURI(raw string) IdentifierURI {
-	identifierURI, err := NewIdentifierURI(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return identifierURI
+	return NewIdentifierURI(raw).MustRight()
 }
 
 // Matches reports whether the identifier URI exactly matches the given raw string.
@@ -353,24 +242,13 @@ type ScopeValue struct {
 }
 
 // NewScopeValue creates a ScopeValue from a raw string, returning an error if empty.
-func NewScopeValue(raw string) (ScopeValue, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ScopeValue{}, errScopeValueEmpty
-	}
-
-	return ScopeValue{value: v}, nil
+func NewScopeValue(raw string) mo.Either[Error, ScopeValue] {
+	return moeither.MapRight[Error, NonEmptyString, ScopeValue](func(nes NonEmptyString) ScopeValue {
+		return ScopeValue{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustScopeValue creates a ScopeValue, panicking if invalid. For use in tests and constants only.
-func MustScopeValue(raw string) ScopeValue {
-	v, err := NewScopeValue(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Matches reports whether the scope value matches the given raw string.
 func (scopeValue ScopeValue) Matches(raw string) bool {
@@ -390,24 +268,13 @@ type RoleValue struct {
 }
 
 // NewRoleValue creates a RoleValue from a raw string, returning an error if empty.
-func NewRoleValue(raw string) (RoleValue, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return RoleValue{}, errRoleValueEmpty
-	}
-
-	return RoleValue{value: v}, nil
+func NewRoleValue(raw string) mo.Either[Error, RoleValue] {
+	return moeither.MapRight[Error, NonEmptyString, RoleValue](func(nes NonEmptyString) RoleValue {
+		return RoleValue{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustRoleValue creates a RoleValue, panicking if invalid. For use in tests and constants only.
-func MustRoleValue(raw string) RoleValue {
-	v, err := NewRoleValue(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Matches reports whether the role value matches the given raw string.
 func (roleValue RoleValue) Matches(raw string) bool {
@@ -425,24 +292,13 @@ type GroupName struct {
 }
 
 // NewGroupName creates a GroupName from a raw string, returning an error if empty.
-func NewGroupName(raw string) (GroupName, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return GroupName{}, errGroupNameEmpty
-	}
-
-	return GroupName{value: v}, nil
+func NewGroupName(raw string) mo.Either[Error, GroupName] {
+	return moeither.MapRight[Error, NonEmptyString, GroupName](func(nes NonEmptyString) GroupName {
+		return GroupName{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustGroupName creates a GroupName, panicking if invalid. For use in tests and constants only.
-func MustGroupName(raw string) GroupName {
-	v, err := NewGroupName(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Matches reports whether the group name matches the given raw string.
 func (groupName GroupName) Matches(raw string) bool {
@@ -460,24 +316,13 @@ type Username struct {
 }
 
 // NewUsername creates a Username from a raw string, returning an error if empty.
-func NewUsername(raw string) (Username, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Username{}, errUsernameEmpty
-	}
-
-	return Username{value: v}, nil
+func NewUsername(raw string) mo.Either[Error, Username] {
+	return moeither.MapRight[Error, NonEmptyString, Username](func(nes NonEmptyString) Username {
+		return Username{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustUsername creates a Username, panicking if invalid. For use in tests and constants only.
-func MustUsername(raw string) Username {
-	username, err := NewUsername(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return username
-}
 
 // Value returns the underlying string value.
 func (username Username) Value() string {
@@ -490,24 +335,13 @@ type Password struct {
 }
 
 // NewPassword creates a Password from a raw string, returning an error if empty.
-func NewPassword(raw string) (Password, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Password{}, errPasswordEmpty
-	}
-
-	return Password{value: v}, nil
+func NewPassword(raw string) mo.Either[Error, Password] {
+	return moeither.MapRight[Error, NonEmptyString, Password](func(nes NonEmptyString) Password {
+		return Password{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustPassword creates a Password, panicking if invalid. For use in tests and constants only.
-func MustPassword(raw string) Password {
-	password, err := NewPassword(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return password
-}
 
 // Value returns the underlying string value.
 func (password Password) Value() string {
@@ -520,23 +354,15 @@ type DisplayName struct {
 }
 
 // NewDisplayName creates a DisplayName from a raw string, returning an error if empty.
-func NewDisplayName(raw string) (DisplayName, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return DisplayName{}, errDisplayNameEmpty
-	}
-
-	return DisplayName{value: v}, nil
+func NewDisplayName(raw string) mo.Either[Error, DisplayName] {
+	return moeither.MapRight[Error, NonEmptyString, DisplayName](func(nes NonEmptyString) DisplayName {
+		return DisplayName{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustDisplayName creates a DisplayName, panicking if invalid. For use in tests and constants only.
 func MustDisplayName(raw string) DisplayName {
-	displayName, err := NewDisplayName(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return displayName
+	return NewDisplayName(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -550,23 +376,15 @@ type Email struct {
 }
 
 // NewEmail creates an Email from a raw string, returning an error if empty.
-func NewEmail(raw string) (Email, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Email{}, errEmailEmpty
-	}
-
-	return Email{value: v}, nil
+func NewEmail(raw string) mo.Either[Error, Email] {
+	return moeither.MapRight[Error, NonEmptyString, Email](func(nes NonEmptyString) Email {
+		return Email{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustEmail creates an Email, panicking if invalid. For use in tests and constants only.
 func MustEmail(raw string) Email {
-	email, err := NewEmail(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return email
+	return NewEmail(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -580,28 +398,18 @@ type RedirectURL struct {
 }
 
 // NewRedirectURL creates a RedirectURL from a raw string, returning an error if empty or invalid.
-func NewRedirectURL(raw string) (RedirectURL, error) {
-	if raw == emptyString {
-		return RedirectURL{}, errRedirectURLEmpty
-	}
+func NewRedirectURL(raw string) mo.Either[Error, RedirectURL] {
+	return moeither.FlatMapRight[Error, NonEmptyString, RedirectURL](func(nes NonEmptyString) mo.Either[Error, RedirectURL] {
+		v, err := url.Parse(nes.Value())
+		if err != nil || v == nil {
+			return mo.Left[Error, RedirectURL](errRedirectURLInvalid)
+		}
 
-	v, err := url.Parse(raw)
-	if err != nil {
-		return RedirectURL{}, errRedirectURLEmpty
-	}
-
-	return RedirectURL{*v}, nil
+		return mo.Right[Error](RedirectURL{value: *v})
+	})(NewNonEmptyString(raw))
 }
 
 // MustRedirectURL creates a RedirectURL, panicking if invalid. For use in tests and constants only.
-func MustRedirectURL(raw string) RedirectURL {
-	redirectURL, err := NewRedirectURL(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return redirectURL
-}
 
 // AsURL returns the underlying url.URL value.
 func (redirectURL RedirectURL) AsURL() url.URL {
@@ -619,37 +427,13 @@ type ClientSecret struct {
 }
 
 // NewClientSecret creates a ClientSecret from a raw string, returning an error if empty.
-func NewClientSecret(raw string) (ClientSecret, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ClientSecret{}, errClientSecretEmpty
-	}
-
-	return ClientSecret{value: v}, nil
+func NewClientSecret(raw string) mo.Either[Error, ClientSecret] {
+	return moeither.MapRight[Error, NonEmptyString, ClientSecret](func(nes NonEmptyString) ClientSecret {
+		return ClientSecret{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustClientSecret creates a ClientSecret, panicking if invalid. For use in tests and constants only.
-func MustClientSecret(raw string) ClientSecret {
-	clientSecret, err := NewClientSecret(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return clientSecret
-}
-
-// Match reports whether this client secret matches the raw secret provided,
-// using constant-time comparison.
-func (clientSecret ClientSecret) Match(other ClientSecret) bool {
-	expected := []byte(clientSecret.value.value)
-	provided := []byte(other.value.value)
-
-	if len(expected) != len(provided) {
-		return false
-	}
-
-	return subtle.ConstantTimeCompare(expected, provided) == comparisonMatch
-}
 
 // Value returns the underlying string value.
 func (clientSecret ClientSecret) Value() string {
@@ -662,24 +446,13 @@ type ScopeDescription struct {
 }
 
 // NewScopeDescription creates a ScopeDescription from a raw string, returning an error if empty.
-func NewScopeDescription(raw string) (ScopeDescription, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ScopeDescription{}, errScopeDescriptionEmpty
-	}
-
-	return ScopeDescription{value: v}, nil
+func NewScopeDescription(raw string) mo.Either[Error, ScopeDescription] {
+	return moeither.MapRight[Error, NonEmptyString, ScopeDescription](func(nes NonEmptyString) ScopeDescription {
+		return ScopeDescription{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustScopeDescription creates a ScopeDescription, panicking if invalid. For use in tests and constants only.
-func MustScopeDescription(raw string) ScopeDescription {
-	v, err := NewScopeDescription(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Value returns the underlying string value.
 func (scopeDescription ScopeDescription) Value() string {
@@ -692,24 +465,13 @@ type RoleDescription struct {
 }
 
 // NewRoleDescription creates a RoleDescription from a raw string, returning an error if empty.
-func NewRoleDescription(raw string) (RoleDescription, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return RoleDescription{}, errRoleDescriptionEmpty
-	}
-
-	return RoleDescription{value: v}, nil
+func NewRoleDescription(raw string) mo.Either[Error, RoleDescription] {
+	return moeither.MapRight[Error, NonEmptyString, RoleDescription](func(nes NonEmptyString) RoleDescription {
+		return RoleDescription{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustRoleDescription creates a RoleDescription, panicking if invalid. For use in tests and constants only.
-func MustRoleDescription(raw string) RoleDescription {
-	v, err := NewRoleDescription(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Value returns the underlying string value.
 func (roleDescription RoleDescription) Value() string {
@@ -722,24 +484,13 @@ type Nonce struct {
 }
 
 // NewNonce creates a Nonce from a raw string, returning an error if empty.
-func NewNonce(raw string) (Nonce, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Nonce{}, errNonceEmpty
-	}
-
-	return Nonce{value: v}, nil
+func NewNonce(raw string) mo.Either[Error, Nonce] {
+	return moeither.MapRight[Error, NonEmptyString, Nonce](func(nes NonEmptyString) Nonce {
+		return Nonce{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustNonce creates a Nonce, panicking if invalid. For use in tests and constants only.
-func MustNonce(raw string) Nonce {
-	v, err := NewNonce(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
 
 // Value returns the underlying string value.
 func (n Nonce) Value() string { return n.value.value }
@@ -750,23 +501,15 @@ type CorrelationID struct {
 }
 
 // NewCorrelationID creates a CorrelationID from a raw string, returning an error if empty.
-func NewCorrelationID(raw string) (CorrelationID, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return CorrelationID{}, errCorrelationIDEmpty
-	}
-
-	return CorrelationID{value: v}, nil
+func NewCorrelationID(raw string) mo.Either[Error, CorrelationID] {
+	return moeither.MapRight[Error, NonEmptyString, CorrelationID](func(nes NonEmptyString) CorrelationID {
+		return CorrelationID{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustCorrelationID creates a CorrelationID, panicking if invalid. For use in tests and constants only.
 func MustCorrelationID(raw string) CorrelationID {
-	v, err := NewCorrelationID(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewCorrelationID(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -778,27 +521,20 @@ type BaseURL struct {
 }
 
 // NewBaseURL creates a BaseURL from a raw string, returning an error if empty or invalid.
-func NewBaseURL(raw string) (BaseURL, error) {
-	if raw == emptyString {
-		return BaseURL{}, errBaseURLEmpty
-	}
+func NewBaseURL(raw string) mo.Either[Error, BaseURL] {
+	return moeither.FlatMapRight[Error, NonEmptyString, BaseURL](func(nes NonEmptyString) mo.Either[Error, BaseURL] {
+		parsed, err := url.ParseRequestURI(nes.Value())
+		if err != nil || parsed.Host == emptyString {
+			return mo.Left[Error, BaseURL](errBaseURLInvalid)
+		}
 
-	parsed, err := url.ParseRequestURI(raw)
-	if err != nil || parsed.Host == emptyString {
-		return BaseURL{}, errBaseURLInvalid
-	}
-
-	return BaseURL{value: *parsed}, nil
+		return mo.Right[Error](BaseURL{value: *parsed})
+	})(NewNonEmptyString(raw))
 }
 
 // MustBaseURL creates a BaseURL, panicking if invalid. For use in tests and constants only.
 func MustBaseURL(raw string) BaseURL {
-	v, err := NewBaseURL(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewBaseURL(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -810,23 +546,15 @@ type Issuer struct {
 }
 
 // NewIssuer creates an Issuer from a raw string, returning an error if empty.
-func NewIssuer(raw string) (Issuer, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return Issuer{}, errIssuerEmpty
-	}
-
-	return Issuer{value: v}, nil
+func NewIssuer(raw string) mo.Either[Error, Issuer] {
+	return moeither.MapRight[Error, NonEmptyString, Issuer](func(nes NonEmptyString) Issuer {
+		return Issuer{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustIssuer creates an Issuer, panicking if invalid. For use in tests and constants only.
 func MustIssuer(raw string) Issuer {
-	v, err := NewIssuer(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewIssuer(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -846,23 +574,15 @@ type TokenVersion struct {
 }
 
 // NewTokenVersion creates a TokenVersion from a raw string, returning an error if empty.
-func NewTokenVersion(raw string) (TokenVersion, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return TokenVersion{}, errTokenVersionEmpty
-	}
-
-	return TokenVersion{value: v}, nil
+func NewTokenVersion(raw string) mo.Either[Error, TokenVersion] {
+	return moeither.MapRight[Error, NonEmptyString, TokenVersion](func(nes NonEmptyString) TokenVersion {
+		return TokenVersion{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // MustTokenVersion creates a TokenVersion, panicking if invalid. For use in tests and constants only.
 func MustTokenVersion(raw string) TokenVersion {
-	v, err := NewTokenVersion(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	return v
+	return NewTokenVersion(raw).MustRight()
 }
 
 // Value returns the underlying string value.
@@ -874,13 +594,10 @@ type OAuthState struct {
 }
 
 // NewOAuthState creates an OAuthState from a raw string, returning an error if empty.
-func NewOAuthState(raw string) (OAuthState, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return OAuthState{}, errOAuthStateEmpty
-	}
-
-	return OAuthState{value: v}, nil
+func NewOAuthState(raw string) mo.Either[Error, OAuthState] {
+	return moeither.MapRight[Error, NonEmptyString, OAuthState](func(nes NonEmptyString) OAuthState {
+		return OAuthState{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // Value returns the underlying string value.
@@ -892,13 +609,10 @@ type ResponseMode struct {
 }
 
 // NewResponseMode creates a ResponseMode from a raw string, returning an error if empty.
-func NewResponseMode(raw string) (ResponseMode, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ResponseMode{}, errResponseModeEmpty
-	}
-
-	return ResponseMode{value: v}, nil
+func NewResponseMode(raw string) mo.Either[Error, ResponseMode] {
+	return moeither.MapRight[Error, NonEmptyString, ResponseMode](func(nes NonEmptyString) ResponseMode {
+		return ResponseMode{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // Value returns the underlying string value.
@@ -910,14 +624,210 @@ type ResponseType struct {
 }
 
 // NewResponseType creates a ResponseType from a raw string, returning an error if empty.
-func NewResponseType(raw string) (ResponseType, error) {
-	v, err := NewNonEmptyString(raw)
-	if err != nil {
-		return ResponseType{}, errResponseTypeEmpty
-	}
-
-	return ResponseType{value: v}, nil
+func NewResponseType(raw string) mo.Either[Error, ResponseType] {
+	return moeither.MapRight[Error, NonEmptyString, ResponseType](func(nes NonEmptyString) ResponseType {
+		return ResponseType{value: nes}
+	})(NewNonEmptyString(raw))
 }
 
 // Value returns the underlying string value.
 func (rt ResponseType) Value() string { return rt.value.value }
+
+type claimKey struct {
+	key         string
+	valueKind   claimValueKind
+	allowsArray bool
+}
+
+var (
+	subClaim   = claimKey{key: "sub", valueKind: claimValueKindString, allowsArray: false}
+	nonceClaim = claimKey{key: "nonce", valueKind: claimValueKindString, allowsArray: false}
+
+	expClaim = claimKey{key: "exp", valueKind: claimValueKindInt64, allowsArray: false}
+	iatClaim = claimKey{key: "iat", valueKind: claimValueKindInt64, allowsArray: false}
+	nbfClaim = claimKey{key: "nbf", valueKind: claimValueKindInt64, allowsArray: false}
+	utiClaim = claimKey{key: "uti", valueKind: claimValueKindString, allowsArray: false}
+
+	tidClaim = claimKey{key: "tid", valueKind: claimValueKindString, allowsArray: false}
+	verClaim = claimKey{key: "ver", valueKind: claimValueKindString, allowsArray: false}
+	oidClaim = claimKey{key: "oid", valueKind: claimValueKindString, allowsArray: false}
+
+	rolesClaim  = claimKey{key: "roles", valueKind: claimValueKindString, allowsArray: true}
+	groupsClaim = claimKey{key: "groups", valueKind: claimValueKindString, allowsArray: true}
+	scpClaim    = claimKey{key: "scp", valueKind: claimValueKindString, allowsArray: false}
+
+	azpClaim    = claimKey{key: "azp", valueKind: claimValueKindString, allowsArray: false}
+	azpacrClaim = claimKey{key: "azpacr", valueKind: claimValueKindString, allowsArray: false}
+	appidClaim  = claimKey{key: "appid", valueKind: claimValueKindString, allowsArray: false}
+
+	nameClaim              = claimKey{key: "name", valueKind: claimValueKindString, allowsArray: false}
+	preferredUsernameClaim = claimKey{key: "preferred_username", valueKind: claimValueKindString, allowsArray: false}
+	emailClaim             = claimKey{key: "email", valueKind: claimValueKindString, allowsArray: false}
+	uniqueNameClaim        = claimKey{key: "unique_name", valueKind: claimValueKindString, allowsArray: false}
+
+	issClaim = claimKey{key: "iss", valueKind: claimValueKindString, allowsArray: false}
+	audClaim = claimKey{key: "aud", valueKind: claimValueKindString, allowsArray: true}
+	typClaim = claimKey{key: "typ", valueKind: claimValueKindString, allowsArray: false}
+
+	aioClaim    = claimKey{key: "aio", valueKind: claimValueKindString, allowsArray: false}
+	rhClaim     = claimKey{key: "rh", valueKind: claimValueKindString, allowsArray: false}
+	sidClaim    = claimKey{key: "sid", valueKind: claimValueKindString, allowsArray: false}
+	xmsFtdClaim = claimKey{key: "xms_ftd", valueKind: claimValueKindString, allowsArray: false}
+
+	jtiClaim     = claimKey{key: "jti", valueKind: claimValueKindString, allowsArray: false}
+	azpaclsClaim = claimKey{key: "azpacls", valueKind: claimValueKindString, allowsArray: false}
+)
+
+var claimKeyMap = map[string]claimKey{
+	subClaim.key:   subClaim,
+	nonceClaim.key: nonceClaim,
+
+	expClaim.key: expClaim,
+	iatClaim.key: iatClaim,
+	nbfClaim.key: nbfClaim,
+	utiClaim.key: utiClaim,
+
+	tidClaim.key: tidClaim,
+	verClaim.key: verClaim,
+	oidClaim.key: oidClaim,
+
+	rolesClaim.key:  rolesClaim,
+	groupsClaim.key: groupsClaim,
+	scpClaim.key:    scpClaim,
+
+	azpClaim.key:    azpClaim,
+	azpacrClaim.key: azpacrClaim,
+	appidClaim.key:  appidClaim,
+
+	nameClaim.key:              nameClaim,
+	preferredUsernameClaim.key: preferredUsernameClaim,
+	emailClaim.key:             emailClaim,
+	uniqueNameClaim.key:        uniqueNameClaim,
+
+	issClaim.key: issClaim,
+	audClaim.key: audClaim,
+	typClaim.key: typClaim,
+
+	aioClaim.key:    aioClaim,
+	rhClaim.key:     rhClaim,
+	sidClaim.key:    sidClaim,
+	xmsFtdClaim.key: xmsFtdClaim,
+
+	jtiClaim.key:     jtiClaim,
+	azpaclsClaim.key: azpaclsClaim,
+}
+
+func ValidClaim(rawKey string) mo.Option[ValidClaimKey] {
+	ck, ok := claimKeyMap[rawKey]
+	if !ok {
+		return mo.None[ValidClaimKey]()
+	}
+
+	return mo.Some(ValidClaimKey{key: ck})
+}
+
+func AsString(uuid uuid.UUID) NonEmptyString {
+	return NonEmptyString{value: uuid.String()}
+}
+
+func (tenantID TenantID) AsClaim() Claim {
+	return newStringClaim(tidClaim, AsString(tenantID.value))
+}
+
+func (clientID ClientID) AsClaim() Claim {
+	return newStringClaim(azpClaim, AsString(clientID.value))
+}
+
+func (nonce Nonce) AsClaim() Claim {
+	return newStringClaim(nonceClaim, nonce.value)
+}
+
+func (issuer Issuer) AsClaim() Claim {
+	return newStringClaim(issClaim, issuer.value)
+}
+
+func (aud IdentifierURI) AsClaim() Claim {
+	return newStringClaim(audClaim, aud.value)
+}
+
+func (subject Subject) AsClaim() Claim {
+	return newStringClaim(subClaim, subject.value)
+}
+
+func (version TokenVersion) AsClaim() Claim {
+	return newStringClaim(verClaim, version.value)
+}
+
+func (displayName DisplayName) AsClaim() Claim {
+	return newStringClaim(nameClaim, displayName.value)
+}
+
+func (email Email) AsClaim() Claim {
+	return newStringClaim(emailClaim, email.value)
+}
+
+func (email Email) AsPreferredUsernameClaim() Claim {
+	return newStringClaim(preferredUsernameClaim, email.value)
+}
+
+func (email Email) AsUniqueNameClaim() Claim {
+	return newStringClaim(uniqueNameClaim, email.value)
+}
+
+func (subject Subject) AsOidClaim() Claim {
+	return newStringClaim(oidClaim, subject.value)
+}
+
+func (clientID ClientID) AsAppidClaim() Claim {
+	return newStringClaim(appidClaim, AsString(clientID.value))
+}
+
+func (clientID ClientID) AsAudClaim() Claim {
+	return newStringClaim(audClaim, AsString(clientID.value))
+}
+
+func (issuer Issuer) AsAudClaim() Claim {
+	return newStringClaim(audClaim, issuer.value)
+}
+
+// ClaimComparable implementations — one per domain type used as a claim value.
+// Each is placed here, alongside its type definition.
+
+func (v TenantID) claimComparable()         {}
+func (v TenantID) toClaimValue() claimValue { return newClaimStringValue(AsString(v.value)) }
+
+func (v ClientID) claimComparable()         {}
+func (v ClientID) toClaimValue() claimValue { return newClaimStringValue(AsString(v.value)) }
+
+func (v GroupID) claimComparable()         {}
+func (v GroupID) toClaimValue() claimValue { return newClaimStringValue(AsString(v.value)) }
+
+func (v Nonce) claimComparable()         {}
+func (v Nonce) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v Issuer) claimComparable()         {}
+func (v Issuer) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v IdentifierURI) claimComparable()         {}
+func (v IdentifierURI) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v Subject) claimComparable()         {}
+func (v Subject) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v TokenVersion) claimComparable()         {}
+func (v TokenVersion) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v DisplayName) claimComparable()         {}
+func (v DisplayName) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v Email) claimComparable()         {}
+func (v Email) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v ScopeValue) claimComparable()         {}
+func (v ScopeValue) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v RoleValue) claimComparable()         {}
+func (v RoleValue) toClaimValue() claimValue { return newClaimStringValue(v.value) }
+
+func (v NonEmptyString) claimComparable()         {}
+func (v NonEmptyString) toClaimValue() claimValue { return newClaimStringValue(v) }

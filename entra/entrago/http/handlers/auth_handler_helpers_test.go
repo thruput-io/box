@@ -10,15 +10,11 @@ import (
 func TestAuthHelpers_CollectAssignmentRolesAndResolveAppName(t *testing.T) {
 	t.Parallel()
 
-	appID := domain.MustClientID("22222222-2222-4222-8222-222222222222")
-
-	redirectURL, err := domain.NewRedirectURL("https://example.com/callback")
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
+	appID := mustClientID(t, "22222222-2222-4222-8222-222222222222")
+	redirectURL := mustRedirectURL(t, "https://example.com/callback")
 
 	registration := domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		appID,
 		mustIdentifierURI(t, "api://app"),
 		[]domain.RedirectURL{redirectURL},
@@ -28,17 +24,14 @@ func TestAuthHelpers_CollectAssignmentRolesAndResolveAppName(t *testing.T) {
 
 	user, client := setupUserAndClientForHelpers(t, appID, redirectURL)
 
-	tenant, err := domain.NewTenant(
-		domain.MustTenantID("11111111-1111-4111-8111-111111111111"),
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+	tenant := domain.NewTenant(
+		mustTenantID(t, "11111111-1111-4111-8111-111111111111"),
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(registration).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		[]domain.Client{client},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
 	verifyAuthHelpers(t, user, client, tenant, appID)
 }
@@ -63,18 +56,18 @@ func setupUserAndClientForHelpers(
 	)
 
 	client := domain.NewClientWithoutSecret(
-		domain.MustAppName("Client"),
+		mustAppName(t, "Client"),
 		appID,
 		[]domain.RedirectURL{redirectURL},
 		[]domain.GroupRoleAssignment{assignmentMatching, assignmentWrongGroup},
 	)
 
 	user := domain.NewUser(
-		domain.MustUserID("33333333-3333-4333-8333-333333333333"),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, "33333333-3333-4333-8333-333333333333"),
+		mustUsername(t, "user"),
+		mustPassword(t, "pass"),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		[]domain.GroupName{mustGroupName(t, "GroupA")},
 	)
 

@@ -78,7 +78,7 @@ func run() error {
 }
 
 func runDeadcode(ctx context.Context) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "deadcode", "-json", "-test", "./...")
+	cmd := exec.CommandContext(ctx, "deadcode", "-json", "./...")
 
 	out, err := cmd.Output()
 	if err != nil {

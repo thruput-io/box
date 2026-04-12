@@ -95,7 +95,7 @@ func internalError(msg string) Response {
 	}
 }
 
-func fromDomainError(domErr *domain.Error) Response {
+func fromDomainError(domErr domain.Error) Response {
 	httpStatus := domainErrorToHTTPStatus(domErr.Code)
 	oauthCode := domainErrorToOAuthCode(domErr.Code)
 

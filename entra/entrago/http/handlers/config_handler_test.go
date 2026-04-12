@@ -32,30 +32,24 @@ func mustAppForConfigTests(t *testing.T) configFixture {
 		userUUID   = "55555555-5555-4555-8555-555555555555"
 	)
 
-	tenantID := domain.MustTenantID(tenantUUID)
-	appRegID := domain.MustClientID(appRegUUID)
-	secretClientID := domain.MustClientID(secretUUID)
-	publicClientID := domain.MustClientID(publicUUID)
+	tenantID := mustTenantID(t, tenantUUID)
+	appRegID := mustClientID(t, appRegUUID)
+	secretClientID := mustClientID(t, secretUUID)
+	publicClientID := mustClientID(t, publicUUID)
 
 	user, secretClient, publicClient := setupCoreEntities(t, userUUID, secretClientID, publicClientID)
 	registration := setupRegistration(t, appRegID)
 
-	tenant, err := domain.NewTenant(
+	tenant := domain.NewTenant(
 		tenantID,
-		domain.MustTenantName("Tenant"),
-		[]domain.AppRegistration{registration},
+		mustTenantName(t, "Tenant"),
+		domain.NewNonEmptyArray(registration).MustRight(),
 		nil,
-		[]domain.User{user},
+		domain.NewNonEmptyArray(user).MustRight(),
 		[]domain.Client{secretClient, publicClient},
-	)
-	if err != nil {
-		t.Fatalf("NewTenant: %v", err)
-	}
+	).MustRight()
 
-	config, err := domain.NewConfig([]domain.Tenant{tenant})
-	if err != nil {
-		t.Fatalf("NewConfig: %v", err)
-	}
+	config := domain.NewConfig(domain.NewNonEmptyArray(tenant).MustRight()).MustRight()
 
 	return configFixture{
 		application: &app.App{
@@ -78,28 +72,25 @@ func setupCoreEntities(
 ) (user domain.User, secretClient domain.Client, publicClient domain.Client) {
 	t.Helper()
 
-	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
+	redirectURL := mustRedirectURL(t, testCallbackURI)
 
 	user = domain.NewUser(
-		domain.MustUserID(userUUID),
-		domain.MustUsername("user"),
-		domain.MustPassword("pass"),
-		domain.MustDisplayName("User"),
-		domain.MustEmail("user@example.com"),
+		mustUserID(t, userUUID),
+		mustUsername(t, "user"),
+		mustPassword(t, "pass"),
+		mustDisplayName(t, "User"),
+		mustEmail(t, "user@example.com"),
 		nil,
 	)
 	secretClient = domain.NewClientWithSecret(
-		domain.MustAppName("SecretClient"),
+		mustAppName(t, "SecretClient"),
 		secretCID,
-		domain.MustClientSecret("secret"),
+		mustClientSecret(t, "secret"),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
 	publicClient = domain.NewClientWithoutSecret(
-		domain.MustAppName("PublicClient"),
+		mustAppName(t, "PublicClient"),
 		publicCID,
 		[]domain.RedirectURL{redirectURL},
 		nil,
@@ -111,13 +102,10 @@ func setupCoreEntities(
 func setupRegistration(t *testing.T, appRegID domain.ClientID) domain.AppRegistration {
 	t.Helper()
 
-	redirectURL, err := domain.NewRedirectURL(testCallbackURI)
-	if err != nil {
-		t.Fatalf("NewRedirectURL: %v", err)
-	}
+	redirectURL := mustRedirectURL(t, testCallbackURI)
 
 	return domain.NewAppRegistration(
-		domain.MustAppName("App"),
+		mustAppName(t, "App"),
 		appRegID,
 		mustIdentifierURI(t, testAppURI),
 		[]domain.RedirectURL{redirectURL},

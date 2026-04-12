@@ -85,12 +85,12 @@ func TestToken_ClientCredentials(t *testing.T) {
 
 	server := newTestServer(t)
 
-	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
-	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
+	secretClientID := mustClientID(t, "cccccccc-cccc-4ccc-accc-cccccccccccc")
+	redirectURL := mustRedirectURL(t, testRedirectURL)
 	secretClient := domain.NewClientWithSecret(
-		domain.MustAppName("SecretClient"),
+		mustAppName(t, "SecretClient"),
 		secretClientID,
-		domain.MustClientSecret(testClientSecret),
+		mustClientSecret(t, testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -114,12 +114,12 @@ func TestToken_ClientCredentials_WrongSecret(t *testing.T) {
 
 	server := newTestServer(t)
 
-	secretClientID := domain.MustClientID("cccccccc-cccc-4ccc-accc-cccccccccccc")
-	redirectURL, _ := domain.NewRedirectURL(testRedirectURL)
+	secretClientID := mustClientID(t, "cccccccc-cccc-4ccc-accc-cccccccccccc")
+	redirectURL := mustRedirectURL(t, testRedirectURL)
 	secretClient := domain.NewClientWithSecret(
-		domain.MustAppName("SecretClient"),
+		mustAppName(t, "SecretClient"),
 		secretClientID,
-		domain.MustClientSecret(testClientSecret),
+		mustClientSecret(t, testClientSecret),
 		[]domain.RedirectURL{redirectURL},
 		nil,
 	)
@@ -145,13 +145,16 @@ func TestToken_AuthorizationCode(t *testing.T) {
 	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().UUID().String()
 
 	claims := jwt.MapClaims{
-		"sub":          "user1",
-		"client_id":    clientID,
-		"redirect_uri": testRedirectURL,
-		"scope":        "openid",
-		"exp":          time.Now().Add(5 * time.Minute).Unix(),
+		"sub": "user1",
+		"azp": clientID,
+		"scp": "openid",
+		"exp": time.Now().Add(5 * time.Minute).Unix(),
 	}
-	authCode, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
+
+	authCode, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
+	if err != nil {
+		t.Fatalf("sign auth code: %v", err)
+	}
 
 	form := url.Values{}
 	form.Set(formGrantType, "authorization_code")
@@ -172,12 +175,17 @@ func TestToken_RefreshToken(t *testing.T) {
 	clientID := server.App.Config.Tenants()[firstIndex].Clients()[firstIndex].ClientID().UUID().String()
 
 	claims := jwt.MapClaims{
-		"sub":       "user1",
-		"client_id": clientID,
-		"exp":       time.Now().Add(5 * time.Minute).Unix(),
-		"typ":       "Refresh",
+		"sub": "user1",
+		"azp": clientID,
+		"scp": "openid",
+		"exp": time.Now().Add(5 * time.Minute).Unix(),
+		"typ": "Refresh",
 	}
-	refreshToken, _ := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
+
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(server.App.Key)
+	if err != nil {
+		t.Fatalf("sign refresh token: %v", err)
+	}
 
 	form := url.Values{}
 	form.Set(formGrantType, "refresh_token")

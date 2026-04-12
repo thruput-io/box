@@ -23,27 +23,34 @@ func tokenHandler(request *http.Request, application *app.App) Response {
 		return fromDomainError(domain.NewError(domain.ErrCodeInvalidRequest, paramErr.Error()))
 	}
 
-	input, domErr := parseTokenRequest(request, application)
-	if domErr != nil {
+	inputE := parseTokenRequest(request, application)
+	if domErr, ok := inputE.Left(); ok {
 		return fromDomainError(domErr)
 	}
 
-	return encodeTokenResponse(app.IssueToken(application.Key, input))
+	return encodeTokenResponse(app.IssueToken(application.Key, inputE.MustRight()))
 }
 
-func parseTokenRequest(request *http.Request, application *app.App) (domain.TokenInput, *domain.Error) {
+const (
+	errMsgInvalidCredentials  = "invalid username or password"
+	errMsgRedirectURIMismatch = "redirect_uri mismatch"
+)
+
+func parseTokenRequest(request *http.Request, application *app.App) mo.Either[domain.Error, domain.TokenInput] {
 	grantTypeStr := request.Form.Get("grant_type")
 	tenantIDStr := extractTenantID(request)
 	isV2 := strings.Contains(request.URL.Path, "/v2.0")
 
 	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found")
+		return mo.Left[domain.Error, domain.TokenInput](domain.ErrTenantNotFound)
 	}
 
-	grant, domErr := parseGrantType(grantTypeStr)
-	if domErr != nil {
-		return domain.TokenInput{}, domErr
+	grantE := parseGrantType(grantTypeStr)
+
+	grant, ok := grantE.Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.TokenInput](grantE.MustLeft())
 	}
 
 	base := domain.TokenInput{
@@ -68,136 +75,227 @@ func parseTokenRequest(request *http.Request, application *app.App) (domain.Toke
 	case domain.GrantRefreshToken:
 		return buildRefreshTokenInput(base, request, *tenant, application)
 	default:
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeUnsupportedGrantType, "unsupported grant_type")
+		return mo.Left[domain.Error, domain.TokenInput](domain.ErrUnsupportedGrantType)
 	}
 }
 
-func parseGrantType(raw string) (domain.GrantType, *domain.Error) {
+func parseGrantType(raw string) mo.Either[domain.Error, domain.GrantType] {
 	switch raw {
 	case "password":
-		return domain.GrantPassword, nil
+		return mo.Right[domain.Error, domain.GrantType](domain.GrantPassword)
 	case "test":
-		return domain.GrantTest, nil
+		return mo.Right[domain.Error, domain.GrantType](domain.GrantTest)
 	case "client_credentials":
-		return domain.GrantClientCredentials, nil
+		return mo.Right[domain.Error, domain.GrantType](domain.GrantClientCredentials)
 	case "authorization_code":
-		return domain.GrantAuthorizationCode, nil
+		return mo.Right[domain.Error, domain.GrantType](domain.GrantAuthorizationCode)
 	case "refresh_token":
-		return domain.GrantRefreshToken, nil
+		return mo.Right[domain.Error, domain.GrantType](domain.GrantRefreshToken)
 	default:
-		return "", domain.NewError(domain.ErrCodeUnsupportedGrantType, "unsupported grant_type: "+raw)
+		return mo.Left[domain.Error, domain.GrantType](
+			domain.NewError(domain.ErrCodeUnsupportedGrantType, "unsupported grant_type: "+raw),
+		)
 	}
 }
 
 func buildPasswordInput(
 	base domain.TokenInput, request *http.Request, tenant domain.Tenant,
-) (domain.TokenInput, *domain.Error) {
-	username, _ := domain.NewUsername(request.Form.Get("username"))
-	password, _ := domain.NewPassword(request.Form.Get("password"))
+) mo.Either[domain.Error, domain.TokenInput] {
+	username, ok := domain.NewUsername(request.Form.Get("username")).Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeInvalidCredentials, errMsgInvalidCredentials),
+		)
+	}
+
+	password, ok := domain.NewPassword(request.Form.Get("password")).Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeInvalidCredentials, errMsgInvalidCredentials),
+		)
+	}
 
 	user, err := app.AuthenticateUser(tenant, username, password)
 	if err != nil {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid username or password")
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeInvalidCredentials, errMsgInvalidCredentials),
+		)
 	}
 
 	base.User = user
 	base.Client = resolveClientFromForm(tenant, request.Form.Get("client_id"), request.Form.Get("client_secret"))
 
-	return base, nil
+	return mo.Right[domain.Error, domain.TokenInput](base)
 }
 
 func buildClientCredentialsInput(
 	base domain.TokenInput, request *http.Request, tenant domain.Tenant,
-) (domain.TokenInput, *domain.Error) {
-	clientIDStr := request.Form.Get("client_id")
-
-	clientID, err := domain.NewClientID(clientIDStr)
-	if err != nil {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeClientNotFound, "invalid client_id")
+) mo.Either[domain.Error, domain.TokenInput] {
+	clientID, ok := domain.NewClientID(request.Form.Get("client_id")).Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeClientNotFound, "invalid client_id"),
+		)
 	}
 
 	client, err := app.FindClient(tenant, clientID)
 	if err != nil {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeClientNotFound, "client not found")
+		return mo.Left[domain.Error, domain.TokenInput](domain.ErrClientNotFound)
 	}
 
 	var secret *domain.ClientSecret
 
 	secretRaw := request.Form.Get("client_secret")
 	if secretRaw != emptyValue {
-		s, err := domain.NewClientSecret(secretRaw)
-		if err != nil {
-			return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid client secret format")
+		clientSecret, ok := domain.NewClientSecret(secretRaw).Right()
+		if !ok {
+			return mo.Left[domain.Error, domain.TokenInput](
+				domain.NewError(domain.ErrCodeInvalidRequest, "invalid client secret format"),
+			)
 		}
 
-		secret = &s
+		secret = &clientSecret
 	}
 
 	err = app.ValidateClientSecret(*client, secret)
 	if err != nil {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidCredentials, "invalid client secret")
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeInvalidCredentials, "invalid client secret"),
+		)
 	}
 
 	base.Client = client
 
-	return base, nil
+	return mo.Right[domain.Error, domain.TokenInput](base)
 }
 
 func buildAuthCodeInput(
 	base domain.TokenInput, request *http.Request, tenant domain.Tenant, application *app.App,
-) (domain.TokenInput, *domain.Error) {
-	parsed, parseErr := parseAuthCode(application.Key, request.Form.Get("code"))
-	if parseErr != nil {
-		return domain.TokenInput{}, parseErr
+) mo.Either[domain.Error, domain.TokenInput] {
+	parsedE := parseAuthCode(application.Key, request.Form.Get("code"))
+	if parsedE.IsLeft() {
+		return mo.Left[domain.Error, domain.TokenInput](parsedE.MustLeft())
 	}
 
-	requestedRedirect := request.Form.Get("redirect_uri")
-	if requestedRedirect != emptyValue && requestedRedirect != parsed.redirectURI {
-		return domain.TokenInput{}, domain.NewError(domain.ErrCodeInvalidGrant, "redirect_uri mismatch")
+	parsed := parsedE.MustRight()
+
+	clientIDFromClaims := claimsClientIDString(parsed)
+
+	if result := checkRedirectURI(
+		tenant,
+		request.Form.Get("redirect_uri"),
+		firstOf(request.Form.Get(formKeyClientID), clientIDFromClaims),
+	); result.IsLeft() {
+		return mo.Left[domain.Error, domain.TokenInput](result.MustLeft())
 	}
 
 	if len(base.Scope) == emptySize {
-		base.Scope = parsed.scope
+		base.Scope = parsed.ScopeValues()
 	}
 
-	base.Nonce = parsed.nonce
-	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
-	base.Client = resolveClientFromID(tenant, clientID)
+	base.Nonce = parsed.Nonce()
 
-	userID, _ := domain.NewUserID(parsed.subject)
-	if user, found := app.FindUserByID(tenant, userID); found {
-		base.User = user
+	clientID, ok := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), clientIDFromClaims)).Right()
+	if ok {
+		base.Client = resolveClientFromID(tenant, clientID)
 	}
 
-	return base, nil
+	base.User = resolveUserFromClaims(tenant, parsed)
+
+	return mo.Right[domain.Error, domain.TokenInput](base)
 }
 
 func buildRefreshTokenInput(
 	base domain.TokenInput, request *http.Request, tenant domain.Tenant, application *app.App,
-) (domain.TokenInput, *domain.Error) {
-	parsed, parseErr := parseRefreshToken(application.Key, request.Form.Get("refresh_token"))
-	if parseErr != nil {
-		return domain.TokenInput{}, parseErr
+) mo.Either[domain.Error, domain.TokenInput] {
+	parsed, ok := parseRefreshToken(application.Key, request.Form.Get("refresh_token")).Right()
+	if !ok {
+		return mo.Left[domain.Error, domain.TokenInput](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgInvalidRefreshToken),
+		)
 	}
 
 	if len(base.Scope) == emptySize {
-		base.Scope = parsed.scope
+		base.Scope = parsed.ScopeValues()
 	}
 
-	clientID, _ := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), parsed.clientID))
-	base.Client = resolveClientFromID(tenant, clientID)
-
-	userID, _ := domain.NewUserID(parsed.subject)
-	if user, found := app.FindUserByID(tenant, userID); found {
-		base.User = user
+	clientID, ok := domain.NewClientID(firstOf(request.Form.Get(formKeyClientID), claimsClientIDString(parsed))).Right()
+	if ok {
+		base.Client = resolveClientFromID(tenant, clientID)
 	}
 
-	return base, nil
+	base.User = resolveUserFromClaims(tenant, parsed)
+
+	return mo.Right[domain.Error, domain.TokenInput](base)
+}
+
+func resolveUserFromClaims(tenant domain.Tenant, claims domain.Claims) *domain.User {
+	sub, found := claims.Subject().Get()
+	if !found {
+		return nil
+	}
+
+	userID, ok := domain.NewUserID(sub.Value()).Right()
+	if !ok {
+		return nil
+	}
+
+	user, found := app.FindUserByID(tenant, userID)
+	if !found {
+		return nil
+	}
+
+	return user
+}
+
+func checkRedirectURI(tenant domain.Tenant, requestedRedirect, clientIDStr string) mo.Either[domain.Error, struct{}] {
+	if requestedRedirect == emptyValue {
+		return mo.Right[domain.Error, struct{}](struct{}{})
+	}
+
+	redirectURI, ok := domain.NewRedirectURL(requestedRedirect).Right()
+	if !ok {
+		return mo.Left[domain.Error, struct{}](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgRedirectURIMismatch),
+		)
+	}
+
+	clientID, ok := domain.NewClientID(clientIDStr).Right()
+	if !ok {
+		return mo.Left[domain.Error, struct{}](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgRedirectURIMismatch),
+		)
+	}
+
+	allowedURLs, err := app.FindRedirectURLs(tenant, clientID)
+	if err != nil {
+		return mo.Left[domain.Error, struct{}](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgRedirectURIMismatch),
+		)
+	}
+
+	err = app.ValidateRedirectURI(redirectURI, allowedURLs)
+	if err != nil {
+		return mo.Left[domain.Error, struct{}](
+			domain.NewError(domain.ErrCodeInvalidGrant, errMsgRedirectURIMismatch),
+		)
+	}
+
+	return mo.Right[domain.Error, struct{}](struct{}{})
+}
+
+func claimsClientIDString(claims domain.Claims) string {
+	clientID, found := claims.AuthorizedPartyClientID().Get()
+	if !found {
+		return emptyValue
+	}
+
+	return clientID.Value()
 }
 
 func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret string) *domain.Client {
-	clientID, err := domain.NewClientID(clientIDStr)
-	if err != nil {
+	clientID, ok := domain.NewClientID(clientIDStr).Right()
+	if !ok {
 		return nil
 	}
 
@@ -209,16 +307,15 @@ func resolveClientFromForm(tenant domain.Tenant, clientIDStr, clientSecret strin
 	var secret *domain.ClientSecret
 
 	if clientSecret != emptyValue {
-		s, err := domain.NewClientSecret(clientSecret)
-		if err != nil {
+		s, ok := domain.NewClientSecret(clientSecret).Right()
+		if !ok {
 			return nil
 		}
 
 		secret = &s
 	}
 
-	err = client.Validate(secret)
-	if err != nil {
+	if client.Validate(secret).IsLeft() {
 		return nil
 	}
 
@@ -284,11 +381,11 @@ func encodeTokenResponse(response domain.TokenResponse) Response {
 func parseOptionalCorrelationID(request *http.Request) mo.Option[domain.CorrelationID] {
 	headerID := request.Header.Get("Client-Request-Id")
 	if headerID != emptyValue {
-		c, err := domain.NewCorrelationID(headerID)
-		if err == nil {
+		c, ok := domain.NewCorrelationID(headerID).Right()
+		if ok {
 			return mo.Some(c)
 		}
 	}
 
-	return mo.Some(domain.MustCorrelationID(uuid.New().String()))
+	return mo.Some(domain.NewCorrelationID(uuid.New().String()).MustRight())
 }

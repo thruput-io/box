@@ -19,9 +19,45 @@ const (
 )
 
 func authorizeHandler(request *http.Request, application *app.App) Response {
+	data, domErrOpt := buildAuthorizeLoginTemplateData(request, application)
+	if domErr, ok := domErrOpt.Get(); ok {
+		return badRequest(domErr)
+	}
+
+	var buf bytes.Buffer
+
+	err := application.LoginTemplate.Execute(&buf, data)
+	if err != nil {
+		return internalError("failed to render login page")
+	}
+
+	return okHTML(buf.Bytes())
+}
+
+type validatedLogin struct {
+	tenant      *domain.Tenant
+	clientID    domain.ClientID
+	redirectURI domain.RedirectURL
+}
+
+func emptyLoginTemplateData() loginTemplateData {
+	return loginTemplateData{
+		ClientID:     domain.ClientID{},
+		RedirectURI:  domain.RedirectURL{},
+		State:        mo.None[domain.OAuthState](),
+		Scope:        nil,
+		ResponseType: mo.None[domain.ResponseType](),
+		Tenant:       mo.None[domain.TenantID](),
+		Nonce:        mo.None[domain.Nonce](),
+		ResponseMode: mo.None[domain.ResponseMode](),
+		Users:        nil,
+	}
+}
+
+func buildAuthorizeLoginTemplateData(request *http.Request, application *app.App) (loginTemplateData, mo.Option[domain.Error]) {
 	err := validateParamLengths(request.URL.Query())
 	if err != nil {
-		return badRequest(err)
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Error()))
 	}
 
 	clientIDStr := request.URL.Query().Get("client_id")
@@ -29,29 +65,39 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 
 	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
-		return badRequest(err)
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Error()))
 	}
 
-	clientID, err := domain.NewClientID(clientIDStr)
-	if err != nil {
-		return badRequest(err)
+	clientIDEither := domain.NewClientID(clientIDStr)
+
+	clientID, ok := clientIDEither.Right()
+
+	if !ok {
+		err, _ := clientIDEither.Left()
+
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Message))
 	}
 
 	redirectURIStr := request.URL.Query().Get("redirect_uri")
 
-	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
-	if err != nil {
-		return badRequest(err)
+	redirectURIEither := domain.NewRedirectURL(redirectURIStr)
+
+	redirectURI, ok := redirectURIEither.Right()
+
+	if !ok {
+		err, _ := redirectURIEither.Left()
+
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Message))
 	}
 
 	allowedURLs, err := app.FindRedirectURLs(*tenant, clientID)
 	if err != nil {
-		return badRequest(err)
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Error()))
 	}
 
 	err = app.ValidateRedirectURI(redirectURI, allowedURLs)
 	if err != nil {
-		return badRequest(err)
+		return emptyLoginTemplateData(), mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Error()))
 	}
 
 	tenantOpt := parseTenantIDOption(tenantIDStr)
@@ -68,53 +114,50 @@ func authorizeHandler(request *http.Request, application *app.App) Response {
 		Users:        buildUsersDisplay(*tenant, clientID),
 	}
 
-	var buf bytes.Buffer
-
-	err = application.LoginTemplate.Execute(&buf, data)
-	if err != nil {
-		return internalError("failed to render login page")
-	}
-
-	return okHTML(buf.Bytes())
+	return data, mo.None[domain.Error]()
 }
 
-type validatedLogin struct {
-	tenant      *domain.Tenant
-	clientID    domain.ClientID
-	redirectURI domain.RedirectURL
-}
-
-func validateLoginRequest(request *http.Request, application *app.App) (validatedLogin, *domain.Error) {
+func validateLoginRequest(request *http.Request, application *app.App) (validatedLogin, mo.Option[domain.Error]) {
 	tenantIDStr := request.Form.Get("tenant")
 
 	tenant, err := app.FindTenant(application.Config, tenantIDStr)
 	if err != nil {
-		return validatedLogin{}, domain.NewError(domain.ErrCodeTenantNotFound, "tenant not found")
+		return validatedLogin{tenant: nil, clientID: domain.ClientID{}, redirectURI: domain.RedirectURL{}}, mo.Some(domain.ErrTenantNotFound)
 	}
 
-	clientID, err := domain.NewClientID(request.Form.Get("client_id"))
-	if err != nil {
-		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRequest, err.Error())
+	clientIDEither := domain.NewClientID(request.Form.Get("client_id"))
+
+	clientID, ok := clientIDEither.Right()
+
+	if !ok {
+		err, _ := clientIDEither.Left()
+
+		return validatedLogin{tenant: nil, clientID: domain.ClientID{}, redirectURI: domain.RedirectURL{}}, mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Message))
 	}
 
 	redirectURIStr := request.Form.Get("redirect_uri")
 
-	redirectURI, err := domain.NewRedirectURL(redirectURIStr)
-	if err != nil {
-		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRequest, "invalid redirect_uri format")
+	redirectURIEither := domain.NewRedirectURL(redirectURIStr)
+
+	redirectURI, ok := redirectURIEither.Right()
+
+	if !ok {
+		err, _ := redirectURIEither.Left()
+
+		return validatedLogin{tenant: nil, clientID: domain.ClientID{}, redirectURI: domain.RedirectURL{}}, mo.Some(domain.NewError(domain.ErrCodeInvalidRequest, err.Message))
 	}
 
 	allowedURLs, err := app.FindRedirectURLs(*tenant, clientID)
 	if err != nil {
-		return validatedLogin{}, domain.NewError(domain.ErrCodeClientNotFound, "client not found")
+		return validatedLogin{tenant: nil, clientID: domain.ClientID{}, redirectURI: domain.RedirectURL{}}, mo.Some(domain.ErrClientNotFound)
 	}
 
 	err = app.ValidateRedirectURI(redirectURI, allowedURLs)
 	if err != nil {
-		return validatedLogin{}, domain.NewError(domain.ErrCodeInvalidRedirectURI, "invalid redirect_uri")
+		return validatedLogin{tenant: nil, clientID: domain.ClientID{}, redirectURI: domain.RedirectURL{}}, mo.Some(domain.ErrInvalidRedirectURI)
 	}
 
-	return validatedLogin{tenant: tenant, clientID: clientID, redirectURI: redirectURI}, nil
+	return validatedLogin{tenant: tenant, clientID: clientID, redirectURI: redirectURI}, mo.None[domain.Error]()
 }
 
 func loginHandler(request *http.Request, application *app.App) Response {
@@ -134,13 +177,13 @@ func loginHandler(request *http.Request, application *app.App) Response {
 		return badRequest(paramErr)
 	}
 
-	validated, domErr := validateLoginRequest(request, application)
-	if domErr != nil {
+	validated, domErrOpt := validateLoginRequest(request, application)
+	if domErr, ok := domErrOpt.Get(); ok {
 		return fromDomainError(domErr)
 	}
 
-	user, domErr := authenticateLoginRequest(request, *validated.tenant)
-	if domErr != nil {
+	user, domErrOpt := authenticateLoginRequest(request, *validated.tenant)
+	if domErr, ok := domErrOpt.Get(); ok {
 		return fromDomainError(domErr)
 	}
 
@@ -160,23 +203,27 @@ func loginHandler(request *http.Request, application *app.App) Response {
 	)
 }
 
-func authenticateLoginRequest(request *http.Request, tenant domain.Tenant) (*domain.User, *domain.Error) {
-	username, err := domain.NewUsername(request.Form.Get("username"))
-	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+func authenticateLoginRequest(request *http.Request, tenant domain.Tenant) (*domain.User, mo.Option[domain.Error]) {
+	usernameEither := domain.NewUsername(request.Form.Get("username"))
+
+	username, ok := usernameEither.Right()
+	if !ok {
+		return nil, mo.Some(domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg))
 	}
 
-	password, err := domain.NewPassword(request.Form.Get("password"))
-	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+	passwordEither := domain.NewPassword(request.Form.Get("password"))
+
+	password, ok := passwordEither.Right()
+	if !ok {
+		return nil, mo.Some(domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg))
 	}
 
 	user, err := app.AuthenticateUser(tenant, username, password)
 	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg)
+		return nil, mo.Some(domain.NewError(domain.ErrCodeInvalidCredentials, errInvalidCredentialsMsg))
 	}
 
-	return user, nil
+	return user, mo.None[domain.Error]()
 }
 
 func buildLoginRedirect(
@@ -322,7 +369,7 @@ func resolveDisplayRoles(user domain.User, client *domain.Client, tenant domain.
 		}
 
 		display := appName.Value() + ": " + strings.Join(roleStrs, ", ")
-		result = append(result, domain.MustNonEmptyString(display))
+		result = append(result, domain.NewNonEmptyString(display).MustRight())
 	}
 
 	return result
@@ -370,8 +417,8 @@ func parseTenantIDOption(raw string) mo.Option[domain.TenantID] {
 		return mo.None[domain.TenantID]()
 	}
 
-	tid, err := domain.NewTenantID(raw)
-	if err != nil {
+	tid, ok := domain.NewTenantID(raw).Right()
+	if !ok {
 		return mo.None[domain.TenantID]()
 	}
 

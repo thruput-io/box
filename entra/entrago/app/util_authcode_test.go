@@ -26,10 +26,10 @@ func TestIssueAuthCode_Claims(t *testing.T) {
 		key,
 		&fixture.user,
 		fixture.client.ClientID(),
-		domain.MustRedirectURL(testCallback),
-		[]domain.ScopeValue{domain.MustScopeValue("openid"), domain.MustScopeValue("profile")},
+		domain.NewRedirectURL(testCallback).MustRight(),
+		[]domain.ScopeValue{domain.NewScopeValue("openid").MustRight(), domain.NewScopeValue("profile").MustRight()},
 		fixture.tenant.TenantID(),
-		mo.Some(domain.MustNonce(nonceStr)),
+		mo.Some(domain.NewNonce(nonceStr).MustRight()),
 	)
 
 	authCodeStr := code.Value()
@@ -75,20 +75,25 @@ func verifySubAndClient(t *testing.T, claims map[string]any, sub domain.UserID, 
 		t.Fatalf("expected sub %q, got %q", parseString(sub), gotSub)
 	}
 
-	gotCID, cidFound := claims[app.ClaimClientID].(string)
-	if !cidFound || gotCID != parseString(clientID) {
-		t.Fatalf("expected client_id %q, got %q", parseString(clientID), gotCID)
+	gotAzp, azpFound := claims[app.ClaimAzp].(string)
+	if !azpFound || gotAzp != parseString(clientID) {
+		t.Fatalf("expected azp %q, got %q", parseString(clientID), gotAzp)
+	}
+
+	gotAud, audFound := claims[app.ClaimAud].(string)
+	if !audFound || gotAud != parseString(clientID) {
+		t.Fatalf("expected aud %q, got %q", parseString(clientID), gotAud)
 	}
 }
 
 func verifyOtherClaims(t *testing.T, claims map[string]any, nonce string, tenant domain.TenantID) {
 	t.Helper()
 
-	verifyAuthURIAndScope(t, claims)
+	verifyScope(t, claims)
 
-	gotTID, tidFound := claims[app.ClaimTenant].(string)
+	gotTID, tidFound := claims[app.ClaimTid].(string)
 	if !tidFound || gotTID != parseString(tenant) {
-		t.Fatalf("expected tenant %q, got %q", parseString(tenant), gotTID)
+		t.Fatalf("expected tid %q, got %q", parseString(tenant), gotTID)
 	}
 
 	gotNonce, nonceFound := claims[app.ClaimNonce].(string)
@@ -97,19 +102,14 @@ func verifyOtherClaims(t *testing.T, claims map[string]any, nonce string, tenant
 	}
 }
 
-func verifyAuthURIAndScope(t *testing.T, claims map[string]any) {
+func verifyScope(t *testing.T, claims map[string]any) {
 	t.Helper()
-
-	gotURI, uriFound := claims[app.ClaimRedirectURI].(string)
-	if !uriFound || gotURI != testCallback {
-		t.Fatalf("expected redirect_uri %q, got %q", testCallback, gotURI)
-	}
 
 	const oidcScope = "openid profile"
 
-	gotScp, scpFound := claims[app.ClaimScope].(string)
+	gotScp, scpFound := claims[app.ClaimScp].(string)
 	if !scpFound || gotScp != oidcScope {
-		t.Fatalf("expected scope %q, got %q", oidcScope, gotScp)
+		t.Fatalf("expected scp %q, got %q", oidcScope, gotScp)
 	}
 }
 
@@ -152,7 +152,7 @@ func TestBuildClientInfo(t *testing.T) {
 		tenantID = "00000000-0000-0000-0000-000000000002"
 	)
 
-	encoded := app.BuildClientInfo(domain.MustUserID(userID), domain.MustTenantID(tenantID))
+	encoded := app.BuildClientInfo(domain.NewUserID(userID).MustRight(), domain.NewTenantID(tenantID).MustRight())
 
 	clientInfoStr := encoded.Value()
 
@@ -204,12 +204,12 @@ func TestLookup_NotFoundErrors(t *testing.T) {
 
 	const missingID = "99999999-9999-4999-8999-999999999999"
 
-	_, err := app.ExportFindTenantByID(cfg, domain.MustTenantID(missingID))
+	_, err := app.ExportFindTenantByID(cfg, domain.NewTenantID(missingID).MustRight())
 	if !errors.Is(err, domain.ErrTenantNotFound) {
 		t.Fatalf("expected ErrTenantNotFound, got %v", err)
 	}
 
-	missingClientID := domain.MustClientID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+	missingClientID := domain.NewClientID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa").MustRight()
 
 	_, err = app.ExportFindClient(&fixture.tenant, missingClientID)
 	if !errors.Is(err, domain.ErrClientNotFound) {

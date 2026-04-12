@@ -17,6 +17,7 @@ function main() {
     portal: "https://portal.web.internal",
     browser: "https://browser.web.internal",
     identity: "https://identity.web.internal",
+    loginMicrosoftOnlineCom: "https://login.microsoftonline.com",
     msalClient: "https://msal-client.web.internal",
     toolsMcpSse: "https://tools.web.internal/sse",
   };

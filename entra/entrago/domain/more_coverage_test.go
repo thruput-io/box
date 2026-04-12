@@ -9,61 +9,6 @@ import (
 	"identity/domain"
 )
 
-func mustScopeValue(t *testing.T, raw string) domain.ScopeValue {
-	t.Helper()
-
-	v, err := domain.NewScopeValue(raw)
-	if err != nil {
-		t.Fatalf("NewScopeValue(%q): %v", raw, err)
-	}
-
-	return v
-}
-
-func mustScopeDescription(t *testing.T, raw string) domain.ScopeDescription {
-	t.Helper()
-
-	v, err := domain.NewScopeDescription(raw)
-	if err != nil {
-		t.Fatalf("NewScopeDescription(%q): %v", raw, err)
-	}
-
-	return v
-}
-
-func mustRoleValue(t *testing.T, raw string) domain.RoleValue {
-	t.Helper()
-
-	v, err := domain.NewRoleValue(raw)
-	if err != nil {
-		t.Fatalf("NewRoleValue(%q): %v", raw, err)
-	}
-
-	return v
-}
-
-func mustRoleDescription(t *testing.T, raw string) domain.RoleDescription {
-	t.Helper()
-
-	v, err := domain.NewRoleDescription(raw)
-	if err != nil {
-		t.Fatalf("NewRoleDescription(%q): %v", raw, err)
-	}
-
-	return v
-}
-
-func mustGroupName(t *testing.T, raw string) domain.GroupName {
-	t.Helper()
-
-	v, err := domain.NewGroupName(raw)
-	if err != nil {
-		t.Fatalf("NewGroupName(%q): %v", raw, err)
-	}
-
-	return v
-}
-
 func TestDomainError_ErrorString(t *testing.T) {
 	t.Parallel()
 
@@ -76,33 +21,29 @@ func TestDomainError_ErrorString(t *testing.T) {
 func TestConfig_ScopeRoleGroupGetters(t *testing.T) {
 	t.Parallel()
 
-	scopeID := domain.MustScopeID("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
+	scopeID := mustScopeID(t, "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa")
 	scopeValue := mustScopeValue(t, testAccess)
 	scopeDesc := mustScopeDescription(t, testDesc)
 	scope := domain.NewScope(scopeID, scopeValue, scopeDesc)
 
-	assertScopeFields(t, scope, scopeID)
+	assertScopeFields(t, scope)
 
-	roleID := domain.MustRoleID("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb")
+	roleID := mustRoleID(t, "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb")
 	roleValue := mustRoleValue(t, testAdmin)
 	roleDesc := mustRoleDescription(t, testDesc)
 	role := domain.NewRole(roleID, roleValue, roleDesc, []domain.Scope{scope})
 
-	assertRoleFields(t, role, roleID, scopeID)
+	assertRoleFields(t, role)
 
-	groupID := domain.MustGroupID("cccccccc-cccc-4ccc-accc-cccccccccccc")
+	groupID := mustGroupID(t, "cccccccc-cccc-4ccc-accc-cccccccccccc")
 	groupName := mustGroupName(t, testGroup)
 	group := domain.NewGroup(groupID, groupName)
 
 	assertGroupFields(t, group, groupID)
 }
 
-func assertScopeFields(t *testing.T, scope domain.Scope, expectedID domain.ScopeID) {
+func assertScopeFields(t *testing.T, scope domain.Scope) {
 	t.Helper()
-
-	if scope.ID() != expectedID {
-		t.Fatal("Scope ID mismatch")
-	}
 
 	if parseString(scope.Description()) != testDesc {
 		t.Fatal("Scope Description mismatch")
@@ -113,12 +54,8 @@ func assertScopeFields(t *testing.T, scope domain.Scope, expectedID domain.Scope
 	}
 }
 
-func assertRoleFields(t *testing.T, role domain.Role, expectedID domain.RoleID, expectedScopeID domain.ScopeID) {
+func assertRoleFields(t *testing.T, role domain.Role) {
 	t.Helper()
-
-	if role.ID() != expectedID {
-		t.Fatal("Role ID mismatch")
-	}
 
 	if parseString(role.Description()) != testDesc {
 		t.Fatal("Role Description mismatch")
@@ -128,7 +65,7 @@ func assertRoleFields(t *testing.T, role domain.Role, expectedID domain.RoleID, 
 		t.Fatal("Role Value mismatch")
 	}
 
-	if len(role.Scopes()) != expectedScopes || role.Scopes()[0].ID() != expectedScopeID {
+	if len(role.Scopes()) != expectedScopes || parseString(role.Scopes()[0].Value()) != testAccess {
 		t.Fatal("Role Scopes mismatch")
 	}
 }
@@ -151,45 +88,19 @@ func TestIDs_FromUUIDAndAccessors(t *testing.T) {
 	value := uuid.New()
 	valStr := value.String()
 
-	assertIDAccessors(t, value, valStr)
-}
-
-func assertIDAccessors(t *testing.T, value uuid.UUID, valStr string) {
-	t.Helper()
-
-	assertCoreIDs(t, value, valStr)
-	assertResourceIDs(t, value, valStr)
-}
-
-func assertCoreIDs(t *testing.T, value uuid.UUID, valStr string) {
-	t.Helper()
-
-	if id := domain.TenantIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
+	tenantID := domain.NewTenantID(valStr).MustRight()
+	if tenantID.UUID() != value || tenantID.Value() != valStr {
 		t.Fatal("TenantID mismatch")
 	}
 
-	if id := domain.ClientIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
+	clientID := domain.NewClientID(valStr).MustRight()
+	if clientID.UUID() != value || clientID.Value() != valStr {
 		t.Fatal("ClientID mismatch")
 	}
 
-	if id := domain.UserIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
-		t.Fatal("UserID mismatch")
-	}
-}
-
-func assertResourceIDs(t *testing.T, value uuid.UUID, valStr string) {
-	t.Helper()
-
-	if id := domain.GroupIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
+	groupID := domain.NewGroupID(valStr).MustRight()
+	if groupID.UUID() != value || groupID.Value() != valStr {
 		t.Fatal("GroupID mismatch")
-	}
-
-	if id := domain.ScopeIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
-		t.Fatal("ScopeID mismatch")
-	}
-
-	if id := domain.RoleIDFromUUID(value); id.UUID() != value || id.UUID().String() != valStr {
-		t.Fatal("RoleID mismatch")
 	}
 }
 
@@ -214,74 +125,73 @@ func parseString(v interface{ Value() string }) string {
 func TestStringWrappers_EmptyErrors_IDsAndNames(t *testing.T) {
 	t.Parallel()
 
-	var err error
-
-	_, err = domain.NewGroupID(emptyInput)
-	if err == nil {
+	if _, ok := domain.NewGroupID(emptyInput).Left(); !ok {
 		t.Fatal("expected group id error")
 	}
 
-	_, err = domain.NewTenantName(emptyInput)
-	if !errors.Is(err, domain.ErrTenantNameEmpty) {
-		t.Fatalf("expected ErrTenantNameEmpty, got %v", err)
+	err, ok := domain.NewTenantName(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected tenant name error")
 	}
 
-	_, err = domain.NewAppName(emptyInput)
-	if !errors.Is(err, domain.ErrAppNameEmpty) {
-		t.Fatalf("expected ErrAppNameEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 
-	_, err = domain.NewIdentifierURI(emptyInput)
-	if !errors.Is(err, domain.ErrIdentifierURIEmpty) {
-		t.Fatalf("expected ErrIdentifierURIEmpty, got %v", err)
+	err, ok = domain.NewAppName(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected app name error")
 	}
 
-	_, err = domain.NewScopeValue(emptyInput)
-	if !errors.Is(err, domain.ErrScopeValueEmpty) {
-		t.Fatalf("expected ErrScopeValueEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 
-	_, err = domain.NewRoleValue(emptyInput)
-	if !errors.Is(err, domain.ErrRoleValueEmpty) {
-		t.Fatalf("expected ErrRoleValueEmpty, got %v", err)
+	err, ok = domain.NewIdentifierURI(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected identifier URI error")
 	}
 
-	_, err = domain.NewGroupName(emptyInput)
-	if !errors.Is(err, domain.ErrGroupNameEmpty) {
-		t.Fatalf("expected ErrGroupNameEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewScopeValue(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected scope value error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewRoleValue(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected role value error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewGroupName(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected group name error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 }
 
 func TestGroupID_Value(t *testing.T) {
 	t.Parallel()
 
-	id := domain.MustGroupID(testGroupIDUUID)
+	id := mustGroupID(t, testGroupIDUUID)
 	got := id.Value()
 
 	if got != testGroupIDUUID {
 		t.Errorf("GroupID.Value() = %q, want %q", got, testGroupIDUUID)
-	}
-}
-
-func TestScopeID_Value(t *testing.T) {
-	t.Parallel()
-
-	id := domain.MustScopeID(testScopeIDUUID)
-	got := id.Value()
-
-	if got != testScopeIDUUID {
-		t.Errorf("ScopeID.Value() = %q, want %q", got, testScopeIDUUID)
-	}
-}
-
-func TestRoleID_Value(t *testing.T) {
-	t.Parallel()
-
-	id := domain.MustRoleID(testRoleIDUUID)
-	got := id.Value()
-
-	if got != testRoleIDUUID {
-		t.Errorf("RoleID.Value() = %q, want %q", got, testRoleIDUUID)
 	}
 }
 
@@ -302,7 +212,7 @@ func TestIdentifierURI_MatchesPrefix(t *testing.T) {
 func TestRoleValue_Matches(t *testing.T) {
 	t.Parallel()
 
-	roleValue := domain.MustRoleValue(testAdmin)
+	roleValue := mustRoleValue(t, testAdmin)
 
 	if !roleValue.Matches(testAdmin) {
 		t.Error("expected Matches to return true for exact match")
@@ -316,7 +226,7 @@ func TestRoleValue_Matches(t *testing.T) {
 func TestGroupName_Matches(t *testing.T) {
 	t.Parallel()
 
-	groupName := domain.MustGroupName("engineers")
+	groupName := mustGroupName(t, "engineers")
 
 	if !groupName.Matches("engineers") {
 		t.Error("expected Matches to return true for exact match")
@@ -330,7 +240,7 @@ func TestGroupName_Matches(t *testing.T) {
 func TestJoinRoleValues(t *testing.T) {
 	t.Parallel()
 
-	roles := []domain.RoleValue{domain.MustRoleValue(testAdmin), domain.MustRoleValue("User")}
+	roles := []domain.RoleValue{mustRoleValue(t, testAdmin), mustRoleValue(t, "User")}
 	got := domain.JoinRoleValues(roles, " ")
 
 	if got != "Admin User" {
@@ -341,7 +251,7 @@ func TestJoinRoleValues(t *testing.T) {
 func TestIDToken_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
-	token := domain.MustIDToken("some.jwt.token")
+	token := domain.NewIDToken("some.jwt.token").MustRight()
 
 	data, err := token.MarshalJSON()
 	if err != nil {
@@ -356,40 +266,66 @@ func TestIDToken_MarshalJSON(t *testing.T) {
 func TestStringWrappers_EmptyErrors_CredentialsAndURIs(t *testing.T) {
 	t.Parallel()
 
-	var err error
-
-	_, err = domain.NewUsername(emptyInput)
-	if !errors.Is(err, domain.ErrUsernameEmpty) {
-		t.Fatalf("expected ErrUsernameEmpty, got %v", err)
+	err, ok := domain.NewUsername(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected username error")
 	}
 
-	_, err = domain.NewPassword(emptyInput)
-	if !errors.Is(err, domain.ErrPasswordEmpty) {
-		t.Fatalf("expected ErrPasswordEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 
-	_, err = domain.NewDisplayName(emptyInput)
-	if !errors.Is(err, domain.ErrDisplayNameEmpty) {
-		t.Fatalf("expected ErrDisplayNameEmpty, got %v", err)
+	err, ok = domain.NewPassword(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected password error")
 	}
 
-	_, err = domain.NewEmail(emptyInput)
-	if !errors.Is(err, domain.ErrEmailEmpty) {
-		t.Fatalf("expected ErrEmailEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 
-	_, err = domain.NewRedirectURL(emptyInput)
-	if !errors.Is(err, domain.ErrRedirectURLEmpty) {
-		t.Fatalf("expected ErrRedirectURLEmpty, got %v", err)
+	err, ok = domain.NewDisplayName(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected display name error")
 	}
 
-	_, err = domain.NewScopeDescription(emptyInput)
-	if !errors.Is(err, domain.ErrScopeDescriptionEmpty) {
-		t.Fatalf("expected ErrScopeDescriptionEmpty, got %v", err)
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 
-	_, err = domain.NewRoleDescription(emptyInput)
-	if !errors.Is(err, domain.ErrRoleDescriptionEmpty) {
-		t.Fatalf("expected ErrRoleDescriptionEmpty, got %v", err)
+	err, ok = domain.NewEmail(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected email error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewRedirectURL(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected redirect URL error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewScopeDescription(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected scope description error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
+	}
+
+	err, ok = domain.NewRoleDescription(emptyInput).Left()
+	if !ok {
+		t.Fatal("expected role description error")
+	}
+
+	if !errors.Is(err, domain.ErrNonEmptyStringEmpty) {
+		t.Fatalf("expected ErrNonEmptyStringEmpty, got %v", err)
 	}
 }

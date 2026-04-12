@@ -2,11 +2,9 @@ package app
 
 import (
 	"crypto/rsa"
-	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/samber/mo"
+	"time"
 
 	"identity/domain"
 )
@@ -34,7 +32,7 @@ type tokenClaimsBase struct {
 }
 
 // BuildAccessTokenClaims builds the claims for an access token based on domain inputs.
-func BuildAccessTokenClaims(input domain.TokenInput) jwt.MapClaims {
+func BuildAccessTokenClaims(input domain.TokenInput) domain.Claims {
 	issuer, version := buildIssuerForInput(input)
 	tenantID := input.Tenant.TenantID()
 	subject := resolveSubject(input)
@@ -123,17 +121,18 @@ func IssueAuthCode(
 	tenantID domain.TenantID,
 	nonce mo.Option[domain.Nonce],
 ) domain.AuthCode {
-	claims := jwt.MapClaims{
-		claimSub:         user.ID().Value(),
-		claimClientID:    clientID.Value(),
-		claimRedirectURI: redirectURI.Value(),
-		claimScope:       domain.JoinScopeValues(scope),
-		claimTenant:      tenantID.Value(),
-		claimExp:         time.Now().Add(authCodeDuration).Unix(),
+	claims := domain.EmptyClaims()
+	claims = claims.Append(user.ID().AsSubject().AsClaim())
+	claims = claims.Append(clientID.AsClaim())
+	claims = claims.Append(clientID.AsAudClaim())
+	claims = claims.Append(tenantID.AsClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(time.Now().Add(authCodeDuration).Unix()).AsExpClaim())
+	if c, ok := domain.ScpClaimFromScopeSlice(scope).Get(); ok {
+		claims = claims.Append(c)
 	}
 
 	if n, ok := nonce.Get(); ok {
-		claims[claimNonce] = n.Value()
+		claims = claims.Append(n.AsClaim())
 	}
 
 	return domain.MustAuthCode(SignClaims(key, claims))
@@ -143,41 +142,53 @@ func buildAccessClaims(
 	base tokenClaimsBase,
 	input domain.TokenInput,
 	roles []domain.RoleValue,
-) jwt.MapClaims {
-	subjectVal := subjectString(base.subject)
+) domain.Claims {
+	claims := domain.EmptyClaims()
 
-	claims := jwt.MapClaims{
-		claimIss:   base.issuer.Value(),
-		claimSub:   subjectVal,
-		claimAud:   base.audience.Value(),
-		claimExp:   base.now.Add(accessTokenDuration).Unix(),
-		claimIat:   base.now.Unix(),
-		claimNbf:   base.now.Unix(),
-		claimJti:   uuid.New().String(),
-		claimTid:   base.tenantID.Value(),
-		claimVer:   base.version.Value(),
-		claimOid:   subjectVal,
-		claimRoles: roleValuesToStrings(roles),
+	claims = claims.Append(base.issuer.AsClaim())
+	claims = claims.Append(base.audience.AsClaim())
+	claims = claims.Append(base.tenantID.AsClaim())
+	claims = claims.Append(base.version.AsClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Add(accessTokenDuration).Unix()).AsExpClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Unix()).AsIatClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Unix()).AsNbfClaim())
+	claims = claims.Append(domain.TokenUniqueIDFromUUID(uuid.New()).AsUtiClaim())
+	if c, ok := domain.RolesClaimFromSlice(roles).Get(); ok {
+		claims = claims.Append(c)
+	} else {
+		claims = claims.Append(domain.EmptyRolesClaim())
+	}
+
+	if sub, ok := base.subject.Get(); ok {
+		claims = claims.Append(sub.AsClaim())
+		claims = claims.Append(sub.AsOidClaim())
 	}
 
 	if input.Client != nil {
-		claims[claimAzp] = input.Client.ClientID().Value()
-		claims[claimAzpacls] = claimAzpacls0
-		claims[claimAppid] = input.Client.ClientID().Value()
+		claims = claims.Append(input.Client.ClientID().AsClaim())
+		claims = claims.Append(domain.Azpacr0Claim())
+		claims = claims.Append(input.Client.ClientID().AsAppidClaim())
 	}
 
 	if input.User != nil {
-		input.User.MapClaims(claims)
+		claims = claims.Append(input.User.DisplayName().AsClaim())
+		claims = claims.Append(input.User.Email().AsPreferredUsernameClaim())
+		claims = claims.Append(input.User.Email().AsClaim())
+		claims = claims.Append(input.User.Email().AsUniqueNameClaim())
 
 		if base.audience.Matches(graphClientID) || base.audience.Matches(graphAudience) {
-			claims[claimScp] = domain.JoinRoleValues(roles, " ")
+			if c, ok := domain.ScpClaimFromRoleSlice(roles).Get(); ok {
+				claims = claims.Append(c)
+			}
 		} else {
-			claims[claimScp] = domain.JoinScopeValues(input.Scope)
+			if c, ok := domain.ScpClaimFromScopeSlice(input.Scope).Get(); ok {
+				claims = claims.Append(c)
+			}
 		}
 	}
 
 	if n, ok := input.Nonce.Get(); ok {
-		claims[claimNonce] = n.Value()
+		claims = claims.Append(n.AsClaim())
 	}
 
 	return claims
@@ -189,26 +200,28 @@ func buildIDClaims(
 	nonce mo.Option[domain.Nonce],
 	displayName domain.DisplayName,
 	email domain.Email,
-) jwt.MapClaims {
-	subjectVal := subjectString(base.subject)
+) domain.Claims {
+	claims := domain.EmptyClaims()
 
-	claims := jwt.MapClaims{
-		claimIss:               base.issuer.Value(),
-		claimSub:               subjectVal,
-		claimAud:               clientID.Value(),
-		claimExp:               base.now.Add(accessTokenDuration).Unix(),
-		claimIat:               base.now.Unix(),
-		claimNbf:               base.now.Unix(),
-		claimTid:               base.tenantID.Value(),
-		claimVer:               base.version.Value(),
-		claimOid:               subjectVal,
-		claimName:              displayName.Value(),
-		claimPreferredUsername: email.Value(),
-		claimEmail:             email.Value(),
+	claims = claims.Append(base.issuer.AsClaim())
+	claims = claims.Append(clientID.AsAudClaim())
+	claims = claims.Append(base.tenantID.AsClaim())
+	claims = claims.Append(base.version.AsClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Add(accessTokenDuration).Unix()).AsExpClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Unix()).AsIatClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(base.now.Unix()).AsNbfClaim())
+	claims = claims.Append(displayName.AsClaim())
+	claims = claims.Append(email.AsPreferredUsernameClaim())
+	claims = claims.Append(email.AsClaim())
+	claims = claims.Append(email.AsUniqueNameClaim())
+
+	if sub, ok := base.subject.Get(); ok {
+		claims = claims.Append(sub.AsClaim())
+		claims = claims.Append(sub.AsOidClaim())
 	}
 
 	if n, ok := nonce.Get(); ok {
-		claims[claimNonce] = n.Value()
+		claims = claims.Append(n.AsClaim())
 	}
 
 	return claims
@@ -221,18 +234,24 @@ func buildRefreshClaims(
 	tenantID domain.TenantID,
 	scope []domain.ScopeValue,
 	now time.Time,
-) jwt.MapClaims {
-	return jwt.MapClaims{
-		claimIss:      issuer.Value(),
-		claimSub:      subjectString(subject),
-		claimAud:      issuer.Value(),
-		claimExp:      now.Add(refreshTokenDuration).Unix(),
-		claimIat:      now.Unix(),
-		claimClientID: clientID.Value(),
-		claimScope:    domain.JoinScopeValues(scope),
-		claimTid:      tenantID.Value(),
-		claimTyp:      claimRefreshTyp,
+) domain.Claims {
+	claims := domain.EmptyClaims()
+	claims = claims.Append(issuer.AsClaim())
+	claims = claims.Append(issuer.AsAudClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(now.Add(refreshTokenDuration).Unix()).AsExpClaim())
+	claims = claims.Append(domain.NewJwtNumericDateSeconds(now.Unix()).AsIatClaim())
+	claims = claims.Append(clientID.AsClaim())
+	claims = claims.Append(tenantID.AsClaim())
+	if c, ok := domain.ScpClaimFromScopeSlice(scope).Get(); ok {
+		claims = claims.Append(c)
 	}
+	claims = claims.Append(domain.RefreshTokenTypClaim())
+
+	if sub, ok := subject.Get(); ok {
+		claims = claims.Append(sub.AsClaim())
+	}
+
+	return claims
 }
 
 func resolveSubject(input domain.TokenInput) mo.Option[domain.Subject] {
@@ -469,20 +488,5 @@ func containsScope(scopes []domain.ScopeValue, name string) bool {
 }
 
 // ResolveAudienceForTest exposes resolveAudience for testing.
-func ResolveAudienceForTest(
-	tenant *domain.Tenant,
-	scope []domain.ScopeValue,
-) (domain.IdentifierURI, map[domain.ClientID]bool) {
-	return resolveAudience(tenant, scope)
-}
 
 // ResolveRolesForTest exposes resolveRoles for testing.
-func ResolveRolesForTest(
-	tenant *domain.Tenant,
-	client *domain.Client,
-	user *domain.User,
-	targetAppIDs map[domain.ClientID]bool,
-	requestedScopes []domain.ScopeValue,
-) []domain.RoleValue {
-	return resolveRoles(tenant, client, user, targetAppIDs, requestedScopes)
-}
